@@ -99,6 +99,10 @@ Rules enforced by the loader (it fails loudly, before any network call):
 
 - `profile_id` and `expect_name` are required for every target;
   `expect_name` must be a distinctive full name, not a bare first name.
+- `profile_id` is the number from the profile's website URL. That
+  number is usually the profile's **guid**, not its API node id; the
+  tool resolves it automatically (fail-closed, with the name guard)
+  before any other call. See [guid-resolution.md](guid-resolution.md).
 - Every item needs a `title`. Documents need `source_url` or `file`;
   photos need `file`.
 - `file:` paths resolve relative to the MANIFEST's own directory (not the
