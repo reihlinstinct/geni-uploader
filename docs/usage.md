@@ -175,8 +175,9 @@ status-file push back to the repo failed (the next run retries the sync);
   `upload-status.yaml` next to the manifest, which is committed and
   pushed back to your repo (best effort; exit 5 if the push fails).
   Items already present on Geni are skipped - but only when the profile
-  listing actually shows them; an entry the listing does not confirm is
-  treated as NOT uploaded.
+  listing actually shows them; a recorded item the listing does NOT
+  confirm is marked `uncertain` and the run STOPS - nothing is
+  re-uploaded automatically.
 - Resume = run the same command again (with a re-derived pin, see section
   3). Completed items are skipped; interrupted items are retried. The
   local state file lives inside the ephemeral clone and is discarded when
@@ -184,9 +185,10 @@ status-file push back to the repo failed (the next run retries the sync);
   back from your repo on the next run (or pass `--state` on a mounted
   path to keep the local file too).
 - Uncertain items (exit 3) stay marked `uncertain` until YOU check Geni
-  and mark them resolved in `upload-status.yaml` (or delete the entry to
-  re-attempt). The tool never auto-retries an uncertain write, so a
-  duplicate can never be created silently.
+  and set the entry in `upload-status.yaml` to `not_found` (retry) or
+  `resolved` (fixed on Geni). Deleting the entry does NOT unblock it -
+  the local marker survives. The tool never auto-retries an uncertain
+  write, so a duplicate can never be created silently.
 - The diagnostic log records progress, exit codes and errors. It never
   contains tokens, headers, payloads, or personal names/titles (items are
   logged as short hashes). It is safe to share when asking for help.
@@ -205,9 +207,10 @@ status-file push back to the repo failed (the next run retries the sync);
 - `HTTP 401: Invalid access token` - the Geni token is expired, revoked,
   or was saved incorrectly. Regenerate it with docs/geni-token.md. No
   writes were attempted.
-- `HTTP 429` - Geni rate limit; GETs retry with backoff automatically.
-  If it persists, wait and resume later - the state file makes resuming
-  safe.
+- `HTTP 429` - Geni rate limit. The client paces requests (adapting to
+  Geni's rate headers) and STOPS on 429 with no automatic retry - wait
+  for the rate window, then re-run as a fresh, deliberate attempt. The
+  state file makes resuming safe.
 - `PUSH FAILED` / exit 5 - uploads are verified on Geni; only the repo
   status commit failed (read-only GitHub token or a moved remote). The
   next run retries the sync.
