@@ -19,7 +19,7 @@ on:
         default: "plan"
         required: true
         type: choice
-        options: [plan, run, selftest, whoami, contrast, guidmap, pguid]
+        options: [plan, run, details-plan, details-repair, selftest, whoami, contrast, guidmap, pguid]
       confirm:
         description: "type YES to allow uploads in run mode"
         default: ""
@@ -34,8 +34,10 @@ concurrency:
 
 jobs:
   upload:
-    # Owner-only, manual dispatch. This workflow NEVER runs automatically.
-    if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.actor == github.repository_owner }}
+    # User-only manual dispatch. Agents never invoke this workflow or its token.
+    # Explicit personal account, not the automation repository owner.
+    # No cron, push, pull_request or repository_dispatch trigger is permitted.
+    if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.event_name == 'workflow_dispatch' && github.actor == 'reihl' && github.triggering_actor == 'reihl' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -111,9 +113,16 @@ jobs:
               ARGS=(--token-file /run/geni-token whoami)
             else
               ARGS=(--token-file /run/geni-token "$MODE" --manifest "$MANIFEST_PATH")
-              if [ "$MODE" = "run" ]; then
+              if [ "$MODE" = "run" ] || [ "$MODE" = "details-repair" ]; then
                 ARGS+=(--confirm "$CONFIRM")
               fi
+              if [ "$MODE" = "details-repair" ]; then
+                ARGS+=(--state "${MANIFEST_PATH}.repair-state.json" --sync-state)
+              fi
+            fi
+            if [[ "$MODE" == details-* ]] && [ "${SOURCE_DETAILS_IMAGE_READY:-no}" != "yes" ]; then
+              echo "source-details image not yet released; refusing stale image" >> "$RAW"
+              exit 47
             fi
             docker run "${DOCKER_ARGS[@]}" "$IMAGE" "${ARGS[@]}"
           ) >> "$RAW" 2>&1 || EXIT=$?

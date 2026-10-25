@@ -22,3 +22,12 @@ Run (plan mode, no writes):
       --manifest path/to/upload-manifest.yaml
 
 See the private runbook for full usage.
+
+## Existing-source metadata
+
+Source repair and private snapshot support is described in
+[the design](docs/source-details-design.md) and [usage](docs/usage.md).
+Only the user, personal account `reihl`, triggers the service workflow. Agents
+develop/test offline only and never dispatch or schedule it. Existing sources
+are updated by confirmed API node ID, never recreated. Fact citations remain
+manual. The new modes stay disabled until a matching immutable image is pinned.

@@ -68,4 +68,11 @@ fi
 echo "pulled $(git -C "$DEST" rev-parse --short HEAD); running the pinned uploader"
 
 cd "$DEST"
-exec python /opt/geni_upload.py "$@"
+case "${1:-}" in
+  details-validate|details-plan|details-repair|details-snapshot)
+    MODE="${1#details-}"
+    shift
+    exec python /opt/source_details.py "$MODE" "$@"
+    ;;
+  *) exec python /opt/geni_upload.py "$@" ;;
+esac

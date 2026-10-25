@@ -252,3 +252,36 @@ status-file push back to the repo failed (the next run retries the sync);
 - Local: `rm ~/.geni-token ~/.gh-token`. The container is `--rm` and its
   clone lived in memory (tmpfs); note that a host kernel may swap tmpfs
   pages, so the token files on disk are the only durable copies to remove.
+
+## Existing-source details (user-only, pending image release)
+
+See [source-details design](source-details-design.md). The user alone manually
+triggers the service workflow from the personal account. Agents do not dispatch,
+schedule or invoke it, and code CI uses mocks only. The target list comes from
+private git data. An endpoint being available is not permission to use it.
+
+The new `details-plan` and `details-repair` modes use a separate JSON manifest.
+Each item has `key`, `kind` (`document` or `photo`), verified API `object_id`,
+`expect` (exact old title and/or source URL), `set` (approved metadata), `targets`
+(each with `profile_id` and `expect_name`), and `manual_facts` (instructions for
+the user's manual citations). The top level has `schema_version: 1` and `items`.
+No webpage GUID is guessed as a source node ID. Empty or mismatched reads stop.
+
+Run `python source_details.py validate --manifest <file>` offline first.
+`details-plan` verifies all source and deceased-profile identities without writes.
+`details-repair` also requires `confirm: YES`; a pending checkpoint in the private
+data branch is pushed before any mutation. An unconfirmed result leaves that
+checkpoint pending and the next run refuses it. Reconcile on Geni manually before
+changing its status to verified. Never delete a pending checkpoint to retry.
+
+Source descriptions, dates and tags are verified separately. Fact citations are
+not supported by the documented API surface reviewed: enter them manually and
+keep the item incomplete until verified. Photo Event and burial-profile edits
+remain manual. An attachment/tag is not a fact citation.
+
+New workflow modes currently refuse the old image. After review and green code
+CI, publish an immutable image and update its workflow digest together with the
+image-ready flag. Do not set the flag before the pinned image contains this code.
+Only the user triggers the release/service workflows. No production run has been
+verified for this feature. The private Actions quota may block execution until
+1 November; no paid workaround is configured.
