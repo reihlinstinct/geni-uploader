@@ -1,0 +1,50 @@
+name: Publish uploader image (manual)
+
+# Manual-only image build+push to ghcr.io using GITHUB_TOKEN (no external
+# registry credentials). The image is GENERIC by design: it carries only the
+# reviewed pinned uploader script and entrypoint - no data, no credentials,
+# no repository names. This workflow proves that before pushing:
+#   1. the baked /opt/geni_upload.py is byte-identical to the repo file;
+#   2. the full layer history is printed for audit.
+# It runs only on manual dispatch by the repository owner.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-image
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.actor == github.repository_owner }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v4, pinned
+      - name: Build the generic image
+        run: |
+          set -euo pipefail
+          TAG="ghcr.io/${GITHUB_REPOSITORY}:${GITHUB_SHA}"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          docker build --pull -t "$TAG" .
+      - name: Verify baked uploader is byte-identical to the repo file
+        run: |
+          set -euo pipefail
+          BAKED="$(docker run --rm --entrypoint sha256sum "$TAG" /opt/geni_upload.py | cut -d' ' -f1)"
+          REPO="$(sha256sum geni_upload.py | cut -d' ' -f1)"
+          echo "baked: $BAKED"
+          echo "repo:  $REPO"
+          [ "$BAKED" = "$REPO" ]
+      - name: Audit layer history
+        run: docker history --no-trunc "$TAG"
+      - name: Push to ghcr.io
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push "$TAG"
+          docker inspect --format='digest: {{index .RepoDigests 0}}' "$TAG"
