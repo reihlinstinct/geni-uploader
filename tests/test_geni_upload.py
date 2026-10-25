@@ -1135,3 +1135,68 @@ class ResponseKeysDiagnosticTests(unittest.TestCase):
 
     def test_non_dict_response(self):
         self.assertEqual(g.observed_response_keys([1, 2]), '{"_type": "list"}')
+
+
+class WhoamiTests(unittest.TestCase):
+    """geni-uploader#11: shape-only whoami diagnostic. The log/print surface
+    must carry key NAMES and value TYPES only - never response values."""
+
+    def tearDown(self):
+        import importlib
+        importlib.reload(g)
+
+    def _patch(self, response):
+        def fake_execute(method, kind, url, token=None, data=None):
+            assert (method, kind) == ("GET", "user")
+            assert url.endswith("/api/user"), url
+            return response
+        g.execute = fake_execute
+
+    def test_shape_keys_and_types_only_no_values(self):
+        secret_vals = ["ZZSECRET-EMAIL@example.invalid", "ZZSECRETNAME",
+                       "9000000000000000001"]
+        self._patch({"id": secret_vals[2], "guid": "zz-secret-guid",
+                     "name": secret_vals[1], "email": secret_vals[0],
+                     "curated": True})
+        shape = g.diagnose_whoami("tok")
+        rendered = json.dumps(shape, sort_keys=True)
+        self.assertEqual(shape, {"curated": "bool", "email": "str",
+                                 "guid": "str", "id": "str", "name": "str"})
+        for v in secret_vals + ["zz-secret-guid"]:
+            self.assertNotIn(v, rendered)
+
+    def test_non_dict_response_reported_as_shape(self):
+        self._patch(["unexpected", "list"])
+        shape = g.diagnose_whoami("tok")
+        self.assertEqual(shape, {"<non-dict response>": "list"})
+
+    def test_empty_dict_is_valid_shape(self):
+        self._patch({})
+        self.assertEqual(g.diagnose_whoami("tok"), {})
+
+    def test_cmd_whoami_requires_token(self):
+        os.environ.pop("GENI_ACCESS_TOKEN", None)
+        args = argparse.Namespace(token_file=None)
+        with self.assertRaises(g.ApiError):
+            g.cmd_whoami(args)
+
+    def test_cmd_whoami_prints_shape_no_values(self):
+        self._patch({"id": "zz-secret-id", "name": "ZZSECRETNAME"})
+        os.environ["GENI_ACCESS_TOKEN"] = "tok"
+        try:
+            args = argparse.Namespace(token_file=None)
+            import contextlib, io
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                self.assertEqual(g.cmd_whoami(args), 0)
+            out = buf.getvalue()
+            self.assertIn('"id": "str"', out)
+            self.assertIn('"name": "str"', out)
+            self.assertNotIn("zz-secret-id", out)
+            self.assertNotIn("ZZSECRETNAME", out)
+            self.assertIn("No writes performed.", out)
+        finally:
+            os.environ.pop("GENI_ACCESS_TOKEN", None)
+
+    def test_user_get_is_allowlisted(self):
+        self.assertIn(("GET", "user"), g.ALLOWLIST)
