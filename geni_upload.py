@@ -40,6 +40,7 @@ if API_BASE != _PROD_API:
 elif os.environ.get("GENI_UPLOAD_E2E") == "1":
     raise SystemExit("refused: GENI_UPLOAD_E2E=1 with the production API base")
 ALLOWLIST = {
+    ("GET", "user"),  # whoami diagnostic: token-context probe (geni-uploader#11)
     ("GET", "profile"), ("GET", "profile_documents"), ("GET", "profile_photos"),
     ("POST", "document_add"), ("POST", "photo_add"),
     ("POST", "document_tag"), ("POST", "photo_tag"),
@@ -492,6 +493,35 @@ def plan_summary(m):
     return lines
 
 
+
+def diagnose_whoami(token):
+    """Shape-only probe of GET /api/user (the token's authenticated context).
+
+    Returns {key: type-name} for the top-level response object. Values are
+    never read into the log, so the diagnostic cannot leak identity fields;
+    presence/type of keys such as id/guid separates a user-context token
+    from an app-context one (geni-uploader#11). Grounded semantics:
+    dmalch/go-geni user/client.go GET api/user returns the authenticated
+    user behind the OAuth token.
+    """
+    res = execute("GET", "user", f"{API_BASE}/user", token)
+    if not isinstance(res, dict):
+        return {"<non-dict response>": type(res).__name__}
+    return {str(k): type(v).__name__ for k, v in res.items()}
+
+
+def cmd_whoami(args):
+    token = get_token(args)
+    if not token:
+        raise ApiError("whoami: no token available "
+                       "(use --token-file or GENI_ACCESS_TOKEN)")
+    shape = diagnose_whoami(token)
+    print("whoami response shape (keys -> types; values redacted): "
+          + json.dumps(shape, sort_keys=True))
+    print("No writes performed.")
+    return 0
+
+
 def cmd_plan(args):
     m = load_manifest(args.manifest)
     token = get_token(args)
@@ -785,6 +815,7 @@ def main():
                    help="only if your app settings define a callback URL; the "
                         "desktop flow (default) needs none")
     p.set_defaults(fn=cmd_auth_url)
+    p = sub.add_parser("whoami"); p.set_defaults(fn=cmd_whoami)
     for name, fn in (("plan", cmd_plan), ("run", cmd_run)):
         p = sub.add_parser(name); p.add_argument("--manifest", required=True)
         p.set_defaults(fn=fn)
