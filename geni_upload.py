@@ -57,6 +57,12 @@ class ApiError(Exception):
     pass
 
 
+class ThrottledError(ApiError):
+    """HTTP 429. Distinct type so no retry/continue path can swallow it:
+    the standing rule is STOP on throttle; any retry is a fresh,
+    explicitly authorized decision by the operator."""
+
+
 class UncertainWrite(ApiError):
     """A mutating POST was sent but its outcome is unknown. Exit code 3."""
 
@@ -219,7 +225,7 @@ def execute(method, kind, url, token=None, data=None):
                     win = 15.0
                 _RATE["retry_after"] = max(_RATE["retry_after"],
                                            time.time() + win)
-                raise ApiError(
+                raise ThrottledError(
                     f"{method} {url} -> HTTP 429 rate limit exceeded; "
                     "STOPPING (no automatic retry). Wait for the rate "
                     "window and re-run only as a fresh, deliberate attempt")
@@ -270,9 +276,10 @@ def profile_name_surface(p):
     so matching display_name alone false-rejects e.g. 'Johanna Annie
     Moritz' whose API display is 'Johanna Halle'. Still strict: every
     expected token must appear in THIS profile's own recorded names."""
-    fields = [p.get(k) or "" for k in
+    fields = [str(p.get(k)) for k in
               ("display_name", "name", "first_name", "middle_name",
-               "last_name", "maiden_name")]
+               "last_name", "maiden_name")
+              if isinstance(p.get(k), str)]
     for n in p.get("nicknames") or []:
         fields.append(str(n))
     for names in (p.get("names") or {}).values():
@@ -472,6 +479,8 @@ def cmd_plan(args):
                 for item in t.get(kind) or []:
                     if anchor(item, kind) in tagged:
                         print(f"    SKIP (already tagged): {item['title']}")
+        except ThrottledError:
+            raise  # throttle aborts the whole plan: no further requests
         except ApiError as e:
             failed += 1
             print(f"  profile {pid}: {e}")
@@ -480,7 +489,6 @@ def cmd_plan(args):
               "confirmed; resolve before `run` (no writes were attempted)")
         return 1
     print(f"verification: OK - all {total} profile(s) confirmed with Geni")
-    return 0
     print("No writes performed in plan mode.")
     return 0
 
@@ -504,8 +512,9 @@ def process_target(t, token, state, state_path, status, manifest_path,
         if v.get("status") == "uncertain" and k.startswith(f"{pid}:"):
             log.log(f"  BLOCKED: {k.split(':', 2)[0]}:{k.split(':', 2)[1]} has an "
                     "UNCERTAIN outcome from an earlier run. Check Geni manually, "
-                    "then mark it resolved in upload-status.yaml (or delete the "
-                    "entry to retry). Not touching it.")
+                    "then set it to 'not_found' (retry) or 'resolved' (fixed "
+                    "manually) in upload-status.yaml. Deleting the entry does "
+                    "NOT unblock it (the local marker survives). Not touching it.")
     listings = {k: list_tagged(token, pid, k) for k in ("documents", "photos")}
     for kind, add_kind, tag_kind, base in (
             ("documents", "document_add", "document_tag", "document"),
@@ -561,6 +570,8 @@ def process_target(t, token, state, state_path, status, manifest_path,
                 _sleep(5)
                 try:
                     new_listing = list_tagged(token, pid, kind)
+                except ThrottledError:
+                    raise  # stop-on-throttle wins over reconciliation
                 except ApiError:
                     new_listing = None
                 if new_listing is not None and anchor(item, kind) in new_listing:
