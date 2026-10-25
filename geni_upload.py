@@ -57,6 +57,12 @@ class ApiError(Exception):
     pass
 
 
+class ThrottledError(ApiError):
+    """HTTP 429. Distinct type so no retry/continue path can swallow it:
+    the standing rule is STOP on throttle; any retry is a fresh,
+    explicitly authorized decision by the operator."""
+
+
 class UncertainWrite(ApiError):
     """A mutating POST was sent but its outcome is unknown. Exit code 3."""
 
@@ -93,8 +99,14 @@ class RunLog:
 
 def load_manifest(path):
     import yaml  # PyYAML, already a repo dependency
-    with open(path, encoding="utf-8") as f:
-        m = yaml.safe_load(f)
+    try:
+        with open(path, encoding="utf-8") as f:
+            m = yaml.safe_load(f)
+    except FileNotFoundError:
+        raise ApiError(
+            f"manifest not found: {path} - check the path, and that "
+            "GENI_UPLOAD_REF points at the branch containing the package "
+            "(the default branch may not carry it)")
     if not isinstance(m, dict) or not isinstance(m.get("targets"), list) or not m["targets"]:
         raise ApiError("manifest must define a non-empty 'targets' list")
     for i, t in enumerate(m["targets"]):
@@ -141,6 +153,39 @@ def name_matches(display_name, expect_name):
     return all(tok.lower() in dn for tok in str(expect_name).split())
 
 
+# Client-side pacing. Geni paces via X-API-Rate-Limit / X-API-Rate-Remaining /
+# X-API-Rate-Window response headers (public client evidence; defaults are a
+# conservative assumption, not a documented guarantee). Before headers are
+# seen, assume 1 request per 10 seconds. A 429 sets retry_after from the
+# window; short fixed backoffs inside the window only re-trip the limit.
+_RATE = {"min_interval": 10.0, "last": 0.0, "retry_after": 0.0}
+
+
+def _pace():
+    now = time.time()
+    wait = max(_RATE["min_interval"] - (now - _RATE["last"]),
+               _RATE["retry_after"] - now, 0.0)
+    if wait > 0:
+        _sleep(wait)
+    _RATE["last"] = time.time()
+
+
+def _update_rate(headers):
+    """Adapt pacing from Geni's rate headers, when present."""
+    if headers is None:
+        return
+    try:
+        lim = headers.get("X-API-Rate-Limit")
+        win = headers.get("X-API-Rate-Window")
+        rem = headers.get("X-API-Rate-Remaining")
+        if lim and win and float(lim) > 0:
+            _RATE["min_interval"] = max(float(win) / float(lim), 1.0)
+        if rem is not None and int(rem) <= 0 and win:
+            _RATE["retry_after"] = time.time() + float(win)
+    except (TypeError, ValueError):
+        pass  # malformed headers: keep the conservative defaults
+
+
 def execute(method, kind, url, token=None, data=None):
     """Single allowlisted call. GET: retries with backoff.
     POST: no blind retry — uncertain outcomes raise UncertainWrite."""
@@ -155,8 +200,10 @@ def execute(method, kind, url, token=None, data=None):
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
     attempts = 3 if method == "GET" else 1
     for attempt in range(attempts):
+        _pace()
         try:
             with urllib.request.urlopen(req, data=body, timeout=60) as r:
+                _update_rate(getattr(r, "headers", None))
                 try:
                     return json.loads(r.read().decode())
                 except (json.JSONDecodeError, UnicodeDecodeError) as e:
@@ -165,7 +212,24 @@ def execute(method, kind, url, token=None, data=None):
                                              "after send; object may or may not exist")
                     raise ApiError(f"{method} {url}: invalid JSON response: {e}")
         except urllib.error.HTTPError as e:
-            if method == "GET" and e.code in (429, 500, 502, 503) and attempt < attempts - 1:
+            if e.headers:
+                _update_rate(e.headers)
+            if e.code == 429:
+                # Throttled: record the server-declared cooldown for any
+                # future authorized call, but STOP now - never auto-retry.
+                # The user's standing rule is stop-on-throttle; a retry is
+                # a fresh, explicitly authorized decision.
+                try:
+                    win = float(e.headers.get("X-API-Rate-Window"))                         if e.headers and e.headers.get("X-API-Rate-Window")                         else 15.0
+                except (TypeError, ValueError):
+                    win = 15.0
+                _RATE["retry_after"] = max(_RATE["retry_after"],
+                                           time.time() + win)
+                raise ThrottledError(
+                    f"{method} {url} -> HTTP 429 rate limit exceeded; "
+                    "STOPPING (no automatic retry). Wait for the rate "
+                    "window and re-run only as a fresh, deliberate attempt")
+            if method == "GET" and e.code in (500, 502, 503) and attempt < attempts - 1:
                 _sleep(2 ** attempt * 2)
                 continue
             if method == "POST" and e.code >= 500:
@@ -205,12 +269,36 @@ def verify_linkage(token, pid, kind, expect_anchor, log):
     return False
 
 
+def profile_name_surface(p):
+    """Every canonical name field of ONE profile: display_name is only
+    first+last in Geni's schema (public client fixtures: middle_name,
+    maiden_name, nicknames and per-language names are separate fields),
+    so matching display_name alone false-rejects e.g. 'Johanna Annie
+    Moritz' whose API display is 'Johanna Halle'. Still strict: every
+    expected token must appear in THIS profile's own recorded names."""
+    fields = [str(p.get(k)) for k in
+              ("display_name", "name", "first_name", "middle_name",
+               "last_name", "maiden_name")
+              if isinstance(p.get(k), str)]
+    for n in p.get("nicknames") or []:
+        fields.append(str(n))
+    for names in (p.get("names") or {}).values():
+        if isinstance(names, dict):
+            for v in names.values():
+                if isinstance(v, str):
+                    fields.append(v)
+                elif isinstance(v, dict):
+                    fields.extend(str(x) for x in v.values()
+                                  if isinstance(x, str))
+    return " ".join(fields)
+
+
 def verify_profile(token, pid, expect_name):
     p = execute("GET", "profile", f"{API_BASE}/profile-{pid}", token)
     name = p.get("display_name") or ""
-    if not name_matches(name, expect_name):
-        raise ApiError(f"profile {pid}: display name does not match the expected "
-                       "name - target SKIPPED")
+    if not name_matches(profile_name_surface(p), expect_name):
+        raise ApiError(f"profile {pid}: no recorded name on the profile matches "
+                       "the expected name - target SKIPPED")
     return name
 
 
@@ -367,26 +455,40 @@ def plan_summary(m):
 def cmd_plan(args):
     m = load_manifest(args.manifest)
     token = get_token(args)
-    print(f"PLAN ({'VERIFIED' if token else 'UNVERIFIED - no token'}):")
+    # No verdict up front: VERIFIED is decided only AFTER every profile GET
+    # actually succeeded (a 401 must never print under a VERIFIED header).
+    print("PLAN:")
     for line in plan_summary(m):
         print(" ", line)
-    if token:
-        for t in m["targets"]:
-            pid = str(t["profile_id"])
-            try:
-                name = verify_profile(token, pid, t["expect_name"])
-                print(f"  profile {pid}: OK ({name})")
-                for kind in ("documents", "photos"):
-                    tagged = list_tagged(token, pid, kind)
-                    if tagged is None:
-                        print(f"    WARNING: {kind} listing unavailable; "
-                              "idempotency relies on state file only")
-                        continue
-                    for item in t.get(kind) or []:
-                        if anchor(item, kind) in tagged:
-                            print(f"    SKIP (already tagged): {item['title']}")
-            except ApiError as e:
-                print(f"  profile {pid}: {e}")
+    if not token:
+        print("verification: SKIPPED - no token; nothing was checked against Geni")
+        return 0
+    total = len(m["targets"])
+    failed = 0
+    for t in m["targets"]:
+        pid = str(t["profile_id"])
+        try:
+            name = verify_profile(token, pid, t["expect_name"])
+            print(f"  profile {pid}: OK ({name})")
+            for kind in ("documents", "photos"):
+                tagged = list_tagged(token, pid, kind)
+                if tagged is None:
+                    print(f"    WARNING: {kind} listing unavailable; "
+                          "idempotency relies on state file only")
+                    continue
+                for item in t.get(kind) or []:
+                    if anchor(item, kind) in tagged:
+                        print(f"    SKIP (already tagged): {item['title']}")
+        except ThrottledError:
+            raise  # throttle aborts the whole plan: no further requests
+        except ApiError as e:
+            failed += 1
+            print(f"  profile {pid}: {e}")
+    if failed:
+        print(f"verification: FAILED - {failed} of {total} profile(s) not "
+              "confirmed; resolve before `run` (no writes were attempted)")
+        return 1
+    print(f"verification: OK - all {total} profile(s) confirmed with Geni")
     print("No writes performed in plan mode.")
     return 0
 
@@ -410,8 +512,9 @@ def process_target(t, token, state, state_path, status, manifest_path,
         if v.get("status") == "uncertain" and k.startswith(f"{pid}:"):
             log.log(f"  BLOCKED: {k.split(':', 2)[0]}:{k.split(':', 2)[1]} has an "
                     "UNCERTAIN outcome from an earlier run. Check Geni manually, "
-                    "then mark it resolved in upload-status.yaml (or delete the "
-                    "entry to retry). Not touching it.")
+                    "then set it to 'not_found' (retry) or 'resolved' (fixed "
+                    "manually) in upload-status.yaml. Deleting the entry does "
+                    "NOT unblock it (the local marker survives). Not touching it.")
     listings = {k: list_tagged(token, pid, k) for k in ("documents", "photos")}
     for kind, add_kind, tag_kind, base in (
             ("documents", "document_add", "document_tag", "document"),
@@ -467,6 +570,8 @@ def process_target(t, token, state, state_path, status, manifest_path,
                 _sleep(5)
                 try:
                     new_listing = list_tagged(token, pid, kind)
+                except ThrottledError:
+                    raise  # stop-on-throttle wins over reconciliation
                 except ApiError:
                     new_listing = None
                 if new_listing is not None and anchor(item, kind) in new_listing:
