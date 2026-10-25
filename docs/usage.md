@@ -122,8 +122,13 @@ Rules enforced by the loader (it fails loudly, before any network call):
   be another target in the manifest (so it passes the same name guard),
   must not be the item's own target, and must not repeat. After the
   primary tag verifies, each extra profile is name-verified, tagged, and
-  confirmed by its own GET read-back; a failure there marks the item
-  `uncertain` and stops the run - the extra tag is never auto-retried.
+  confirmed by its own GET read-back. ANY interruption there - identity
+  failure, tag or read-back error, or a 429 - records the partial result
+  (`also_tagged` confirmed so far, `also_tag_pending` the rest), marks the
+  item `uncertain`, and stops the run; the extra tag is never auto-retried
+  and the item is never left looking done. Resolve it by checking Geni and
+  setting the entry to `resolved` - NOT `not_found`, which would upload a
+  new duplicate object.
 - Large binary scans belong in the repo as plain files; the tool reads
   whatever the clone contains.
 
