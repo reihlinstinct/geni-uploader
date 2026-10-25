@@ -15,11 +15,11 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "plan (no writes), run (uploads), or selftest (inert synthetic offline check)"
+        description: "plan (no writes), run (uploads), selftest (inert synthetic offline check), or whoami (read-only token-context shape probe; no manifest)"
         default: "plan"
         required: true
         type: choice
-        options: [plan, run, selftest]
+        options: [plan, run, selftest, whoami]
       confirm:
         description: "type YES to allow uploads in run mode"
         default: ""
@@ -105,6 +105,10 @@ jobs:
                 -e GENI_API_BASE=http://127.0.0.1:9
                 -v "$RUNNER_TEMP/selftest:/work/selftest:ro")
               ARGS=(--token-file /run/geni-token plan --manifest /work/selftest/manifest.yaml)
+            elif [ "$MODE" = "whoami" ]; then
+              # Token-context shape probe: NO manifest, NO confirm, no private
+              # inputs beyond the code-integrity pin. Values never logged.
+              ARGS=(--token-file /run/geni-token whoami)
             else
               ARGS=(--token-file /run/geni-token "$MODE" --manifest "$MANIFEST_PATH")
               if [ "$MODE" = "run" ]; then
