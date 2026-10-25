@@ -1201,3 +1201,106 @@ class WhoamiTests(unittest.TestCase):
 
     def test_user_get_is_allowlisted(self):
         self.assertIn(("GET", "user"), g.ALLOWLIST)
+
+
+class ContrastDiagnosticTest(unittest.TestCase):
+    """geni-uploader#11: shape-only endpoint contrast diagnostic. Output must
+    carry keys/lengths/booleans only - never response values (ids, names)."""
+
+    def tearDown(self):
+        import importlib
+        importlib.reload(g)
+
+    def _manifest(self, tmp, pids):
+        path = os.path.join(tmp, "m.yaml")
+        with open(path, "w") as f:
+            f.write("targets:\n")
+            f.writelines(f'  - profile_id: "{pid}"\n'
+                        f'    expect_name: "ZZSENTINEL PERSONA"\n' for pid in pids)
+        return path
+
+    def _patch_execute(self, responses, calls):
+        def fake_execute(method, kind, url, token=None, data=None):
+            calls.append((method, kind, url))
+            return responses.pop(0)
+        g.execute = fake_execute
+
+    def _run(self, responses, pids=("1000000000000000001",)):
+        import contextlib
+        import io
+        import tempfile
+        calls = []
+        self._patch_execute(list(responses), calls)
+        with tempfile.TemporaryDirectory() as tmp:
+            args = argparse.Namespace(
+                token_file=None, manifest=self._manifest(tmp, pids))
+            os.environ["GENI_ACCESS_TOKEN"] = "tok"
+            try:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    self.assertEqual(g.cmd_contrast(args), 0)
+            finally:
+                os.environ.pop("GENI_ACCESS_TOKEN", None)
+        return buf.getvalue(), calls
+
+    def test_envelope_managed_id_drives_singular_contrast_no_values(self):
+        served = "9000000000000000007"
+        out, calls = self._run([
+            {"results": [{"id": served}]},                 # managed-profiles
+            {"id": served, "name": "ZZSERVEDNAME"},        # singular served id
+            {"results": []},                               # bulk targets: miss
+        ])
+        kinds = [k for _, k, _ in calls]
+        self.assertEqual(kinds, ["user_managed_profiles", "profile", "profile"])
+        self.assertTrue(calls[1][2].endswith(f"/api/profile-{served}"))
+        self.assertIn("ids=1000000000000000001", calls[2][2])
+        self.assertIn('"results_len": 0', out)
+        self.assertIn('"bare_nonempty_id_name": true', out)
+        self.assertIn("No writes performed.", out)
+        self.assertNotIn(served, out)
+        self.assertNotIn("ZZSERVEDNAME", out)
+
+    def test_bare_object_managed_form_supported(self):
+        served = "9000000000000000008"
+        out, _calls = self._run([
+            {"id": served},                                # bare-object collapse
+            {"results": []},                               # singular: miss too
+            {"results": [{"id": "9000000000000000001",
+                          "name": "ZZTARGETNAME"}]},       # bulk: serves
+        ])
+        # fields=id probe: id present, name absent by request
+        self.assertIn('"bare_nonempty_id_name": false', out)
+        self.assertIn('"keys": ["id"]', out)
+        self.assertIn('"results_len": 1', out)
+        self.assertIn('"all_items_nonempty_id_name": true', out)
+        self.assertNotIn("ZZTARGETNAME", out)
+        self.assertNotIn(served, out)
+
+    def test_empty_managed_skips_singular_contrast(self):
+        out, calls = self._run([
+            {"results": []},                               # nothing served
+            {"results": []},                               # bulk: miss
+        ])
+        self.assertEqual(len(calls), 2)
+        self.assertIn("SKIPPED", out)
+
+    def test_non_dict_payloads_reported_as_shapes(self):
+        # non-dict managed-profiles response -> singular contrast SKIPPED,
+        # so only two calls happen; both reported as type shapes.
+        out, calls = self._run([["unexpected"], "plain"])
+        self.assertEqual(len(calls), 2)
+        self.assertIn('"top_type": "list"', out)
+        self.assertIn('"top_type": "str"', out)
+        self.assertIn("SKIPPED", out)
+
+    def test_requires_token(self):
+        import tempfile
+        os.environ.pop("GENI_ACCESS_TOKEN", None)
+        with tempfile.TemporaryDirectory() as tmp:
+            args = argparse.Namespace(
+                token_file=None, manifest=self._manifest(tmp, ("1",)))
+            with self.assertRaises(g.ApiError):
+                g.cmd_contrast(args)
+
+    def test_allowlist_covers_managed_profiles(self):
+        self.assertIn(("GET", "user_managed_profiles"), g.ALLOWLIST)

@@ -41,6 +41,7 @@ elif os.environ.get("GENI_UPLOAD_E2E") == "1":
     raise SystemExit("refused: GENI_UPLOAD_E2E=1 with the production API base")
 ALLOWLIST = {
     ("GET", "user"),  # whoami diagnostic: token-context probe (geni-uploader#11)
+    ("GET", "user_managed_profiles"),  # contrast diagnostic: served-id probe (geni-uploader#11)
     ("GET", "profile"), ("GET", "profile_documents"), ("GET", "profile_photos"),
     ("POST", "document_add"), ("POST", "photo_add"),
     ("POST", "document_tag"), ("POST", "photo_tag"),
@@ -523,6 +524,91 @@ def cmd_whoami(args):
     return 0
 
 
+def _profile_payload_shape(res):
+    """Shape-only summary of one profile-endpoint payload.
+
+    Keys, list lengths and presence booleans only - never values - so the
+    diagnostic cannot leak identity fields (same contract as whoami).
+    Handles both the documented envelope form ({"results": [...]}) and the
+    bare single-object form observed live from per_page=1.
+    """
+    if not isinstance(res, dict):
+        return {"top_type": type(res).__name__}
+    out = {"keys": sorted(str(k) for k in res)}
+    results = res.get("results")
+    if isinstance(results, list):
+        out["results_len"] = len(results)
+        if results:
+            out["all_items_nonempty_id_name"] = all(
+                isinstance(it, dict) and bool(it.get("id")) and bool(it.get("name"))
+                for it in results)
+    else:
+        out["bare_nonempty_id_name"] = bool(res.get("id")) and bool(res.get("name"))
+    return out
+
+
+def _extract_served_id(res):
+    """Pull one served profile id VALUE into memory (never logged).
+
+    Accepts both the envelope form and the bare single-object form.
+    """
+    if not isinstance(res, dict):
+        return None
+    results = res.get("results")
+    if isinstance(results, list) and results:
+        item = results[0]
+        if isinstance(item, dict) and item.get("id"):
+            return str(item["id"])
+        return None
+    if res.get("id"):
+        return str(res["id"])
+    return None
+
+
+def cmd_contrast(args):
+    """geni-uploader#11: minimal endpoint contrast diagnostic (read-only).
+
+    Three paced reads through execute() (same 10s+ rate limiter, same 429
+    abort), shape-only output, values never logged:
+      1. GET user/managed-profiles?fields=id&per_page=1 - one id the token
+         provably serves, held in memory only.
+      2. GET profile-<that served id> - does the singular profile endpoint
+         serve ANY profile for this token?
+      3. GET profile?ids=<all manifest targets> - does the documented bulk
+         form serve targets the singular form misses?
+    The verdict separates "singular endpoint dead for this token" (2 misses)
+    from "these targets invisible to this token" (2 serves, 3 misses) from
+    "path-form specific" (2 misses, 3 serves).
+    """
+    m = load_manifest(args.manifest)
+    token = get_token(args)
+    if not token:
+        raise ApiError("contrast: no token available "
+                       "(use --token-file or GENI_ACCESS_TOKEN)")
+    pids = [str(t["profile_id"]) for t in m["targets"]]
+    print(f"contrast: read-only endpoint discriminator over "
+          f"{len(pids)} manifest target(s) (shapes only, values redacted)")
+    mp = execute("GET", "user_managed_profiles",
+                 f"{API_BASE}/user/managed-profiles?fields=id&per_page=1",
+                 token)
+    print("managed-profiles fields=id per_page=1: "
+          + json.dumps(_profile_payload_shape(mp), sort_keys=True))
+    served = _extract_served_id(mp)
+    if served is None:
+        print("singular GET of a served id: SKIPPED "
+              "(no served id extracted from managed-profiles)")
+    else:
+        good = execute("GET", "profile", f"{API_BASE}/profile-{served}", token)
+        print("singular GET of a served id: "
+              + json.dumps(_profile_payload_shape(good), sort_keys=True))
+    ids = urllib.parse.quote(",".join(pids))
+    bulk = execute("GET", "profile", f"{API_BASE}/profile?ids={ids}", token)
+    print("bulk ids= form for all manifest targets: "
+          + json.dumps(_profile_payload_shape(bulk), sort_keys=True))
+    print("No writes performed.")
+    return 0
+
+
 def cmd_plan(args):
     m = load_manifest(args.manifest)
     token = get_token(args)
@@ -817,7 +903,8 @@ def main():
                         "desktop flow (default) needs none")
     p.set_defaults(fn=cmd_auth_url)
     p = sub.add_parser("whoami"); p.set_defaults(fn=cmd_whoami)
-    for name, fn in (("plan", cmd_plan), ("run", cmd_run)):
+    for name, fn in (("plan", cmd_plan), ("run", cmd_run),
+                     ("contrast", cmd_contrast)):
         p = sub.add_parser(name); p.add_argument("--manifest", required=True)
         p.set_defaults(fn=fn)
     sub.choices["run"].add_argument("--confirm", default="")

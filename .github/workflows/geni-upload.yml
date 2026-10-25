@@ -15,11 +15,11 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "plan (no writes), run (uploads), selftest (inert synthetic offline check), or whoami (read-only token-context shape probe; no manifest)"
+        description: "plan (no writes), run (uploads), selftest (inert synthetic offline check), whoami (read-only token-context shape probe; no manifest), or contrast (read-only endpoint contrast diagnostic; shapes only)"
         default: "plan"
         required: true
         type: choice
-        options: [plan, run, selftest, whoami]
+        options: [plan, run, selftest, whoami, contrast]
       confirm:
         description: "type YES to allow uploads in run mode"
         default: ""
