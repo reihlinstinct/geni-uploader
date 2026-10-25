@@ -1418,3 +1418,74 @@ class GuidmapDiagnosticTest(unittest.TestCase):
                 token_file=None, manifest=self._manifest(tmp, ("1",)))
             with self.assertRaises(g.ApiError):
                 g.cmd_guidmap(args)
+
+
+class GuidmapCollisionTest(unittest.TestCase):
+    """geni-uploader#11 review: first match never wins. All matches across
+    the full page budget are collected; >1 distinct resolved id is
+    AMBIGUOUS and skips the follow-up GET."""
+
+    def tearDown(self):
+        import importlib
+        importlib.reload(g)
+
+    def _run(self, responses, pids):
+        import contextlib
+        import io
+        import tempfile
+        calls = []
+
+        def fake_execute(method, kind, url, token=None, data=None):
+            calls.append((method, kind, url))
+            return responses.pop(0)
+        g.execute = fake_execute
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "m.yaml")
+            with open(path, "w") as f:
+                f.write("targets:\n")
+                f.writelines(f'  - profile_id: "{pid}"\n'
+                             f'    expect_name: "ZZSENTINEL PERSONA"\n'
+                             for pid in pids)
+            args = argparse.Namespace(token_file=None, manifest=path)
+            os.environ["GENI_ACCESS_TOKEN"] = "tok"
+            try:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    self.assertEqual(g.cmd_guidmap(args), 0)
+            finally:
+                os.environ.pop("GENI_ACCESS_TOKEN", None)
+        return buf.getvalue(), calls
+
+    def test_same_space_collision_across_pages_is_ambiguous(self):
+        pid = "1000000000000000009"
+        out, calls = self._run([
+            {"results": [{"id": "555000901", "guid": pid}], "next_page": 2},
+            {"results": [{"id": "555000902", "guid": pid}]},
+        ], (pid,))
+        self.assertIn("AMBIGUOUS", out)
+        self.assertIn("follow-up GET skipped", out)
+        self.assertEqual(len(calls), 2)  # both pages scanned, no profile GET
+        self.assertNotIn("555000901", out)
+        self.assertNotIn("555000902", out)
+
+    def test_cross_space_collision_is_ambiguous(self):
+        pid = "1000000000000000010"
+        out, calls = self._run([
+            {"results": [{"id": "555001001", "guid": pid},
+                         {"id": pid, "guid": "zz-something-else"}]},
+        ], (pid,))
+        self.assertIn("AMBIGUOUS", out)
+        self.assertEqual(len(calls), 1)  # no follow-up GET
+
+    def test_same_id_duplicates_deduped_not_ambiguous(self):
+        pid = "1000000000000000011"
+        out, calls = self._run([
+            {"results": [{"id": "555001101", "guid": pid}], "next_page": 2},
+            {"results": [{"id": "555001101", "guid": pid}]},
+            {"id": "555001101", "name": "ZZDEDUPED"},
+        ], (pid,))
+        self.assertNotIn("AMBIGUOUS", out)
+        self.assertIn("matched via guid", out)
+        self.assertEqual(len(calls), 3)  # one follow-up GET only
+        self.assertNotIn("ZZDEDUPED", out)
+        self.assertNotIn("555001101", out)

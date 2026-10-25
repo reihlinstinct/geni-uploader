@@ -905,8 +905,11 @@ def cmd_guidmap(args):
     (per_page=50). Each target's URL number is compared IN MEMORY against
     served id AND guid values; values are never logged. Every matched target
     is confirmed with a follow-up singular GET of the resolved id (shape
-    only). Unmatched within budget is reported as UNKNOWN - a page-1/2 miss
-    does NOT eliminate the hypothesis (pagination / management filter).
+    only). ALL matches across the full budget are collected - first match
+    never wins; >1 DISTINCT resolved id is reported AMBIGUOUS and the
+    follow-up GET is skipped. Unmatched within budget is reported as
+    UNKNOWN - a page-1/2 miss does NOT eliminate the hypothesis
+    (pagination / management filter).
     """
     m = load_manifest(args.manifest)
     token = get_token(args)
@@ -914,8 +917,10 @@ def cmd_guidmap(args):
         raise ApiError("guidmap: no token available "
                        "(use --token-file or GENI_ACCESS_TOKEN)")
     pids = [str(t["profile_id"]) for t in m["targets"]]
-    # pid -> (matched_field, resolved_id) with values held in memory only
-    resolved = {}
+    # pid -> {"fields": set(), "ids": set()} - values held in memory only.
+    # ALL matches are collected across the FULL page budget: first match
+    # never wins; >1 DISTINCT resolved id means AMBIGUOUS and no follow-up.
+    matches = {}
     max_pages = 2
     print(f"guidmap: read-only guid/id resolution over {len(pids)} manifest "
           f"target(s), bounded to {max_pages} managed-profiles page(s) "
@@ -925,7 +930,9 @@ def cmd_guidmap(args):
                       f"{API_BASE}/user/managed-profiles"
                       f"?fields=id,guid&per_page=50&page={page}", token)
         if not isinstance(res, dict):
-            print(f"page {page}: {json.dumps(_profile_payload_shape(res), sort_keys=True)}; stopping scan")
+            print(f"page {page}: "
+                  f"{json.dumps(_profile_payload_shape(res), sort_keys=True)};"
+                  " stopping scan")
             break
         items = res.get("results")
         if isinstance(items, list):
@@ -934,34 +941,45 @@ def cmd_guidmap(args):
             page_items = [res]  # bare single-object form
         else:
             page_items = []
-        new_matches = 0
+        page_matches = 0
         for item in page_items:
             if not isinstance(item, dict):
                 continue
             iid = str(item.get("id") or "")
             iguid = str(item.get("guid") or "")
             for pid in pids:
-                if pid in resolved:
-                    continue
                 if iguid and pid == iguid:
-                    resolved[pid] = ("guid", iid)
-                    new_matches += 1
+                    entry = matches.setdefault(pid, {"fields": set(),
+                                                     "ids": set()})
+                    entry["fields"].add("guid")
+                    entry["ids"].add(iid)
+                    page_matches += 1
                 elif iid and pid == iid:
-                    resolved[pid] = ("id", iid)
-                    new_matches += 1
+                    entry = matches.setdefault(pid, {"fields": set(),
+                                                     "ids": set()})
+                    entry["fields"].add("id")
+                    entry["ids"].add(iid)
+                    page_matches += 1
         has_next = bool(res.get("next_page"))
         print(f"page {page}: results_len {len(page_items)}, "
-              f"new_matches {new_matches}, next_page {has_next}")
-        if len(resolved) == len(pids) or not page_items or not has_next:
+              f"matches {page_matches}, next_page {has_next}")
+        if not page_items or not has_next:
             break
     for i, pid in enumerate(pids, 1):
-        if pid not in resolved:
+        entry = matches.get(pid)
+        if not entry:
             print(f"target #{i}: UNRESOLVED within {max_pages}-page budget "
                   "(unknown - not eliminated)")
             continue
-        field, rid = resolved[pid]
+        distinct = {rid for rid in entry["ids"] if rid}
+        if len(distinct) != 1:
+            print(f"target #{i}: AMBIGUOUS - {len(distinct)} distinct "
+                  "resolved id(s) across the scan; follow-up GET skipped")
+            continue
+        rid = next(iter(distinct))
+        fields = "/".join(sorted(entry["fields"]))
         good = execute("GET", "profile", f"{API_BASE}/profile-{rid}", token)
-        print(f"target #{i}: matched via {field}; "
+        print(f"target #{i}: matched via {fields}; "
               "singular GET of resolved id: "
               + json.dumps(_profile_payload_shape(good), sort_keys=True))
     print("No writes performed.")
