@@ -263,12 +263,35 @@ def verify_linkage(token, pid, kind, expect_anchor, log):
     return False
 
 
+def profile_name_surface(p):
+    """Every canonical name field of ONE profile: display_name is only
+    first+last in Geni's schema (public client fixtures: middle_name,
+    maiden_name, nicknames and per-language names are separate fields),
+    so matching display_name alone false-rejects e.g. 'Johanna Annie
+    Moritz' whose API display is 'Johanna Halle'. Still strict: every
+    expected token must appear in THIS profile's own recorded names."""
+    fields = [p.get(k) or "" for k in
+              ("display_name", "name", "first_name", "middle_name",
+               "last_name", "maiden_name")]
+    for n in p.get("nicknames") or []:
+        fields.append(str(n))
+    for names in (p.get("names") or {}).values():
+        if isinstance(names, dict):
+            for v in names.values():
+                if isinstance(v, str):
+                    fields.append(v)
+                elif isinstance(v, dict):
+                    fields.extend(str(x) for x in v.values()
+                                  if isinstance(x, str))
+    return " ".join(fields)
+
+
 def verify_profile(token, pid, expect_name):
     p = execute("GET", "profile", f"{API_BASE}/profile-{pid}", token)
     name = p.get("display_name") or ""
-    if not name_matches(name, expect_name):
-        raise ApiError(f"profile {pid}: display name does not match the expected "
-                       "name - target SKIPPED")
+    if not name_matches(profile_name_surface(p), expect_name):
+        raise ApiError(f"profile {pid}: no recorded name on the profile matches "
+                       "the expected name - target SKIPPED")
     return name
 
 
