@@ -283,9 +283,11 @@ not supported by the documented API surface reviewed: enter them manually and
 keep the item incomplete until verified. Photo Event and burial-profile edits
 remain manual. An attachment/tag is not a fact citation.
 
-New workflow modes currently refuse the old image. After review and green code
-CI, publish an immutable image and update its workflow digest together with the
-image-ready flag. Do not set the flag before the pinned image contains this code.
-Only the user triggers the release/service workflows. No production run has been
-verified for this feature. The private Actions quota may block execution until
+The workflow now pins the reviewed metadata-capable image and explicitly enables
+its readiness flag. Without that flag, metadata modes still refuse to run.
+Run `details-plan` first: it reads source/profile identities and metadata without
+writes. Inspect the private plan result before considering `details-repair` with
+`confirm: YES`. Every expected name token must match the served profile identity.
+Only the user triggers the service workflow from the personal account `reihl`.
+No production run has been verified for this feature. The private Actions quota may block execution until
 1 November; no paid workaround is configured.

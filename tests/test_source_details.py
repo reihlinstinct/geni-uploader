@@ -157,3 +157,11 @@ def test_checkpoint_commit_uses_local_identity():
     text = Path(s.__file__).read_text()
     assert "user.email=source-details@localhost" in text
     assert "users.noreply.github.com" not in text
+
+
+def test_released_metadata_image_is_pinned_with_explicit_readiness():
+    from pathlib import Path
+    text = (Path(s.__file__).parent / ".github/workflows/geni-upload.yml").read_text()
+    assert "sha256:e17a97b5898a8e3691dd35ac9dc43b8d444a989fc47bcbf26cb33ba58492de79" in text
+    assert 'SOURCE_DETAILS_IMAGE_READY: "yes"' in text
+    assert '${SOURCE_DETAILS_IMAGE_READY:-no}' in text
