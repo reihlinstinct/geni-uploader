@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from typing import ClassVar
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -1511,3 +1512,165 @@ class GuidmapCollisionTest(unittest.TestCase):
         self.assertEqual(len(calls), 3)  # one follow-up GET only
         self.assertNotIn("ZZDEDUPED", out)
         self.assertNotIn("555001101", out)
+
+
+class PguidDiagnosticTest(unittest.TestCase):
+    """geni-uploader#43: profile-g URL-number contrast. Only booleans may
+    reach the printed output - never ids, guids or names."""
+
+    def tearDown(self):
+        import importlib
+        importlib.reload(g)
+
+    def _manifest(self, tmp, pids):
+        path = os.path.join(tmp, "m.yaml")
+        with open(path, "w") as f:
+            f.write("targets:\n")
+            f.writelines(f'  - profile_id: "{pid}"\n'
+                         f'    expect_name: "ZZSENTINEL PERSONA"\n'
+                         for pid in pids)
+        return path
+
+    def _run(self, responses, pids=("1000000000000000001",), raise_on=()):
+        import contextlib
+        import io
+        import tempfile
+        calls = []
+
+        def fake_execute(method, kind, url, token=None, data=None):
+            calls.append((method, kind, url))
+            r = responses.pop(0)
+            if isinstance(r, Exception):
+                raise r
+            return r
+        g.execute = fake_execute
+        with tempfile.TemporaryDirectory() as tmp:
+            args = argparse.Namespace(
+                token_file=None, manifest=self._manifest(tmp, pids))
+            os.environ["GENI_ACCESS_TOKEN"] = "tok"
+            try:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    self.assertEqual(g.cmd_pguid(args), 0)
+            finally:
+                os.environ.pop("GENI_ACCESS_TOKEN", None)
+        return buf.getvalue(), calls
+
+    def test_url_uses_profile_g_form(self):
+        urlnum = "1000000000000000001"
+        _out, calls = self._run([{}], pids=(urlnum,))
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][0:2], ("GET", "profile"))
+        self.assertIn(f"/profile-g{urlnum}", calls[0][2])
+
+    def test_resolved_mapped_requires_all_three(self):
+        urlnum = "1000000000000000001"
+        out, _ = self._run([{"id": "555000111", "guid": urlnum,
+                             "name": "ZZSENTINEL PERSONA"}],
+                           pids=(urlnum,))
+        self.assertIn("RESOLVED-MAPPED", out)
+        self.assertIn("api_id_nonempty=True", out)
+        self.assertIn("guid_equals_input=True", out)
+        self.assertIn("name_match=True", out)
+        # values never logged
+        self.assertNotIn(urlnum, out)
+        self.assertNotIn("555000111", out)
+        self.assertNotIn("ZZSENTINEL", out)
+
+    def test_name_hit_without_guid_equality_not_mapped(self):
+        urlnum = "1000000000000000001"
+        out, _ = self._run([{"id": "555000111", "guid": "9999999999999999999",
+                             "name": "ZZSENTINEL PERSONA"}],
+                           pids=(urlnum,))
+        self.assertNotIn("RESOLVED-MAPPED", out)
+        self.assertIn("name_match=True", out)
+        self.assertIn("guid_equals_input=False", out)
+        self.assertIn("unknown preserved", out)
+
+    def test_empty_response_preserves_unknown(self):
+        out, _ = self._run([{"results": []}])
+        self.assertIn("empty response - unknown, not eliminated", out)
+        self.assertNotIn("RESOLVED-MAPPED", out)
+
+    def test_http_error_preserves_unknown_and_continues(self):
+        pids = ("1000000000000000001", "1000000000000000002")
+        out, calls = self._run([g.ApiError("boom"), {"results": []}],
+                               pids=pids)
+        self.assertIn("HTTP error from profile-g GET - unknown", out)
+        self.assertEqual(len(calls), 2)  # continued to next target
+        self.assertNotIn("boom", out)    # error detail not echoed
+
+    def test_envelope_form_unwrapped(self):
+        urlnum = "1000000000000000001"
+        out, _ = self._run([{"results": [{"id": "555000111", "guid": urlnum,
+                                          "name": "ZZSENTINEL PERSONA"}]}],
+                           pids=(urlnum,))
+        self.assertIn("RESOLVED-MAPPED", out)
+
+    def test_no_writes_line(self):
+        out, _ = self._run([{}])
+        self.assertIn("No writes performed.", out)
+
+    def test_throttled_propagates_and_stops(self):
+        pids = ("1000000000000000001", "1000000000000000002")
+        import contextlib
+        import io
+        import tempfile
+        calls = []
+
+        def fake_execute(method, kind, url, token=None, data=None):
+            calls.append((method, kind, url))
+            raise g.ThrottledError("GET http://x/profile-gSECRET -> 429")
+        g.execute = fake_execute
+        with tempfile.TemporaryDirectory() as tmp:
+            args = argparse.Namespace(
+                token_file=None, manifest=self._manifest(tmp, pids))
+            os.environ["GENI_ACCESS_TOKEN"] = "tok"
+            try:
+                buf = io.StringIO()
+                with (contextlib.redirect_stdout(buf),
+                      self.assertRaises(g.ThrottledError)):
+                    g.cmd_pguid(args)
+            finally:
+                os.environ.pop("GENI_ACCESS_TOKEN", None)
+        self.assertEqual(len(calls), 1)  # no execute after 429
+        self.assertNotIn("SECRET", buf.getvalue())
+
+
+class MainThrottleOutputTest(unittest.TestCase):
+    """geni-uploader#43: a 429 must reach stderr as a fixed value-free
+    line at the outer handler - the raw exception embeds the request URL,
+    which carries a private id."""
+
+    def tearDown(self):
+        import importlib
+        importlib.reload(g)
+
+    def test_main_throttled_stderr_is_value_free(self):
+        import contextlib
+        import io
+        import tempfile
+        secret = "1000000000000000001"
+
+        def fake_execute(method, kind, url, token=None, data=None):
+            raise g.ThrottledError(f"GET {url} -> HTTP 429 rate limit")
+        g.execute = fake_execute
+        with tempfile.TemporaryDirectory() as tmp:
+            mpath = os.path.join(tmp, "m.yaml")
+            with open(mpath, "w") as f:
+                f.write("targets:\n"
+                        f'  - profile_id: "{secret}"\n'
+                        '    expect_name: "ZZSENTINEL PERSONA"\n')
+            os.environ["GENI_ACCESS_TOKEN"] = "tok"
+            argv = ["geni_upload.py", "pguid", "--manifest", mpath]
+            try:
+                err = io.StringIO()
+                with (unittest.mock.patch.object(sys, "argv", argv),
+                      contextlib.redirect_stderr(err)):
+                    self.assertEqual(g.main(), 1)
+            finally:
+                os.environ.pop("GENI_ACCESS_TOKEN", None)
+        text = err.getvalue()
+        self.assertIn("throttled (HTTP 429)", text)
+        self.assertNotIn(secret, text)
+        self.assertNotIn("profile-g", text)

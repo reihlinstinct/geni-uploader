@@ -1002,6 +1002,68 @@ def cmd_guidmap(args):
     return 0
 
 
+def cmd_pguid(args):
+    """geni-uploader#43: profile-g URL-number contrast (read-only, 3 reads).
+
+    Run 8 showed the singular `profile-<N>` GET and bulk `?ids=` forms miss
+    the manifest targets' website-URL numbers; runs 9/10 showed the numbers
+    match neither id nor guid among the first 500 of 1054 managed profiles.
+    Third-party evidence (dmalch/go-geni issue #71, live-probed there, NOT
+    verified here) claims the API resolves a guid ONLY as
+    `api/profile-g<guid>`. This diagnostic probes exactly that form: one
+    paced singular GET per manifest target, `api/profile-g<URL number>`.
+
+    Per target only booleans are logged - never values: api_id_nonempty,
+    guid_nonempty, guid_equals_input, id_equals_input, name_match (strict
+    manifest name guard). RESOLVED-MAPPED requires nonempty id AND strict
+    name match AND guid_equals_input: serve+name alone does NOT prove the
+    guid space, and an empty/error response does NOT kill the guid
+    hypothesis universally (visibility rules remain possible). No writes;
+    strict stop on 429 via execute's standing contract.
+    """
+    m = load_manifest(args.manifest)
+    token = get_token(args)
+    if not token:
+        raise ApiError("pguid: no token available "
+                       "(use --token-file or GENI_ACCESS_TOKEN)")
+    targets = m["targets"]
+    print(f"pguid: read-only profile-g contrast over {len(targets)} manifest "
+          "target(s) (booleans only, values redacted)")
+    for i, t in enumerate(targets, 1):
+        pid = str(t["profile_id"])
+        try:
+            res = execute("GET", "profile", f"{API_BASE}/profile-g{pid}",
+                          token)
+        except ThrottledError:
+            raise  # strict 429 stop: never continue to the next target
+        except ApiError:
+            print(f"target #{i}: HTTP error from profile-g GET - unknown, "
+                  "not eliminated (guid hypothesis not excluded)")
+            continue
+        obj = res if isinstance(res, dict) else {}
+        if isinstance(obj.get("results"), list):
+            obj = obj["results"][0] if obj["results"] else {}
+        if not isinstance(obj, dict) or not obj:
+            print(f"target #{i}: empty response - unknown, not eliminated "
+                  "(guid hypothesis not excluded)")
+            continue
+        iid = str(obj.get("id") or "")
+        iguid = str(obj.get("guid") or "")
+        nm = name_matches(profile_name_surface(obj), t["expect_name"])
+        api_id_nonempty = bool(iid)
+        guid_nonempty = bool(iguid)
+        guid_eq = guid_nonempty and iguid == pid
+        id_eq = api_id_nonempty and iid == pid
+        resolved = api_id_nonempty and nm and guid_eq
+        verdict = ("RESOLVED-MAPPED (nonempty id + strict name guard + "
+                   "guid_equals_input)" if resolved
+                   else "served-partial or mismatch - unknown preserved")
+        print(f"target #{i}: {verdict}; api_id_nonempty={api_id_nonempty} "
+              f"guid_nonempty={guid_nonempty} guid_equals_input={guid_eq} "
+              f"id_equals_input={id_eq} name_match={nm}")
+    print("No writes performed.")
+    return 0
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--token-file", help="file outside the repo holding the access token")
@@ -1013,7 +1075,8 @@ def main():
     p.set_defaults(fn=cmd_auth_url)
     p = sub.add_parser("whoami"); p.set_defaults(fn=cmd_whoami)
     for name, fn in (("plan", cmd_plan), ("run", cmd_run),
-                     ("contrast", cmd_contrast), ("guidmap", cmd_guidmap)):
+                     ("contrast", cmd_contrast), ("guidmap", cmd_guidmap),
+                     ("pguid", cmd_pguid)):
         p = sub.add_parser(name); p.add_argument("--manifest", required=True)
         p.set_defaults(fn=fn)
     sub.choices["run"].add_argument("--confirm", default="")
@@ -1031,6 +1094,13 @@ def main():
     args = ap.parse_args()
     try:
         return args.fn(args)
+    except ThrottledError:
+        # Value-free stop line: the exception text embeds the request URL,
+        # which can carry a private id. Shapes only, everywhere.
+        print("error: throttled (HTTP 429) - stopped without automatic "
+              "retry; re-run only as a fresh, deliberate attempt",
+              file=sys.stderr)
+        return 1
     except ApiError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
