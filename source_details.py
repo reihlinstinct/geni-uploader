@@ -121,7 +121,7 @@ def apply_plan(plan, token, state_path, sync_state=False):
                 diff = subprocess.run(["git", "diff", "--cached", "--quiet"], check=False)
                 if diff.returncode == 1:
                     subprocess.run(["git", "-c", "user.name=source-details",
-                                    "-c", "user.email=source-details@users.noreply.github.com",
+                                    "-c", "user.email=source-details@localhost",
                                     "commit", "--only", "-qm", "Record source repair checkpoint", "--", str(rel)],
                                    check=True, stdout=subprocess.DEVNULL,
                                    stderr=subprocess.DEVNULL)

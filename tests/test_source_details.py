@@ -150,3 +150,10 @@ def test_missing_readback_stops_with_pending_state(tmp_path):
         with pytest.raises(s.api.VerificationError):
             s.apply_plan(plan, "ZZtoken", tmp_path / "state")
     assert json.loads((tmp_path / "state").read_text())["status"] == "pending"
+
+
+def test_checkpoint_commit_uses_local_identity():
+    from pathlib import Path
+    text = Path(s.__file__).read_text()
+    assert "user.email=source-details@localhost" in text
+    assert "users.noreply.github.com" not in text
