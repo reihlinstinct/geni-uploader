@@ -997,11 +997,17 @@ class NameSurfaceTests(unittest.TestCase):
         finally:
             g.execute = orig
         msg = str(cm.exception)
-        self.assertIn("שרה", msg)
-        self.assertIn("first_name", msg)
-        self.assertIn("Sara", msg)
-        self.assertNotIn("1900", msg)  # names only: no birth data
-        self.assertNotIn("gender", msg)
+        fields_part, _, keys_part = msg.partition("; response keys:")
+        self.assertIn("שרה", fields_part)
+        self.assertIn("first_name", fields_part)
+        self.assertIn("Sara", fields_part)
+        self.assertNotIn("1900", fields_part)  # names only: no birth data
+        self.assertNotIn("gender", fields_part)
+        # key NAMES only in the keys segment - never values
+        self.assertIn('"birth"', keys_part)
+        self.assertIn('"gender"', keys_part)
+        self.assertNotIn("1900", keys_part)
+        self.assertNotIn("female", keys_part)
 
     def test_mismatch_observed_fields_sorted_and_compact(self):
         p = {"display_name": "X Y", "maiden_name": "Z", "nicknames": ["Xi"], "names": {}}
@@ -1013,9 +1019,10 @@ class NameSurfaceTests(unittest.TestCase):
         finally:
             g.execute = orig
         msg = str(cm.exception)
-        self.assertIn('"display_name": "X Y"', msg)
-        self.assertIn('"maiden_name": "Z"', msg)
-        self.assertNotIn('"names"', msg)  # empty dict omitted (quoted key;
+        fields_part = msg.split("; response keys:")[0]
+        self.assertIn('"display_name": "X Y"', fields_part)
+        self.assertIn('"maiden_name": "Z"', fields_part)
+        self.assertNotIn('"names"', fields_part)  # empty dict omitted (quoted key;
         # "nicknames" legitimately contains the substring)
 
 
@@ -1084,3 +1091,35 @@ class PlanThrottleAbortTests(unittest.TestCase):
             "maiden_name": "Peled",
         }
         self.assertTrue(g.name_matches(g.profile_name_surface(p), "Dana Anna Peled"))
+
+
+class ResponseKeysDiagnosticTests(unittest.TestCase):
+    """2026-10-25: a live diagnostic plan produced EMPTY observed name
+    fields ({}) for all targets - the live GET profile response matches
+    no assumed schema (absent OR wrong-typed fields; cause not yet
+    isolated). observed_response_keys logs top-level key NAMES ONLY
+    (never values) to distinguish an error envelope, a results wrapper,
+    an empty body, and an unexpected profile schema."""
+
+    def test_error_envelope_shape(self):
+        p = {"error": {"type": "ApiException", "message": "secret detail"}}
+        keys = g.observed_response_keys(p)
+        self.assertIn('"error"', keys)
+        self.assertNotIn("secret detail", keys)
+        self.assertNotIn("ApiException", keys)
+
+    def test_results_wrapper_shape(self):
+        p = {"results": [{"display_name": "Should Not Leak"}]}
+        keys = g.observed_response_keys(p)
+        self.assertEqual(keys, '["results"]')
+        self.assertNotIn("Should Not Leak", keys)
+
+    def test_empty_body_shape(self):
+        self.assertEqual(g.observed_response_keys({}), "[]")
+
+    def test_profile_schema_keys_sorted(self):
+        keys = g.observed_response_keys({"last_name": "x", "id": "p-1", "display_name": "y"})
+        self.assertEqual(keys, '["display_name", "id", "last_name"]')
+
+    def test_non_dict_response(self):
+        self.assertEqual(g.observed_response_keys([1, 2]), '{"_type": "list"}')
