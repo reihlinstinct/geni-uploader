@@ -314,10 +314,12 @@ def observed_name_fields(p):
 
 
 def observed_response_keys(p):
-    """Sorted top-level KEY NAMES of the profile response - never values.
-    Distinguishes an error envelope / results wrapper / empty body from an
-    unexpected profile schema when observed_name_fields comes back empty,
-    without carrying any personal data even into the encrypted log."""
+    """Structural shape of the profile response - never values.
+    Top-level key NAMES plus, when a 'results' envelope is present, its
+    TYPE and LENGTH only. Distinguishes an error envelope, an empty
+    results set (id not resolving / not visible), a populated results
+    wrapper (parser bug), and an unexpected profile schema - without
+    carrying any personal data even into the encrypted log."""
     if not isinstance(p, dict):
         return json.dumps({"_type": type(p).__name__})
     out = {"keys": sorted(str(k) for k in p.keys())}
