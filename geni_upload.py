@@ -335,14 +335,55 @@ def observed_response_keys(p):
 
 
 def verify_profile(token, pid, expect_name):
-    p = execute("GET", "profile", f"{API_BASE}/profile-{pid}", token)
-    name = p.get("display_name") or ""
-    if not name_matches(profile_name_surface(p), expect_name):
-        raise ApiError(f"profile {pid}: no recorded name on the profile matches "
-                       "the expected name - target SKIPPED "
-                       f"(observed name fields: {observed_name_fields(p)}; "
-                       f"response keys: {observed_response_keys(p)})")
-    return name
+    """Verify a manifest target; return (node_id, display_name).
+
+    Manifest profile_ids are website-URL numbers. Run 11 (pguid mode)
+    proved for the manifest's three targets that such numbers can be
+    GUIDS rather than node ids: the `profile-<N>` form then silently
+    serves an empty result, while `profile-g<N>` serves the profile
+    carrying a distinct node id. Resolution is fail-closed and never
+    conflates the two spaces:
+
+    1. `profile-<pid>` (node-id form, pre-existing semantics): a served
+       profile whose recorded names match expect_name resolves to pid
+       itself; a served profile that does NOT match raises immediately
+       (a name mismatch never falls through to a second identity
+       space); an empty result or HTTP error falls through to the guid
+       form.
+    2. `profile-g<pid>` (guid form): resolves ONLY when the served guid
+       EQUALS pid, the served node id is nonempty, and the same strict
+       name guard passes - then the SERVED node id (not pid) is what
+       later calls must use.
+    Anything else raises: an unresolved target is never guessed.
+    """
+    try:
+        p = execute("GET", "profile", f"{API_BASE}/profile-{pid}", token)
+    except ThrottledError:
+        raise  # stop-on-throttle: never fall through to another call
+    except ApiError:
+        p = None
+    if isinstance(p, dict) and p.get("results") == []:
+        p = None  # silent-empty envelope on guids (run 11 / pguid)
+    if p:
+        name = p.get("display_name") or ""
+        if not name_matches(profile_name_surface(p), expect_name):
+            raise ApiError(f"profile {pid}: no recorded name on the profile "
+                           "matches the expected name - target SKIPPED "
+                           f"(observed name fields: {observed_name_fields(p)}; "
+                           f"response keys: {observed_response_keys(p)})")
+        return pid, name
+    g = execute("GET", "profile", f"{API_BASE}/profile-g{pid}", token)
+    gobj = g
+    if isinstance(gobj, dict) and isinstance(gobj.get("results"), list):
+        gobj = gobj["results"][0] if gobj["results"] else {}
+    if (isinstance(gobj, dict)
+            and str(gobj.get("guid") or "") == pid
+            and str(gobj.get("id") or "")
+            and name_matches(profile_name_surface(gobj), expect_name)):
+        return str(gobj["id"]), gobj.get("display_name") or ""
+    raise ApiError(f"profile {pid}: not served as a node id and not "
+                   "resolvable as a guid (profile-g) with a matching "
+                   "identity - target SKIPPED")
 
 
 def list_tagged(token, pid, kind):
@@ -626,10 +667,11 @@ def cmd_plan(args):
     for t in m["targets"]:
         pid = str(t["profile_id"])
         try:
-            name = verify_profile(token, pid, t["expect_name"])
-            print(f"  profile {pid}: OK ({name})")
+            node_id, name = verify_profile(token, pid, t["expect_name"])
+            via = " (resolved via guid)" if node_id != pid else ""
+            print(f"  profile {pid}: OK ({name}){via}")
             for kind in ("documents", "photos"):
-                tagged = list_tagged(token, pid, kind)
+                tagged = list_tagged(token, node_id, kind)
                 if tagged is None:
                     print(f"    WARNING: {kind} listing unavailable; "
                           "idempotency relies on state file only")
@@ -654,7 +696,9 @@ def cmd_plan(args):
 def process_target(t, token, state, state_path, status, manifest_path,
                    log, smoke=False, sync_repo=True, sync_failed=None):
     pid = str(t["profile_id"])
-    verify_profile(token, pid, t["expect_name"])
+    node_id, _display = verify_profile(token, pid, t["expect_name"])
+    if node_id != pid:
+        log.log(f"target {pid}: resolved via guid to the served node id")
     log.log(f"target {pid}: profile name verified")
     done_keys = {k for k, v in status["items"].items()
                  if v.get("status") in ("uploaded", "resolved")} \
@@ -673,7 +717,7 @@ def process_target(t, token, state, state_path, status, manifest_path,
                     "then set it to 'not_found' (retry) or 'resolved' (fixed "
                     "manually) in upload-status.yaml. Deleting the entry does "
                     "NOT unblock it (the local marker survives). Not touching it.")
-    listings = {k: list_tagged(token, pid, k) for k in ("documents", "photos")}
+    listings = {k: list_tagged(token, node_id, k) for k in ("documents", "photos")}
     for kind, add_kind, tag_kind, base in (
             ("documents", "document_add", "document_tag", "document"),
             ("photos", "photo_add", "photo_tag", "photo")):
@@ -727,7 +771,7 @@ def process_target(t, token, state, state_path, status, manifest_path,
                 log.log(f"  UNCERTAIN write for {it}: {e}")
                 _sleep(5)
                 try:
-                    new_listing = list_tagged(token, pid, kind)
+                    new_listing = list_tagged(token, node_id, kind)
                 except ThrottledError:
                     raise  # stop-on-throttle wins over reconciliation
                 except ApiError:
@@ -760,14 +804,15 @@ def process_target(t, token, state, state_path, status, manifest_path,
                 save_state(state_path, state)
                 raise ApiError(f"no id returned for {item['title']!r}; stopped")
             log.log(f"  upload acknowledged: {it} -> {base}-{obj_id}")
-            execute("POST", tag_kind, f"{API_BASE}/{base}-{obj_id}/tag/profile-{pid}",
+            execute("POST", tag_kind,
+                    f"{API_BASE}/{base}-{obj_id}/tag/profile-{node_id}",
                     token, {})
-            log.log(f"  tag acknowledged: {base}-{obj_id} -> profile-{pid}")
-            if not verify_linkage(token, pid, kind, anchor(item, kind), log):
+            log.log(f"  tag acknowledged: {base}-{obj_id} -> profile-{node_id}")
+            if not verify_linkage(token, node_id, kind, anchor(item, kind), log):
                 save_state(state_path, state)
                 raise VerificationError(
                     f"POSTs for {it} ({base}-{obj_id}) were acknowledged but the "
-                    f"GET readback does not show it tagged to profile {pid}. "
+                    f"GET readback does not show it tagged to profile {node_id}. "
                     "NOT recorded as done. Check Geni manually; re-run skips only "
                     "verified items.")
             state["uploaded"].append(key)
@@ -779,7 +824,7 @@ def process_target(t, token, state, state_path, status, manifest_path,
                 "verified_by": "get-readback"}
             save_status(manifest_path, status)
             log.log(f"  VERIFIED via GET readback: {it} ({base}-{obj_id}) "
-                    f"tagged to profile-{pid}")
+                    f"tagged to profile-{node_id}")
             if (sync_repo and repo_sync(manifest_path, log) is False
         and sync_failed is not None):
                 sync_failed.append(key)

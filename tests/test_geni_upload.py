@@ -835,7 +835,7 @@ class PlanVerdictTests(unittest.TestCase):
         self.assertIn("verification: FAILED", out)
 
     def test_all_ok_prints_verdict_and_exits_0(self):
-        self._patch(lambda token, pid, expect: "Tamar Vardi")
+        self._patch(lambda token, pid, expect: (pid, "Tamar Vardi"))
         rc, out = self._run_plan("dummy-token")
         self.assertEqual(rc, 0)
         self.assertEqual(out.splitlines()[0], "PLAN:")
@@ -1674,3 +1674,135 @@ class MainThrottleOutputTest(unittest.TestCase):
         self.assertIn("throttled (HTTP 429)", text)
         self.assertNotIn(secret, text)
         self.assertNotIn("profile-g", text)
+
+
+class GuidResolutionTest(unittest.TestCase):
+    """geni-uploader#47: website-URL numbers can be guids. verify_profile
+    must resolve them via the profile-g form to the served node id,
+    fail-closed, never conflating the two id spaces."""
+
+    def tearDown(self):
+        import importlib
+        importlib.reload(g)
+
+    def _fake(self, mapping):
+        calls = []
+
+        def fake_execute(method, kind, url, token=None, data=None):
+            calls.append(url)
+            for suffix, res in mapping.items():
+                if url.endswith(suffix):
+                    if isinstance(res, Exception):
+                        raise res
+                    return res
+            raise AssertionError(f"unexpected call {url}")
+        g.execute = fake_execute
+        return calls
+
+    def test_node_id_form_still_wins_first(self):
+        calls = self._fake({
+            "/profile-123": {"id": "123", "display_name": "ZZSENTINEL PERSONA"},
+        })
+        node_id, name = g.verify_profile("tok", "123", "ZZSENTINEL PERSONA")
+        self.assertEqual((node_id, name), ("123", "ZZSENTINEL PERSONA"))
+        self.assertEqual(len(calls), 1)  # no guid call needed
+
+    def test_guid_fallback_resolves_served_node_id(self):
+        calls = self._fake({
+            "/profile-1000000000000000001": {"results": []},
+            "/profile-g1000000000000000001": {
+                "id": "555000111", "guid": "1000000000000000001",
+                "display_name": "ZZSENTINEL PERSONA"},
+        })
+        node_id, _name = g.verify_profile("tok", "1000000000000000001",
+                                          "ZZSENTINEL PERSONA")
+        self.assertEqual(node_id, "555000111")
+        self.assertEqual(len(calls), 2)
+
+    def test_http_error_on_node_form_falls_through_to_guid(self):
+        self._fake({
+            "/profile-1000000000000000001": g.ApiError("HTTP 404"),
+            "/profile-g1000000000000000001": {
+                "id": "555000111", "guid": "1000000000000000001",
+                "display_name": "ZZSENTINEL PERSONA"},
+        })
+        node_id, _ = g.verify_profile("tok", "1000000000000000001",
+                                      "ZZSENTINEL PERSONA")
+        self.assertEqual(node_id, "555000111")
+
+    def test_guid_mismatch_rejects(self):
+        self._fake({
+            "/profile-1000000000000000001": {"results": []},
+            "/profile-g1000000000000000001": {
+                "id": "555000111", "guid": "9999999999999999999",
+                "display_name": "ZZSENTINEL PERSONA"},
+        })
+        with self.assertRaises(g.ApiError):
+            g.verify_profile("tok", "1000000000000000001", "ZZSENTINEL PERSONA")
+
+    def test_guid_form_wrong_name_rejects(self):
+        self._fake({
+            "/profile-1000000000000000001": {"results": []},
+            "/profile-g1000000000000000001": {
+                "id": "555000111", "guid": "1000000000000000001",
+                "display_name": "ZZOTHER PERSON"},
+        })
+        with self.assertRaises(g.ApiError):
+            g.verify_profile("tok", "1000000000000000001", "ZZSENTINEL PERSONA")
+
+    def test_guid_form_empty_id_rejects(self):
+        self._fake({
+            "/profile-1000000000000000001": {"results": []},
+            "/profile-g1000000000000000001": {
+                "id": "", "guid": "1000000000000000001",
+                "display_name": "ZZSENTINEL PERSONA"},
+        })
+        with self.assertRaises(g.ApiError):
+            g.verify_profile("tok", "1000000000000000001", "ZZSENTINEL PERSONA")
+
+    def test_served_name_mismatch_never_falls_through(self):
+        calls = self._fake({
+            "/profile-123": {"id": "123", "display_name": "ZZOTHER PERSON"},
+        })
+        with self.assertRaises(g.ApiError):
+            g.verify_profile("tok", "123", "ZZSENTINEL PERSONA")
+        self.assertEqual(len(calls), 1)  # no guid call after a name mismatch
+
+    def test_throttle_never_falls_through(self):
+        calls = self._fake({
+            "/profile-123": g.ThrottledError("429"),
+        })
+        with self.assertRaises(g.ThrottledError):
+            g.verify_profile("tok", "123", "ZZSENTINEL PERSONA")
+        self.assertEqual(len(calls), 1)  # strict stop: no guid call after 429
+
+    def test_both_forms_empty_rejects(self):
+        self._fake({
+            "/profile-1000000000000000001": {"results": []},
+            "/profile-g1000000000000000001": {"results": []},
+        })
+        with self.assertRaises(g.ApiError):
+            g.verify_profile("tok", "1000000000000000001", "ZZSENTINEL PERSONA")
+
+
+class WorkflowModeAlignmentTest(unittest.TestCase):
+    """geni-uploader#46 regression: every dispatch mode choice must map to
+    a registered CLI subcommand (pguid shipped without its choice entry,
+    so the first dispatch was rejected with HTTP 422)."""
+
+    def test_dispatch_options_match_registered_modes(self):
+        import re
+        root = os.path.dirname(os.path.abspath(g.__file__))
+        with open(os.path.join(root, ".github/workflows/geni-upload.yml"),
+                  encoding="utf-8") as f:
+            wf = f.read()
+        m = re.search(r"options: \[([^\]]+)\]", wf)
+        self.assertIsNotNone(m)
+        options = {x.strip() for x in m.group(1).split(",")}
+        with open(os.path.join(root, "geni_upload.py"), encoding="utf-8") as f:
+            src = f.read()
+        registered = (set(re.findall(r'add_parser\("([a-z-]+)"\)', src))
+                      | set(re.findall(r'\("([a-z]+)", cmd_', src)))
+        workflow_only = {"selftest"}  # loopback synthetic mode -> plan args
+        cli_only = {"auth-url"}       # local helper, never dispatched
+        self.assertEqual(options - workflow_only, registered - cli_only)
