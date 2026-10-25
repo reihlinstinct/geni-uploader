@@ -1806,3 +1806,156 @@ class WorkflowModeAlignmentTest(unittest.TestCase):
         workflow_only = {"selftest"}  # loopback synthetic mode -> plan args
         cli_only = {"auth-url"}       # local helper, never dispatched
         self.assertEqual(options - workflow_only, registered - cli_only)
+
+
+class AlsoTagValidationTest(unittest.TestCase):
+    def _item(self, **kw):
+        it = {"title": "Doc A", "source_url": "https://x/1"}
+        it.update(kw)
+        return {"targets": [
+            {"profile_id": "123", "expect_name": "Tamar Vardi",
+             "documents": [it], "photos": []},
+            {"profile_id": "456", "expect_name": "Gadi Vardi",
+             "documents": [], "photos": []},
+        ]}
+
+    def test_valid_also_tag_loads(self):
+        m = g.load_manifest(_manifest_file(self._item(also_tag=["456"])))
+        self.assertEqual(m["targets"][0]["documents"][0]["also_tag"], ["456"])
+
+    def test_unknown_also_tag_rejected(self):
+        with self.assertRaises(g.ApiError):
+            g.load_manifest(_manifest_file(self._item(also_tag=["999"])))
+
+    def test_self_also_tag_rejected(self):
+        with self.assertRaises(g.ApiError):
+            g.load_manifest(_manifest_file(self._item(also_tag=["123"])))
+
+    def test_duplicate_also_tag_rejected(self):
+        with self.assertRaises(g.ApiError):
+            g.load_manifest(_manifest_file(self._item(also_tag=["456", "456"])))
+
+    def test_empty_also_tag_rejected(self):
+        with self.assertRaises(g.ApiError):
+            g.load_manifest(_manifest_file(self._item(also_tag=[])))
+
+    def test_non_list_also_tag_rejected(self):
+        with self.assertRaises(g.ApiError):
+            g.load_manifest(_manifest_file(self._item(also_tag="456")))
+
+
+class AlsoTagRunTest(unittest.TestCase):
+    """One upload, several profiles: the same object is tagged to each
+    also_tag target after the primary tag verifies; every extra profile
+    passes the full identity guard first."""
+
+    MANIFEST2: ClassVar[dict] = {
+        "targets": [
+            {"profile_id": "123", "expect_name": "Tamar Vardi",
+             "documents": [], "photos": [
+                 {"title": "Scan", "description": "d",
+                  "file": "scan.jpg", "also_tag": ["456"]}]},
+            {"profile_id": "456", "expect_name": "Gadi Vardi",
+             "documents": [], "photos": []},
+        ]
+    }
+    NAMES: ClassVar[dict] = {"123": "Tamar Sara Vardi",
+                             "456": "Gadi Refael Vardi"}
+
+    def setUp(self):
+        d = tempfile.mkdtemp()
+        with open(os.path.join(d, "scan.jpg"), "wb") as f:
+            f.write(b"\xff\xd8\xff")  # content irrelevant; existence required
+        import yaml
+        self.manifest = os.path.join(d, "manifest.yaml")
+        with open(self.manifest, "w", encoding="utf-8") as f:
+            yaml.safe_dump(self.MANIFEST2, f)
+        self.posts = []
+        self.listings = {("123", "photos"): set(), ("456", "photos"): set(),
+                         ("123", "documents"): set(), ("456", "documents"): set()}
+        self.uploads = []
+        g.time.sleep = lambda s: None
+
+        names = self.NAMES
+        listings = self.listings
+        posts = self.posts
+        uploads = self.uploads
+
+        def fake_execute(method, kind, url, token=None, data=None):
+            if (method, kind) not in g.ALLOWLIST:
+                raise g.ApiError("refused")
+            if kind == "profile":
+                for pid, name in names.items():
+                    if f"profile-{pid}" in url:
+                        return {"display_name": name, "id": pid}
+                raise g.ApiError(f"unknown profile url {url}")
+            if kind in ("profile_documents", "profile_photos"):
+                kd = "documents" if kind == "profile_documents" else "photos"
+                for pid in names:
+                    if f"profile-{pid}" in url:
+                        return {"results": [
+                            {"title": t[0],
+                             "source_url": t[1] if len(t) > 1 else None}
+                            for t in listings[(pid, kd)]]}
+                raise g.ApiError(f"unknown listing url {url}")
+            if kind == "photo_add":
+                posts.append((kind, url, data))
+                uploads.append(data)
+                return {"id": "999"}
+            if kind == "photo_tag":
+                posts.append((kind, url, data))
+                for pid in names:
+                    if f"tag/profile-{pid}" in url:
+                        listings[(pid, "photos")].add(
+                            (uploads[-1].get("title"),))
+                return {}
+            raise AssertionError(kind)
+
+        g.execute = fake_execute
+
+    def tearDown(self):
+        import importlib
+        importlib.reload(g)
+
+    def _run(self):
+        os.environ["GENI_ACCESS_TOKEN"] = "tok"
+        args = _run_args(manifest=self.manifest)
+        return g.cmd_run(args)
+
+    def test_one_upload_tagged_to_both_profiles(self):
+        self.assertEqual(self._run(), 0)
+        kinds = [p[0] for p in self.posts]
+        self.assertEqual(kinds, ["photo_add", "photo_tag", "photo_tag"])
+        self.assertIn("photo-999/tag/profile-123", self.posts[1][1])
+        self.assertIn("photo-999/tag/profile-456", self.posts[2][1])
+
+    def test_status_records_also_tagged(self):
+        import yaml
+        self.assertEqual(self._run(), 0)
+        with open(os.path.join(os.path.dirname(self.manifest),
+                               "upload-status.yaml"), encoding="utf-8") as f:
+            st = yaml.safe_load(f)
+        key = "123:photos:Scan"
+        self.assertEqual(st["items"][key]["status"], "uploaded")
+        self.assertEqual(st["items"][key]["also_tagged"], ["456"])
+
+    def test_extra_tag_readback_failure_marks_uncertain_no_reupload(self):
+        # The tag POST to 456 is acknowledged but never becomes visible:
+        # item goes uncertain, run stops, and a rerun does NOT re-upload.
+        g.execute = self._wrap_break_second_tag(g.execute)
+        self.assertEqual(self._run(), 3)
+        posts_before = len([p for p in self.posts if p[0] == "photo_add"])
+        self.assertEqual(posts_before, 1)
+        # rerun: the uncertain marker blocks the item entirely (skipped,
+        # not re-uploaded; a fully-blocked run completes with exit 0)
+        self.assertEqual(self._run(), 0)
+        posts_after = len([p for p in self.posts if p[0] == "photo_add"])
+        self.assertEqual(posts_after, 1, "no re-upload after uncertain also_tag")
+
+    def _wrap_break_second_tag(self, inner):
+        def wrapped(method, kind, url, token=None, data=None):
+            if kind == "photo_tag" and "tag/profile-456" in url:
+                self.posts.append((kind, url, data))
+                return {}  # acknowledged but never lands in the listing
+            return inner(method, kind, url, token=token, data=data)
+        return wrapped

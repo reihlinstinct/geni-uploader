@@ -111,6 +111,7 @@ def load_manifest(path):
             "(the default branch may not carry it)")
     if not isinstance(m, dict) or not isinstance(m.get("targets"), list) or not m["targets"]:
         raise ApiError("manifest must define a non-empty 'targets' list")
+    pids = {str(t.get("profile_id")) for t in m["targets"]}
     for i, t in enumerate(m["targets"]):
         if not t.get("profile_id") or not t.get("expect_name"):
             raise ApiError(f"target #{i}: profile_id and expect_name are required")
@@ -145,6 +146,24 @@ def load_manifest(path):
                         raise ApiError(f"target #{i} {kind}[{j}]: file not found: "
                                        f"{item['file']}")
                     item["file"] = real
+                extra = item.get("also_tag")
+                if extra is not None:
+                    if not isinstance(extra, list) or not extra or \
+                            any(not isinstance(x, (str, int)) for x in extra):
+                        raise ApiError(f"target #{i} {kind}[{j}]: also_tag must be a "
+                                       "non-empty list of profile ids from this manifest")
+                    if len({str(x) for x in extra}) != len(extra):
+                        raise ApiError(f"target #{i} {kind}[{j}]: also_tag contains "
+                                       "duplicates")
+                    for x in extra:
+                        xs = str(x)
+                        if xs == str(t["profile_id"]):
+                            raise ApiError(f"target #{i} {kind}[{j}]: also_tag must not "
+                                           "repeat the item's own profile_id")
+                        if xs not in pids:
+                            raise ApiError(f"target #{i} {kind}[{j}]: also_tag id {xs} is "
+                                           "not a target in this manifest (the identity "
+                                           "guard needs its expect_name)")
     return m
 
 
@@ -694,7 +713,8 @@ def cmd_plan(args):
 
 
 def process_target(t, token, state, state_path, status, manifest_path,
-                   log, smoke=False, sync_repo=True, sync_failed=None):
+                   log, smoke=False, sync_repo=True, sync_failed=None,
+                   targets_by_pid=None):
     pid = str(t["profile_id"])
     node_id, _display = verify_profile(token, pid, t["expect_name"])
     if node_id != pid:
@@ -825,6 +845,52 @@ def process_target(t, token, state, state_path, status, manifest_path,
             save_status(manifest_path, status)
             log.log(f"  VERIFIED via GET readback: {it} ({base}-{obj_id}) "
                     f"tagged to profile-{node_id}")
+            tagged_ok = []
+            for extra_pid in (str(x) for x in item.get("also_tag") or []):
+                # One object, several profiles: tag the SAME object to each
+                # extra manifest target, with the full identity guard per
+                # profile. Any failure after the verified primary upload is
+                # UNCERTAIN and stops the run - never retried, never re-uploaded.
+                xt = (targets_by_pid or {}).get(extra_pid)
+                if xt is None:
+                    raise ApiError(f"also_tag id {extra_pid} is not a manifest target "
+                                   "(load_manifest rejects this; refusing)")
+                xnode, _xname = verify_profile(token, extra_pid, xt["expect_name"])
+                via = " (resolved via guid)" if xnode != extra_pid else ""
+                log.log(f"  also_tag target {extra_pid}: profile name verified{via}")
+                try:
+                    execute("POST", tag_kind,
+                            f"{API_BASE}/{base}-{obj_id}/tag/profile-{xnode}",
+                            token, {})
+                    extra_ok = verify_linkage(token, xnode, kind,
+                                              anchor(item, kind), log)
+                except (ApiError, UncertainWrite) as e:
+                    extra_ok = False
+                    log.log(f"  also_tag to {extra_pid} failed: {e}")
+                if not extra_ok:
+                    status["items"][key] = {
+                        "status": "uncertain",
+                        "object_id": obj_id,
+                        "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        "reason": f"primary upload+tag VERIFIED, but also_tag to "
+                                  f"{extra_pid} is NOT confirmed. Object {base}-"
+                                  f"{obj_id} exists. Check Geni manually, then "
+                                  "resolve the entry."}
+                    save_status(manifest_path, status)
+                    if sync_repo:
+                        repo_sync(manifest_path, log)
+                    raise UncertainWrite(
+                        f"STOPPED: also_tag of {base}-{obj_id} to profile "
+                        f"{extra_pid} failed or could not be verified. The object "
+                        "exists and the primary tag is verified; the extra tag was "
+                        "NOT retried. Marked 'uncertain' in upload-status.yaml - "
+                        "check Geni manually and resolve the entry.")
+                tagged_ok.append(extra_pid)
+                log.log(f"  VERIFIED via GET readback: {base}-{obj_id} also "
+                        f"tagged to profile-{xnode}")
+            if tagged_ok:
+                status["items"][key]["also_tagged"] = tagged_ok
+                save_status(manifest_path, status)
             if (sync_repo and repo_sync(manifest_path, log) is False
         and sync_failed is not None):
                 sync_failed.append(key)
@@ -892,7 +958,9 @@ def cmd_run(args):
                 if process_target(t, token, state, args.state, status,
                                   args.manifest, log, smoke=args.smoke,
                                   sync_repo=not args.no_repo_sync,
-                                  sync_failed=sync_failed):
+                                  sync_failed=sync_failed,
+                                  targets_by_pid={str(x["profile_id"]): x
+                                                  for x in m["targets"]}):
                     log.log("run end: smoke stop, exit 0")
                     return 0
             except UncertainWrite as e:

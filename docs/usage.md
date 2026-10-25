@@ -85,7 +85,7 @@ One YAML file in your repo, for example
 
     targets:
       - profile_id: "1234567890123456789"   # the Geni profile number
-        expect_name: "Full Distinctive Name" # >= 2 words; checked against Geni
+        expect_name: "ZZ Sample Person"      # >= 2 words; checked against Geni
         documents:
           - title: "Short descriptive title"
             source_url: "https://example.org/source-page"  # or use file:
@@ -94,6 +94,12 @@ One YAML file in your repo, for example
         photos:
           - title: "Another scan"
             file: "scan-page-12.jpg"        # relative to THIS manifest file
+            also_tag: ["9876543210987654321"]  # optional: tag the SAME object
+                                               # to these profiles too
+      - profile_id: "9876543210987654321"
+        expect_name: "ZZ Second Person"
+        documents: []
+        photos: []
 
 Rules enforced by the loader (it fails loudly, before any network call):
 
@@ -108,6 +114,16 @@ Rules enforced by the loader (it fails loudly, before any network call):
 - `file:` paths resolve relative to the MANIFEST's own directory (not the
   repository root), must stay inside that directory, and must exist. Keep
   scans next to the manifest and reference them by bare filename.
+- `also_tag` (optional, per item) is a list of OTHER profile ids from the
+  same manifest. One source scan often belongs on several profiles (a
+  group photo, a shared record): instead of uploading a duplicate object
+  per profile, the item is uploaded ONCE under its own target and the same
+  object is then tagged to each `also_tag` profile. Every listed id must
+  be another target in the manifest (so it passes the same name guard),
+  must not be the item's own target, and must not repeat. After the
+  primary tag verifies, each extra profile is name-verified, tagged, and
+  confirmed by its own GET read-back; a failure there marks the item
+  `uncertain` and stops the run - the extra tag is never auto-retried.
 - Large binary scans belong in the repo as plain files; the tool reads
   whatever the clone contains.
 
@@ -174,6 +190,9 @@ status-file push back to the repo failed (the next run retries the sync);
   failed check (for example HTTP 401) aborts before any write.
 - Each upload is followed by a GET read-back: the item must appear in the
   profile's listing, tagged to that profile, or the run stops (exit 4).
+- Items with `also_tag` are then tagged to each extra profile in turn,
+  each confirmed by its own GET read-back. The status entry records
+  `also_tagged: [...]` for the confirmed extra profiles.
 - Idempotency: completed items are recorded in a local state file
   (`geni-upload-state.json`, atomically written) AND in
   `upload-status.yaml` next to the manifest, which is committed and
