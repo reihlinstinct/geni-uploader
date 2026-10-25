@@ -27,14 +27,25 @@ communication with any other third party.
   to Geni becomes part of Geni's shared world family tree and is governed
   by Geni's own Terms of Service and Privacy Policy, including Geni's
   visibility rules for the profiles involved.
-- **To GitHub:** an upload-status file (what was uploaded, when, and its
-  verification state), pushed to the Git repository the user designates.
-  That repository and its access settings belong to the user.
-- **On the user's machine:** the Geni access token and GitHub token are
-  stored only in files on the user's own machine and are mounted into the
-  container at run time. The Geni token is sent only to Geni's API as an
-  Authorization header. The GitHub token is used only for Git operations
-  against github.com. Tokens are never written to logs or output.
+- **To the user's Git repository:** an `upload-status.yaml` file whose
+  entries contain the Geni profile IDs, the item titles from the user's
+  manifest, timestamps and verification states. It is committed and pushed
+  to the repository the user designates; its visibility is governed by that
+  repository's own access settings, which the user controls.
+- **On the user's machine:**
+  - The Geni access token and GitHub token are stored only in files on the
+    user's own machine and are mounted into the container at run time. The
+    Geni token is sent only to Geni's API as an Authorization header. The
+    GitHub token is used only for Git operations against github.com. Tokens
+    are never written to logs or output.
+  - A local state file (`geni-upload-state.json`, or a path the user
+    chooses) records the same upload keys (profile IDs and item titles) and
+    any unresolved markers. The user may delete it at any time; the next
+    run reconciles against Geni's server listing and the repository status
+    file.
+  - Diagnostic logs contain timestamps, steps, HTTP statuses and short
+    hashes only - never tokens, file contents, personal names or item
+    titles.
 
 ## Data the tool's author receives
 
@@ -44,8 +55,9 @@ The author collects no data.
 ## Retention and deletion
 
 - Content uploaded to Geni is managed through Geni, under Geni's policies.
-- The upload-status file lives in the user's own Git repository and can be
-  deleted by the user at any time.
+- The upload-status file lives in the user's own Git repository and the
+  local state file on the user's own machine; the user may delete either at
+  any time.
 - Tokens can be revoked by the user at any time in their Geni and GitHub
   account settings.
 
