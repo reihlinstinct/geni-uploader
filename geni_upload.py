@@ -846,51 +846,85 @@ def process_target(t, token, state, state_path, status, manifest_path,
             log.log(f"  VERIFIED via GET readback: {it} ({base}-{obj_id}) "
                     f"tagged to profile-{node_id}")
             tagged_ok = []
-            for extra_pid in (str(x) for x in item.get("also_tag") or []):
+            extras = [str(x) for x in item.get("also_tag") or []]
+
+            def _mark_uncertain(reason, key=key, obj_id=obj_id,
+                                extras=extras, tagged_ok=tagged_ok):
+                status["items"][key] = {
+                    "status": "uncertain",
+                    "object_id": obj_id,
+                    "at": time.strftime("%Y-%m-%dT%H:%M:%SZ",
+                                        time.gmtime()),
+                    "also_tagged": tagged_ok[:],
+                    "also_tag_pending": extras[len(tagged_ok):],
+                    "reason": reason + " Resolve by setting the entry to "
+                            "'resolved' once Geni shows the tags - do NOT "
+                            "set 'not_found' (that uploads a NEW object)."}
+                save_status(manifest_path, status)
+                state.setdefault("uncertain", [])
+                if key not in state["uncertain"]:
+                    state["uncertain"].append(key)
+                save_state(state_path, state)
+                if sync_repo:
+                    repo_sync(manifest_path, log)
+
+            for extra_pid in extras:
                 # One object, several profiles: tag the SAME object to each
                 # extra manifest target, with the full identity guard per
-                # profile. Any failure after the verified primary upload is
-                # UNCERTAIN and stops the run - never retried, never re-uploaded.
+                # profile. ANY interruption after the verified primary
+                # upload - identity failure, tag/readback error, or 429 -
+                # records the partial also_tagged list, marks the item
+                # UNCERTAIN (never left 'uploaded', or a rerun would skip it
+                # and the missing tags would silently never happen), and
+                # stops the run. Nothing is retried automatically.
                 xt = (targets_by_pid or {}).get(extra_pid)
                 if xt is None:
                     raise ApiError(f"also_tag id {extra_pid} is not a manifest target "
                                    "(load_manifest rejects this; refusing)")
-                xnode, _xname = verify_profile(token, extra_pid, xt["expect_name"])
-                via = " (resolved via guid)" if xnode != extra_pid else ""
-                log.log(f"  also_tag target {extra_pid}: profile name verified{via}")
+
                 try:
+                    xnode, _xname = verify_profile(token, extra_pid,
+                                                   xt["expect_name"])
+                    via = (" (resolved via guid)" if xnode != extra_pid else "")
+                    log.log(f"  also_tag target {extra_pid}: profile name "
+                            f"verified{via}")
                     execute("POST", tag_kind,
                             f"{API_BASE}/{base}-{obj_id}/tag/profile-{xnode}",
                             token, {})
                     extra_ok = verify_linkage(token, xnode, kind,
                                               anchor(item, kind), log)
+                    if not extra_ok:
+                        raise ApiError("tag acknowledged but the GET readback "
+                                       "does not confirm it")
+                except ThrottledError:
+                    # stop-on-throttle wins over everything: persist what is
+                    # known, make NO further Geni calls, and stop.
+                    _mark_uncertain(
+                        f"primary upload+tag VERIFIED, but also_tag to "
+                        f"{extra_pid} was interrupted by Geni rate limiting "
+                        f"(HTTP 429). Object {base}-{obj_id} exists; "
+                        f"{len(tagged_ok)} extra tag(s) verified, "
+                        f"{len(extras) - len(tagged_ok)} NOT confirmed.")
+                    raise
                 except (ApiError, UncertainWrite) as e:
-                    extra_ok = False
                     log.log(f"  also_tag to {extra_pid} failed: {e}")
-                if not extra_ok:
-                    status["items"][key] = {
-                        "status": "uncertain",
-                        "object_id": obj_id,
-                        "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                        "reason": f"primary upload+tag VERIFIED, but also_tag to "
-                                  f"{extra_pid} is NOT confirmed. Object {base}-"
-                                  f"{obj_id} exists. Check Geni manually, then "
-                                  "resolve the entry."}
-                    save_status(manifest_path, status)
-                    if sync_repo:
-                        repo_sync(manifest_path, log)
+                    _mark_uncertain(
+                        f"primary upload+tag VERIFIED, but also_tag to "
+                        f"{extra_pid} failed or is NOT confirmed. Object "
+                        f"{base}-{obj_id} exists.")
                     raise UncertainWrite(
                         f"STOPPED: also_tag of {base}-{obj_id} to profile "
-                        f"{extra_pid} failed or could not be verified. The object "
-                        "exists and the primary tag is verified; the extra tag was "
-                        "NOT retried. Marked 'uncertain' in upload-status.yaml - "
-                        "check Geni manually and resolve the entry.")
+                        f"{extra_pid} failed or could not be verified "
+                        f"({len(tagged_ok)} of {len(extras)} extra tags "
+                        "confirmed). The object exists and the primary tag is "
+                        "verified; the extra tag was NOT retried. Marked "
+                        "'uncertain' in upload-status.yaml - check Geni "
+                        "manually and resolve the entry.")
                 tagged_ok.append(extra_pid)
+                status["items"][key]["also_tagged"] = tagged_ok[:]
+                save_status(manifest_path, status)
                 log.log(f"  VERIFIED via GET readback: {base}-{obj_id} also "
                         f"tagged to profile-{xnode}")
-            if tagged_ok:
-                status["items"][key]["also_tagged"] = tagged_ok
-                save_status(manifest_path, status)
             if (sync_repo and repo_sync(manifest_path, log) is False
         and sync_failed is not None):
                 sync_failed.append(key)

@@ -1959,3 +1959,139 @@ class AlsoTagRunTest(unittest.TestCase):
                 return {}  # acknowledged but never lands in the listing
             return inner(method, kind, url, token=token, data=data)
         return wrapped
+
+
+class AlsoTagInterruptionTest(unittest.TestCase):
+    """Resume integrity (review, PR #53): any interruption after the verified
+    primary upload must leave the item UNCERTAIN with the partial progress
+    recorded - never 'uploaded', or a rerun would skip it and the missing
+    extra tags would silently never happen."""
+
+    MANIFEST3: ClassVar[dict] = {
+        "targets": [
+            {"profile_id": "123", "expect_name": "Tamar Vardi",
+             "documents": [], "photos": [
+                 {"title": "Scan", "description": "d",
+                  "file": "scan.jpg", "also_tag": ["456", "789"]}]},
+            {"profile_id": "456", "expect_name": "Gadi Vardi",
+             "documents": [], "photos": []},
+            {"profile_id": "789", "expect_name": "Ruti Vardi",
+             "documents": [], "photos": []},
+        ]
+    }
+    NAMES: ClassVar[dict] = {"123": "Tamar Sara Vardi",
+                             "456": "Gadi Refael Vardi",
+                             "789": "Ruti Miriam Vardi"}
+
+    def setUp(self):
+        d = tempfile.mkdtemp()
+        with open(os.path.join(d, "scan.jpg"), "wb") as f:
+            f.write(b"\xff\xd8\xff")
+        import yaml
+        self.manifest = os.path.join(d, "manifest.yaml")
+        with open(self.manifest, "w", encoding="utf-8") as f:
+            yaml.safe_dump(self.MANIFEST3, f)
+        self.posts = []
+        self.listings = {(pid, kd): set()
+                         for pid in self.NAMES
+                         for kd in ("documents", "photos")}
+        self.uploads = []
+        self.fail_mode = None  # None | "identity" | "throttle_second_extra"
+        g.time.sleep = lambda s: None
+
+        names = self.NAMES
+        listings = self.listings
+        posts = self.posts
+        uploads = self.uploads
+        outer = self
+
+        def fake_execute(method, kind, url, token=None, data=None):
+            if (method, kind) not in g.ALLOWLIST:
+                raise g.ApiError("refused")
+            if kind == "profile":
+                for pid, name in names.items():
+                    if f"profile-{pid}" in url:
+                        if outer.fail_mode == "identity" and pid == "456":
+                            return {"display_name": "Someone Else Entirely",
+                                    "id": pid}
+                        return {"display_name": name, "id": pid}
+                raise g.ApiError(f"unknown profile url {url}")
+            if kind in ("profile_documents", "profile_photos"):
+                kd = "documents" if kind == "profile_documents" else "photos"
+                for pid in names:
+                    if f"profile-{pid}" in url:
+                        return {"results": [
+                            {"title": t[0],
+                             "source_url": t[1] if len(t) > 1 else None}
+                            for t in listings[(pid, kd)]]}
+                raise g.ApiError(f"unknown listing url {url}")
+            if kind == "photo_add":
+                posts.append((kind, url, data))
+                uploads.append(data)
+                return {"id": "999"}
+            if kind == "photo_tag":
+                if (outer.fail_mode == "throttle_second_extra"
+                        and "tag/profile-789" in url):
+                    raise g.ThrottledError("HTTP 429")
+                posts.append((kind, url, data))
+                for pid in names:
+                    if f"tag/profile-{pid}" in url:
+                        listings[(pid, "photos")].add(
+                            (uploads[-1].get("title"),))
+                return {}
+            raise AssertionError(kind)
+
+        g.execute = fake_execute
+
+    def tearDown(self):
+        import importlib
+        importlib.reload(g)
+
+    def _run(self):
+        os.environ["GENI_ACCESS_TOKEN"] = "tok"
+        args = _run_args(manifest=self.manifest)
+        return g.cmd_run(args)
+
+    def _status(self):
+        import yaml
+        with open(os.path.join(os.path.dirname(self.manifest),
+                               "upload-status.yaml"), encoding="utf-8") as f:
+            return yaml.safe_load(f)
+
+    def test_extra_identity_failure_marks_uncertain_and_blocks_rerun(self):
+        self.fail_mode = "identity"
+        self.assertEqual(self._run(), 3)
+        st = self._status()
+        entry = st["items"]["123:photos:Scan"]
+        self.assertEqual(entry["status"], "uncertain")
+        self.assertEqual(entry["object_id"], "999")
+        self.assertEqual(entry["also_tagged"], [])
+        self.assertEqual(entry["also_tag_pending"], ["456", "789"])
+        # the identity failure happened BEFORE the extra tag call: only the
+        # primary add + primary tag went out
+        self.assertEqual([p[0] for p in self.posts],
+                         ["photo_add", "photo_tag"])
+        # rerun (manifest name fixed, as the user would): the uncertain item
+        # is BLOCKED - no re-upload, no silent extra-tag retry
+        self.fail_mode = None
+        posts_before = list(self.posts)
+        self.assertEqual(self._run(), 0)
+        self.assertEqual(self.posts, posts_before)
+
+    def test_throttle_after_first_extra_records_partial_and_stops(self):
+        self.fail_mode = "throttle_second_extra"
+        # 429 stop: cmd_run surfaces it as a failure (exit 1); the run must
+        # NOT continue to any further Geni call afterwards.
+        self.assertEqual(self._run(), 1)
+        st = self._status()
+        entry = st["items"]["123:photos:Scan"]
+        self.assertEqual(entry["status"], "uncertain")
+        self.assertEqual(entry["also_tagged"], ["456"])  # partial progress kept
+        self.assertEqual(entry["also_tag_pending"], ["789"])
+        self.assertIn("429", entry["reason"])
+        # rerun: blocked - the object is NOT re-uploaded and the pending tag
+        # is NOT silently retried
+        posts_before = list(self.posts)
+        self.assertEqual(self._run(), 0)
+        self.assertEqual(self.posts, posts_before)
+        self.assertEqual(len([p for p in self.posts if p[0] == "photo_add"]), 1)
