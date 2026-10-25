@@ -901,8 +901,10 @@ def cmd_guidmap(args):
     but both singular and bulk forms miss the manifest targets' website-URL
     numbers. Hypothesis under test: the URL numbers are guids, not node ids.
 
-    Bounded scan: up to 2 pages of user/managed-profiles?fields=id,guid
-    (per_page=50). Each target's URL number is compared IN MEMORY against
+    Bounded scan: managed-profiles?fields=id,guid (per_page=50), count-
+    first (page 1's total_count sizes the scan) with a hard cap of 10
+    pages / 500 profiles. Each target's URL number is compared IN MEMORY
+    against
     served id AND guid values; values are never logged. Every matched target
     is confirmed with a follow-up singular GET of the resolved id (shape
     only). ALL matches across the full budget are collected - first match
@@ -921,19 +923,32 @@ def cmd_guidmap(args):
     # ALL matches are collected across the FULL page budget: first match
     # never wins; >1 DISTINCT resolved id means AMBIGUOUS and no follow-up.
     matches = {}
-    max_pages = 2
+    max_pages = 10  # hard cap: 500 managed profiles scanned, never more
     print(f"guidmap: read-only guid/id resolution over {len(pids)} manifest "
-          f"target(s), bounded to {max_pages} managed-profiles page(s) "
-          "(shapes only, values redacted)")
+          f"target(s), bounded to at most {max_pages} managed-profiles "
+          "page(s) (shapes only, values redacted)")
+    pages_to_scan = max_pages
+    scanned = 0
     for page in range(1, max_pages + 1):
+        if page > pages_to_scan:
+            break
         res = execute("GET", "user_managed_profiles",
                       f"{API_BASE}/user/managed-profiles"
                       f"?fields=id,guid&per_page=50&page={page}", token)
+        if page == 1 and isinstance(res, dict) and "total_count" in res:
+            import math
+            total = res["total_count"]
+            # A single integer (size of the managed set) is logged to size
+            # the bounded scan; it is not a profile value.
+            print(f"managed-profiles total_count: {total}")
+            if isinstance(total, int) and total >= 0:
+                pages_to_scan = min(math.ceil(total / 50) or 1, max_pages)
         if not isinstance(res, dict):
             print(f"page {page}: "
                   f"{json.dumps(_profile_payload_shape(res), sort_keys=True)};"
                   " stopping scan")
             break
+        scanned = page
         items = res.get("results")
         if isinstance(items, list):
             page_items = items
@@ -968,8 +983,9 @@ def cmd_guidmap(args):
     for i, pid in enumerate(pids, 1):
         entry = matches.get(pid)
         if not entry:
-            print(f"target #{i}: UNRESOLVED within {max_pages}-page budget "
-                  "(unknown - not eliminated)")
+            print(f"target #{i}: UNRESOLVED after scanning {scanned} page(s) "
+                  f"({scanned * 50} managed profiles) - unknown, "
+                  "not eliminated")
             continue
         distinct = {rid for rid in entry["ids"] if rid}
         if len(distinct) != 1:

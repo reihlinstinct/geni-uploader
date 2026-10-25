@@ -1390,17 +1390,39 @@ class GuidmapDiagnosticTest(unittest.TestCase):
         self.assertIn("not eliminated", out)
         self.assertEqual(len(calls), 1)  # no follow-up GET for unmatched
 
-    def test_second_page_bounded_and_stops(self):
+    def test_scan_continues_while_next_page_then_stops(self):
         urlnum = "1000000000000000004"
         out, calls = self._run([
             {"results": [{"id": "1", "guid": "zz-a"}], "next_page": 2},
             {"results": [{"id": "555000444", "guid": urlnum}],
              "next_page": 3},
+            {"results": [{"id": "2", "guid": "zz-b"}]},  # no next_page
             {"results": []},
         ], pids=(urlnum,))
         pages = [u for _, k, u in calls if k == "user_managed_profiles"]
-        self.assertEqual(len(pages), 2)  # bounded: page 3 never scanned
+        self.assertEqual(len(pages), 3)
         self.assertIn("matched via guid", out)
+
+    def test_count_first_sizes_scan_below_cap(self):
+        out, calls = self._run([
+            {"results": [{"id": "1", "guid": "zz-a"}], "next_page": 2,
+             "total_count": 60},
+            {"results": [{"id": "2", "guid": "zz-b"}], "next_page": 3},
+        ], pids=("1000000000000000006",))
+        pages = [u for _, k, u in calls if k == "user_managed_profiles"]
+        self.assertEqual(len(pages), 2)  # total_count 60 -> 2 pages, not 3
+        self.assertIn("total_count: 60", out)
+
+    def test_hard_cap_ten_pages_500_profiles(self):
+        pages_resp = [{"results": [{"id": str(i), "guid": f"zz-{i}"}],
+                       "next_page": i + 1, "total_count": 9999}
+                      for i in range(1, 11)]
+        out, calls = self._run(pages_resp, pids=("1000000000000000007",))
+        pages = [u for _, k, u in calls if k == "user_managed_profiles"]
+        self.assertEqual(len(pages), 10)  # hard cap, never page 11
+        self.assertIn("500 managed profiles", out)
+        self.assertIn("UNRESOLVED", out)
+        self.assertIn("not eliminated", out)
 
     def test_bare_object_page_supported(self):
         urlnum = "1000000000000000005"
