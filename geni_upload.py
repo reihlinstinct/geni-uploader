@@ -576,7 +576,7 @@ def cmd_contrast(args):
          serve ANY profile for this token?
       3. GET profile?ids=<all manifest targets> - does the documented bulk
          form serve targets the singular form misses?
-    The verdict separates "singular endpoint dead for this token" (2 misses)
+    The verdict separates "singular endpoint misses for this token" (2 misses)
     from "these targets invisible to this token" (2 serves, 3 misses) from
     "path-form specific" (2 misses, 3 serves).
     """
@@ -601,7 +601,8 @@ def cmd_contrast(args):
         good = execute("GET", "profile", f"{API_BASE}/profile-{served}", token)
         print("singular GET of a served id: "
               + json.dumps(_profile_payload_shape(good), sort_keys=True))
-    ids = urllib.parse.quote(",".join(pids))
+    # Literal commas: the documented ids= form is comma-separated
+    ids = urllib.parse.quote(",".join(pids), safe=",")
     bulk = execute("GET", "profile", f"{API_BASE}/profile?ids={ids}", token)
     print("bulk ids= form for all manifest targets: "
           + json.dumps(_profile_payload_shape(bulk), sort_keys=True))

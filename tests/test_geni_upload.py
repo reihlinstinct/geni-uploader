@@ -1304,3 +1304,16 @@ class ContrastDiagnosticTest(unittest.TestCase):
 
     def test_allowlist_covers_managed_profiles(self):
         self.assertIn(("GET", "user_managed_profiles"), g.ALLOWLIST)
+
+    def test_bulk_url_multi_target_literal_commas(self):
+        pids = ("1000000000000000001", "1000000000000000002",
+                "1000000000000000003")
+        _out, calls = self._run([
+            {"results": [{"id": "9000000000000000007"}]},
+            {"results": []},
+            {"results": []},
+        ], pids=pids)
+        bulk_url = calls[2][2]
+        self.assertIn("ids=1000000000000000001,1000000000000000002,"
+                      "1000000000000000003", bulk_url)
+        self.assertNotIn("%2C", bulk_url.upper())
