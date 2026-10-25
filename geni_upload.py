@@ -320,7 +320,13 @@ def observed_response_keys(p):
     without carrying any personal data even into the encrypted log."""
     if not isinstance(p, dict):
         return json.dumps({"_type": type(p).__name__})
-    return json.dumps(sorted(str(k) for k in p.keys()))
+    out = {"keys": sorted(str(k) for k in p.keys())}
+    r = p.get("results")
+    if r is not None:
+        out["results_type"] = type(r).__name__
+        if isinstance(r, (list, dict)):
+            out["results_len"] = len(r)
+    return json.dumps(out, sort_keys=True)
 
 
 def verify_profile(token, pid, expect_name):

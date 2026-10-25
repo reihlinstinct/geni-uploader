@@ -1111,15 +1111,27 @@ class ResponseKeysDiagnosticTests(unittest.TestCase):
     def test_results_wrapper_shape(self):
         p = {"results": [{"display_name": "Should Not Leak"}]}
         keys = g.observed_response_keys(p)
-        self.assertEqual(keys, '["results"]')
+        self.assertEqual(
+            keys,
+            '{"keys": ["results"], "results_len": 1, "results_type": "list"}',
+        )
         self.assertNotIn("Should Not Leak", keys)
 
+    def test_results_empty_shape(self):
+        # an id not resolving visibly: documented dispatcher behaviour is
+        # an EMPTY results set - must surface as len 0, contents never logged
+        keys = g.observed_response_keys({"results": []})
+        self.assertEqual(
+            keys,
+            '{"keys": ["results"], "results_len": 0, "results_type": "list"}',
+        )
+
     def test_empty_body_shape(self):
-        self.assertEqual(g.observed_response_keys({}), "[]")
+        self.assertEqual(g.observed_response_keys({}), '{"keys": []}')
 
     def test_profile_schema_keys_sorted(self):
         keys = g.observed_response_keys({"last_name": "x", "id": "p-1", "display_name": "y"})
-        self.assertEqual(keys, '["display_name", "id", "last_name"]')
+        self.assertEqual(keys, '{"keys": ["display_name", "id", "last_name"]}')
 
     def test_non_dict_response(self):
         self.assertEqual(g.observed_response_keys([1, 2]), '{"_type": "list"}')
