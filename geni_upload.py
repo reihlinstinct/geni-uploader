@@ -274,9 +274,10 @@ def profile_name_surface(p):
     """Every canonical name field of ONE profile: display_name is only
     first+last in Geni's schema (public client fixtures: middle_name,
     maiden_name, nicknames and per-language names are separate fields),
-    so matching display_name alone false-rejects e.g. 'Johanna Annie
-    Moritz' whose API display is 'Johanna Halle'. Still strict: every
-    expected token must appear in THIS profile's own recorded names."""
+    so matching display_name alone false-rejects a person whose API
+    display shows only the married name while the manifest's expected
+    name includes the birth name. Still strict: every expected token
+    must appear in THIS profile's own recorded names."""
     fields = [str(p.get(k)) for k in
               ("display_name", "name", "first_name", "middle_name",
                "last_name", "maiden_name")
