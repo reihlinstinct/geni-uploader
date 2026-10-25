@@ -268,6 +268,10 @@ the user's manual citations). The top level has `schema_version: 1` and `items`.
 No webpage GUID is guessed as a source node ID. Empty or mismatched reads stop.
 
 Run `python source_details.py validate --manifest <file>` offline first.
+Container metadata modes must be the first argument, before `--token-file`,
+so the entrypoint selects the metadata CLI. For example:
+`<pinned-image> details-plan --token-file /run/geni-token --manifest <file>`.
+Legacy upload modes retain `--token-file <file> plan` argument order.
 `details-plan` verifies all source and deceased-profile identities without writes.
 `details-repair` also requires `confirm: YES`; a pending checkpoint in the private
 data branch is pushed before any mutation. An unconfirmed result leaves that

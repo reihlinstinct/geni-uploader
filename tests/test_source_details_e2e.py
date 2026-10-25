@@ -67,3 +67,29 @@ def test_cli_repair_real_transport_loopback(tmp_path):
         server.shutdown()
         thread.join()
         server.server_close()
+
+
+def test_actual_workflow_argument_order_selects_metadata_entrypoint():
+    """Execute the workflow's real argument-selection shell, without a service."""
+    root = Path(__file__).parents[1]
+    workflow = (root / ".github/workflows/geni-upload.yml").read_text()
+    start = workflow.index('            if [ "$MODE" = "selftest" ]; then\n              # Inert:')
+    end = workflow.index('            if [[ "$MODE" == details-* ]]', start)
+    import textwrap
+    # YAML removes its block indentation before bash sees the heredoc.
+    shell = textwrap.dedent(workflow[start:end]) + '\nprintf "%s\\n" "${ARGS[@]}"\n'
+    for mode in ("details-plan", "details-repair", "plan", "run"):
+        result = subprocess.run(["bash", "-c", shell], check=True,
+                                env={**os.environ, "MODE": mode, "CONFIRM": "YES",
+                                     "MANIFEST_PATH": "ZZ-records.json"},
+                                capture_output=True, text=True)
+        args = result.stdout.splitlines()
+        if mode.startswith("details-"):
+            assert args[:3] == [mode, "--token-file", "/run/geni-token"]
+            entrypoint = (root / "entrypoint.sh").read_text()
+            assert 'case "${1:-}" in' in entrypoint
+            assert 'exec python /opt/source_details.py "$MODE" "$@"' in entrypoint
+        else:
+            assert args[:3] == ["--token-file", "/run/geni-token", mode]
+        assert ("--sync-state" in args) == (mode == "details-repair")
+        assert ("--confirm" in args) == (mode in ("run", "details-repair"))

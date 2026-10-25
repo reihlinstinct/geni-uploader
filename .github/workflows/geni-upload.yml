@@ -111,13 +111,17 @@ jobs:
               # Token-context shape probe: NO manifest, NO confirm, no private
               # inputs beyond the code-integrity pin. Values never logged.
               ARGS=(--token-file /run/geni-token whoami)
+            elif [[ "$MODE" == details-* ]]; then
+              # Entrypoint selects the metadata CLI from its FIRST argument.
+              ARGS=("$MODE" --token-file /run/geni-token --manifest "$MANIFEST_PATH")
+              if [ "$MODE" = "details-repair" ]; then
+                ARGS+=(--confirm "$CONFIRM"
+                  --state "${MANIFEST_PATH}.repair-state.json" --sync-state)
+              fi
             else
               ARGS=(--token-file /run/geni-token "$MODE" --manifest "$MANIFEST_PATH")
-              if [ "$MODE" = "run" ] || [ "$MODE" = "details-repair" ]; then
+              if [ "$MODE" = "run" ]; then
                 ARGS+=(--confirm "$CONFIRM")
-              fi
-              if [ "$MODE" = "details-repair" ]; then
-                ARGS+=(--state "${MANIFEST_PATH}.repair-state.json" --sync-state)
               fi
             fi
             if [[ "$MODE" == details-* ]] && [ "${SOURCE_DETAILS_IMAGE_READY:-no}" != "yes" ]; then
