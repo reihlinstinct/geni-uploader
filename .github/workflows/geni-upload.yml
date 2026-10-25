@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      IMAGE: quay.io/reihlinstinct/geni-uploader@sha256:5a8f95971e72d4f5cb4d00106bdcee75de797beb1503e550dad7bfd9802208f5
+      IMAGE: quay.io/reihlinstinct/geni-uploader@sha256:63626f757f9ea45b858e45c9282e0300aba3b407e3cdee552eb5e301dff9fa48
       AGE_VERSION: v1.3.2
       AGE_SHA256: cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10
     steps:
