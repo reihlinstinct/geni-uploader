@@ -1317,3 +1317,104 @@ class ContrastDiagnosticTest(unittest.TestCase):
         self.assertIn("ids=1000000000000000001,1000000000000000002,"
                       "1000000000000000003", bulk_url)
         self.assertNotIn("%2C", bulk_url.upper())
+
+
+class GuidmapDiagnosticTest(unittest.TestCase):
+    """geni-uploader#11: bounded guid/id resolution diagnostic. Values
+    (ids, guids, names) must never reach the printed output."""
+
+    def tearDown(self):
+        import importlib
+        importlib.reload(g)
+
+    def _manifest(self, tmp, pids):
+        path = os.path.join(tmp, "m.yaml")
+        with open(path, "w") as f:
+            f.write("targets:\n")
+            f.writelines(f'  - profile_id: "{pid}"\n'
+                         f'    expect_name: "ZZSENTINEL PERSONA"\n'
+                         for pid in pids)
+        return path
+
+    def _run(self, responses, pids=("1000000000000000001",)):
+        import contextlib
+        import io
+        import tempfile
+        calls = []
+
+        def fake_execute(method, kind, url, token=None, data=None):
+            calls.append((method, kind, url))
+            return responses.pop(0)
+        g.execute = fake_execute
+        with tempfile.TemporaryDirectory() as tmp:
+            args = argparse.Namespace(
+                token_file=None, manifest=self._manifest(tmp, pids))
+            os.environ["GENI_ACCESS_TOKEN"] = "tok"
+            try:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    self.assertEqual(g.cmd_guidmap(args), 0)
+            finally:
+                os.environ.pop("GENI_ACCESS_TOKEN", None)
+        return buf.getvalue(), calls
+
+    def test_guid_match_resolves_and_confirms_no_values(self):
+        urlnum = "1000000000000000001"
+        served_guid = urlnum                      # target URL number IS a guid
+        served_id = "555000111"                   # different node id
+        out, calls = self._run([
+            {"results": [{"id": served_id, "guid": served_guid}],
+             "next_page": None},
+            {"id": served_id, "name": "ZZRESOLVEDNAME"},
+        ], pids=(urlnum,))
+        self.assertIn("matched via guid", out)
+        self.assertTrue(calls[1][2].endswith(f"/api/profile-{served_id}"))
+        self.assertIn('"bare_nonempty_id_name": true', out)
+        self.assertNotIn(served_guid, out.replace("target #1", ""))
+        self.assertNotIn("ZZRESOLVEDNAME", out)
+        self.assertIn("No writes performed.", out)
+
+    def test_id_match_also_supported(self):
+        urlnum = "1000000000000000002"
+        out, _calls = self._run([
+            {"results": [{"id": urlnum, "guid": "zz-other-guid"}]},
+            {"results": []},
+        ], pids=(urlnum,))
+        self.assertIn("matched via id;", out)
+
+    def test_unresolved_reported_unknown_not_eliminated(self):
+        out, calls = self._run([
+            {"results": [{"id": "1", "guid": "zz-no-match"}]},
+        ], pids=("1000000000000000003",))
+        self.assertIn("UNRESOLVED", out)
+        self.assertIn("not eliminated", out)
+        self.assertEqual(len(calls), 1)  # no follow-up GET for unmatched
+
+    def test_second_page_bounded_and_stops(self):
+        urlnum = "1000000000000000004"
+        out, calls = self._run([
+            {"results": [{"id": "1", "guid": "zz-a"}], "next_page": 2},
+            {"results": [{"id": "555000444", "guid": urlnum}],
+             "next_page": 3},
+            {"results": []},
+        ], pids=(urlnum,))
+        pages = [u for _, k, u in calls if k == "user_managed_profiles"]
+        self.assertEqual(len(pages), 2)  # bounded: page 3 never scanned
+        self.assertIn("matched via guid", out)
+
+    def test_bare_object_page_supported(self):
+        urlnum = "1000000000000000005"
+        out, _ = self._run([
+            {"id": "555000555", "guid": urlnum},  # bare single-object form
+            {"results": []},
+        ], pids=(urlnum,))
+        self.assertIn("matched via guid", out)
+
+    def test_requires_token(self):
+        import tempfile
+        os.environ.pop("GENI_ACCESS_TOKEN", None)
+        with tempfile.TemporaryDirectory() as tmp:
+            args = argparse.Namespace(
+                token_file=None, manifest=self._manifest(tmp, ("1",)))
+            with self.assertRaises(g.ApiError):
+                g.cmd_guidmap(args)

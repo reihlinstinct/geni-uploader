@@ -894,6 +894,80 @@ def cmd_auth_url(args):
     return 0
 
 
+def cmd_guidmap(args):
+    """geni-uploader#11: bounded guid/id resolution diagnostic (read-only).
+
+    Contrast (run 8) showed the singular profile GET serves an API-native id
+    but both singular and bulk forms miss the manifest targets' website-URL
+    numbers. Hypothesis under test: the URL numbers are guids, not node ids.
+
+    Bounded scan: up to 2 pages of user/managed-profiles?fields=id,guid
+    (per_page=50). Each target's URL number is compared IN MEMORY against
+    served id AND guid values; values are never logged. Every matched target
+    is confirmed with a follow-up singular GET of the resolved id (shape
+    only). Unmatched within budget is reported as UNKNOWN - a page-1/2 miss
+    does NOT eliminate the hypothesis (pagination / management filter).
+    """
+    m = load_manifest(args.manifest)
+    token = get_token(args)
+    if not token:
+        raise ApiError("guidmap: no token available "
+                       "(use --token-file or GENI_ACCESS_TOKEN)")
+    pids = [str(t["profile_id"]) for t in m["targets"]]
+    # pid -> (matched_field, resolved_id) with values held in memory only
+    resolved = {}
+    max_pages = 2
+    print(f"guidmap: read-only guid/id resolution over {len(pids)} manifest "
+          f"target(s), bounded to {max_pages} managed-profiles page(s) "
+          "(shapes only, values redacted)")
+    for page in range(1, max_pages + 1):
+        res = execute("GET", "user_managed_profiles",
+                      f"{API_BASE}/user/managed-profiles"
+                      f"?fields=id,guid&per_page=50&page={page}", token)
+        if not isinstance(res, dict):
+            print(f"page {page}: {json.dumps(_profile_payload_shape(res), sort_keys=True)}; stopping scan")
+            break
+        items = res.get("results")
+        if isinstance(items, list):
+            page_items = items
+        elif res.get("id"):
+            page_items = [res]  # bare single-object form
+        else:
+            page_items = []
+        new_matches = 0
+        for item in page_items:
+            if not isinstance(item, dict):
+                continue
+            iid = str(item.get("id") or "")
+            iguid = str(item.get("guid") or "")
+            for pid in pids:
+                if pid in resolved:
+                    continue
+                if iguid and pid == iguid:
+                    resolved[pid] = ("guid", iid)
+                    new_matches += 1
+                elif iid and pid == iid:
+                    resolved[pid] = ("id", iid)
+                    new_matches += 1
+        has_next = bool(res.get("next_page"))
+        print(f"page {page}: results_len {len(page_items)}, "
+              f"new_matches {new_matches}, next_page {has_next}")
+        if len(resolved) == len(pids) or not page_items or not has_next:
+            break
+    for i, pid in enumerate(pids, 1):
+        if pid not in resolved:
+            print(f"target #{i}: UNRESOLVED within {max_pages}-page budget "
+                  "(unknown - not eliminated)")
+            continue
+        field, rid = resolved[pid]
+        good = execute("GET", "profile", f"{API_BASE}/profile-{rid}", token)
+        print(f"target #{i}: matched via {field}; "
+              "singular GET of resolved id: "
+              + json.dumps(_profile_payload_shape(good), sort_keys=True))
+    print("No writes performed.")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--token-file", help="file outside the repo holding the access token")
@@ -905,7 +979,7 @@ def main():
     p.set_defaults(fn=cmd_auth_url)
     p = sub.add_parser("whoami"); p.set_defaults(fn=cmd_whoami)
     for name, fn in (("plan", cmd_plan), ("run", cmd_run),
-                     ("contrast", cmd_contrast)):
+                     ("contrast", cmd_contrast), ("guidmap", cmd_guidmap)):
         p = sub.add_parser(name); p.add_argument("--manifest", required=True)
         p.set_defaults(fn=fn)
     sub.choices["run"].add_argument("--confirm", default="")
