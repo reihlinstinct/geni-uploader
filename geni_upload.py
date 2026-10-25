@@ -293,12 +293,33 @@ def profile_name_surface(p):
     return " ".join(fields)
 
 
+
+def observed_name_fields(p):
+    """Compact {field: value} map of ONLY the name fields
+    profile_name_surface reads, for the mismatch diagnostic. The plan
+    output carrying it is encrypted to the private log repository by the
+    Action (and stays on the user's own terminal in local runs); the
+    public Actions log never sees it. Names only - never the whole
+    profile."""
+    out = {}
+    for k in ("display_name", "name", "first_name", "middle_name",
+              "last_name", "maiden_name"):
+        if isinstance(p.get(k), str):
+            out[k] = p[k]
+    if p.get("nicknames"):
+        out["nicknames"] = [str(n) for n in p["nicknames"]]
+    if p.get("names") and isinstance(p.get("names"), dict):
+        out["names"] = p["names"]
+    return json.dumps(out, ensure_ascii=False, sort_keys=True)
+
+
 def verify_profile(token, pid, expect_name):
     p = execute("GET", "profile", f"{API_BASE}/profile-{pid}", token)
     name = p.get("display_name") or ""
     if not name_matches(profile_name_surface(p), expect_name):
         raise ApiError(f"profile {pid}: no recorded name on the profile matches "
-                       "the expected name - target SKIPPED")
+                       "the expected name - target SKIPPED "
+                       f"(observed name fields: {observed_name_fields(p)})")
     return name
 
 
