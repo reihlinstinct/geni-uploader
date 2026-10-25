@@ -1185,7 +1185,8 @@ class WhoamiTests(unittest.TestCase):
         os.environ["GENI_ACCESS_TOKEN"] = "tok"
         try:
             args = argparse.Namespace(token_file=None)
-            import contextlib, io
+            import contextlib
+            import io
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
                 self.assertEqual(g.cmd_whoami(args), 0)
