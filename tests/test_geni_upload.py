@@ -290,11 +290,12 @@ class RunTests(unittest.TestCase):
 
         g.execute = flaky
         args = _run_args(manifest=self.manifest)
-        self.assertEqual(g.cmd_run(args), 0)
-        self.assertEqual(calls["add"], 1)  # mutation sent once, reconciled via listing
+        self.assertEqual(g.cmd_run(args), 3)
+        self.assertEqual(calls["add"], 1)  # unknown ID requires manual reconciliation
         with open(args.state, encoding="utf-8") as f:
             state = json.load(f)
-        self.assertEqual(len(state["uploaded"]), 1)
+        self.assertEqual(len(state["uploaded"]), 0)
+        self.assertTrue(next(iter(state["pending"].values()))["create_intent"])
 
     def test_uncertain_write_not_found_stops(self):
         os.environ["GENI_ACCESS_TOKEN"] = "tok"
@@ -544,11 +545,10 @@ class RepoSyncTests(unittest.TestCase):
         self.assertIn("Doc A", shown.stdout)
         self.assertIn("get-readback", shown.stdout)
 
-    def test_push_failure_does_not_fail_run_or_reupload(self):
-        # not a git repo at all: sync is skipped, run still succeeds
+    def test_push_failure_stops_before_any_post(self):
         args = _run_args(manifest=self.manifest, no_repo_sync=False)
-        self.assertEqual(g.cmd_run(args), 0)
-        self.assertEqual(len([p for p in self.posts if p[0] == "document_add"]), 1)
+        self.assertEqual(g.cmd_run(args), 1)
+        self.assertEqual(self.posts, [])
 
 
 class SyncFailureTests(unittest.TestCase):
@@ -609,8 +609,9 @@ class SyncFailureTests(unittest.TestCase):
         manifest = self._git_repo_with_failing_push()
         args = _run_args(manifest=manifest, no_repo_sync=False)
         rc = g.cmd_run(args)
-        self.assertEqual(rc, 5)
-        # item verified on Geni and marked locally despite the push failure
+        self.assertEqual(rc, 1)
+        self.assertEqual(self.posts, [])
+        # write intent kept locally but mutation was not sent
         status = g.load_status(manifest)
         self.assertIn("123:documents:Doc A", status["items"])
 
@@ -651,23 +652,15 @@ class SyncFailureTests(unittest.TestCase):
             check=True,
         )
         args = _run_args(manifest=manifest1, no_repo_sync=False)
-        self.assertEqual(g.cmd_run(args), 5)
+        self.assertEqual(g.cmd_run(args), 1)
         n_posts = len(self.posts)
         # run 2: fresh clone from the real remote + the persistent state file
         work2 = os.path.join(base, "work2")
         sp.run(["git", "clone", "-q", "-b", "main", remote, work2], check=True)
         manifest2 = os.path.join(work2, "manifest.yaml")
         args2 = _run_args(manifest=manifest2, state=args.state, no_repo_sync=False)
-        self.assertEqual(g.cmd_run(args2), 0)
-        self.assertEqual(len(self.posts), n_posts, "no re-upload during resync")
-        shown = sp.run(
-            ["git", "--git-dir", remote, "show", "main:upload-status.yaml"],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(shown.returncode, 0, shown.stderr)
-        self.assertIn("Doc A", shown.stdout)
+        self.assertEqual(g.cmd_run(args2), 3)
+        self.assertEqual(len(self.posts), n_posts, "unresolved intent never replayed")
 
 
 class UncertainBlockTests(unittest.TestCase):
@@ -726,7 +719,7 @@ class UncertainBlockTests(unittest.TestCase):
         self.fail_adds = False
         n = len(self.posts)
         args2 = _run_args(manifest=self.manifest, state=args.state)
-        self.assertEqual(g.cmd_run(args2), 0)
+        self.assertEqual(g.cmd_run(args2), 3)
         self.assertEqual(
             len(self.posts), n, "uncertain item must stay BLOCKED until manually resolved"
         )
@@ -740,8 +733,8 @@ class UncertainBlockTests(unittest.TestCase):
         g.save_status(self.manifest, st)
         self.fail_adds = False
         args2 = _run_args(manifest=self.manifest, state=args.state)
-        self.assertEqual(g.cmd_run(args2), 0)
-        self.assertIn("document_add", [p[0] for p in self.posts])
+        self.assertEqual(g.cmd_run(args2), 3)
+        self.assertEqual(len(self.posts), 1, "status-only change cannot erase journal intent")
 
 
 class ConcurrencyTests(unittest.TestCase):
@@ -1943,12 +1936,12 @@ class AlsoTagRunTest(unittest.TestCase):
         # The tag POST to 456 is acknowledged but never becomes visible:
         # item goes uncertain, run stops, and a rerun does NOT re-upload.
         g.execute = self._wrap_break_second_tag(g.execute)
-        self.assertEqual(self._run(), 3)
+        self.assertEqual(self._run(), 4)
         posts_before = len([p for p in self.posts if p[0] == "photo_add"])
         self.assertEqual(posts_before, 1)
         # rerun: the uncertain marker blocks the item entirely (skipped,
         # not re-uploaded; a fully-blocked run completes with exit 0)
-        self.assertEqual(self._run(), 0)
+        self.assertEqual(self._run(), 4)
         posts_after = len([p for p in self.posts if p[0] == "photo_add"])
         self.assertEqual(posts_after, 1, "no re-upload after uncertain also_tag")
 
@@ -2075,7 +2068,7 @@ class AlsoTagInterruptionTest(unittest.TestCase):
         # is BLOCKED - no re-upload, no silent extra-tag retry
         self.fail_mode = None
         posts_before = list(self.posts)
-        self.assertEqual(self._run(), 0)
+        self.assertEqual(self._run(), 3)
         self.assertEqual(self.posts, posts_before)
 
     def test_throttle_after_first_extra_records_partial_and_stops(self):
@@ -2092,6 +2085,6 @@ class AlsoTagInterruptionTest(unittest.TestCase):
         # rerun: blocked - the object is NOT re-uploaded and the pending tag
         # is NOT silently retried
         posts_before = list(self.posts)
-        self.assertEqual(self._run(), 0)
+        self.assertEqual(self._run(), 3)
         self.assertEqual(self.posts, posts_before)
         self.assertEqual(len([p for p in self.posts if p[0] == "photo_add"]), 1)

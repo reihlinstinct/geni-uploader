@@ -4,19 +4,16 @@
 Safety model:
 - Every network call passes through execute(), which hard-enforces ALLOWLIST
   on (method, kind) pairs, whatever GENI_API_BASE points at.
-- GETs retry on transient errors. Mutating POSTs are NEVER blindly retried:
-  a timeout/5xx/invalid-JSON after sending means the object may already exist
-  (duplicate risk). The run reconciles via the listing endpoint once; if the
-  object is not found there, it is marked 'uncertain' in upload-status.yaml
-  and future runs REFUSE to touch it until manually resolved.
-- Every acknowledged upload+tag is confirmed by a GET readback
-  (verify_linkage, ~31s budget) before being recorded done - in the local
-  state file AND in upload-status.yaml next to the manifest, which is
-  committed+pushed back to the repo (best effort; a failed push is reported
-  loudly with exit 5 and retried on the next run).
-- Skip decisions require server proof: when the profile listing is
-  available, only items present there are skipped; status/state entries that
-  the listing does not confirm are treated as NOT uploaded.
+- GETs retry on transient errors. POSTs are never blindly retried.
+- A write-ahead journal is fsynced and pushed BEFORE every mutation. The
+  acknowledged object ID and each tag result are checkpointed BEFORE readback.
+  Push failure stops. A create intent without an ID requires manual review.
+- Acknowledged tags resume through GET only; only not-yet-attempted tags are
+  sent. Each target identity is verified. Interrupted tags/identities and429
+  block further work until explicit reviewed reconciliation.
+- Readback allows twelve30-second intervals, paced by the same rate limiter.
+  A pending journal survives lag; an absent listing NEVER triggers recreation.
+- Legacy status entries keep their fail-closed/manual reconciliation semantics.
 - State file writes are atomic (temp + rename); a flock on the state dir
   refuses concurrent runs (exit 6).
 - Logs never contain tokens, headers, payloads, or personal names/titles
@@ -280,13 +277,14 @@ def get_token(args):
 def verify_linkage(token, pid, kind, expect_anchor, log):
     """GET readback after a mutation: poll the profile listing until the
     anchor appears (object exists AND is tagged to this profile)."""
-    budget = 5  # polls; sleeps 1+2+4+8+16 = 31s total
+    budget = 13  # immediate read + twelve 30s intervals; rate limiter still applies
     for i in range(budget):
         listing = list_tagged(token, pid, kind)
         if listing is not None and expect_anchor in listing:
             return True
         log.log(f"    readback {i + 1}/{budget}: not yet visible in {kind} listing")
-        _sleep(2 ** i)
+        if i < budget - 1:
+            _sleep(30)
     return False
 
 
@@ -420,6 +418,8 @@ def list_tagged(token, pid, kind):
             pages += 1
         if url:
             return None  # pagination incomplete: treat as unavailable
+    except ThrottledError:
+        raise  # never suppress rate limits as an unavailable photo listing
     except ApiError as e:
         if kind == "photos":
             return None  # listing unavailable: fall back to state file + warning
@@ -462,6 +462,8 @@ def save_state(path, state):
     fd, tmp = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(path)), suffix=".tmp")
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=1)
+        f.flush()
+        os.fsync(f.fileno())
     os.replace(tmp, path)
 
 
@@ -488,14 +490,13 @@ def save_status(manifest_path, status):
     fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), suffix=".tmp")
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         yaml.safe_dump(status, f, allow_unicode=True, sort_keys=False)
+        f.flush()
+        os.fsync(f.fileno())
     os.replace(tmp, path)
 
 
 def repo_sync(manifest_path, log):
-    """Best-effort commit+push of the status file so future runs anywhere
-    skip verified items. Failures NEVER affect the run and never cause a
-    re-upload: the Geni server listing and the local state file remain as
-    duplicate guards."""
+    """Commit/push the journal. New mutations require a successful push."""
     try:
         cwd = os.path.dirname(os.path.abspath(manifest_path))
         top = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=cwd,
@@ -508,18 +509,18 @@ def repo_sync(manifest_path, log):
         rel = os.path.relpath(status_path(manifest_path), top)
         subprocess.run(["git", "add", "--", rel], cwd=top, check=True,
                        capture_output=True, timeout=30)
-        subprocess.run(["git", "-c", "user.name=geni-upload (user-run)",
-                        "-c", "user.email=geni-upload@localhost",
-                        "commit", "-q", "-m",
-                        "geni-upload: mark verified upload "
-                        + time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())],
-                       cwd=top, check=True, capture_output=True, timeout=30)
+        changed = subprocess.run(["git", "diff", "--cached", "--quiet", "--", rel],
+                                 cwd=top, check=False, timeout=30)
+        if changed.returncode:
+            subprocess.run(["git", "-c", "user.name=geni-upload (user-run)",
+                            "-c", "user.email=geni-upload@localhost",
+                            "commit", "-q", "-m", "geni-upload: checkpoint source progress"],
+                           cwd=top, check=True, capture_output=True, timeout=30)
         push = subprocess.run(["git", "push"], cwd=top, capture_output=True,
                               text=True, timeout=120)
         if push.returncode != 0:
             log.log("  repo sync: PUSH FAILED (read-only token or remote moved); "
-                    "item stays protected by the Geni listing + local state, "
-                    "and the next run on this machine will retry the sync")
+                    "STOP; pending journal must be reconciled before further writes")
             return False
         log.log("  repo sync: status committed and pushed")
         return True
@@ -712,6 +713,109 @@ def cmd_plan(args):
     return 0
 
 
+def durable_upload(item, kind, base, add_kind, tag_kind, pid, node_id,
+                   token, key, state, state_path, status, manifest_path,
+                   log, sync_repo, targets_by_pid):
+    """Write-ahead journal: a create or tag with an intent is NEVER replayed.
+
+    Acknowledged operations resume through GET only. Only tags with no intent
+    may be sent; identity checks apply on every run. Pending records are pushed
+    before AND after each mutation. A failed push stops, never hides behind a
+    disposable container's local state.
+    """
+    data = upload_payload(item, kind)
+    extras = [str(x) for x in item.get("also_tag") or []]
+    binding = hashlib.sha256(json.dumps(
+        {"payload": data, "primary": pid, "extras": extras},
+        sort_keys=True).encode()).hexdigest()
+    rec = status["items"].get(key)
+    if rec and rec.get("journal_version") == 1:
+        if rec.get("binding") != binding or rec.get("primary_node") != node_id:
+            raise ApiError("pending source/target precondition changed; manual review required")
+        if rec.get("blocked"):
+            raise UncertainWrite("journal blocked after an interrupted mutation/identity check; "
+                                 "explicit reviewed reconciliation required")
+    else:
+        rec = {"journal_version": 1, "status": "pending", "binding": binding,
+               "primary_node": node_id, "object_id": None, "tags": {},
+               "also_tagged": [], "also_tag_pending": extras[:]}
+        status["items"][key] = rec
+
+    def checkpoint():
+        state.setdefault("pending", {})[key] = dict(rec)
+        save_state(state_path, state)
+        save_status(manifest_path, status)
+        if sync_repo and repo_sync(manifest_path, log) is not True:
+            raise ApiError("durable journal push failed; STOP before further mutations")
+
+    if not rec.get("object_id"):
+        if rec.get("create_intent"):
+            raise UncertainWrite("source create has an unresolved intent; manual reconciliation required")
+        rec["create_intent"] = True
+        checkpoint()
+        try:
+            res = execute("POST", add_kind, f"{API_BASE}/{base}/add", token, data)
+        except (ApiError, UncertainWrite):
+            rec["status"] = "uncertain"
+            checkpoint()
+            raise
+        oid = str(res.get("id") or "").removeprefix(base + "-")
+        if not oid.isdigit():
+            raise UncertainWrite("source add returned no valid object ID; intent preserved")
+        rec["object_id"] = oid
+        checkpoint()  # acknowledged object ID durable BEFORE primary tag/readback
+        log.log(f"  upload acknowledged: {label(item)} -> {base}-{oid}")
+    oid = rec["object_id"]
+    if not str(oid).isdigit():
+        raise ApiError("invalid journal object ID; manual review required")
+    try:
+        for target in [pid] + extras:
+            if target == pid:
+                served = node_id
+            else:
+                xt = targets_by_pid.get(target)
+                if xt is None:
+                    raise ApiError("extra target missing; manual review required")
+                served, _ = verify_profile(token, target, xt["expect_name"])
+            tag = rec["tags"].get(target)
+            if tag and tag.get("node") != served:
+                raise ApiError("journal target identity changed; manual review required")
+            if not tag:
+                tag = {"node": served, "phase": "intent"}
+                rec["tags"][target] = tag
+                checkpoint()  # never resend a tag if its response is lost
+                execute("POST", tag_kind,
+                        f"{API_BASE}/{base}-{oid}/tag/profile-{served}", token, {})
+                tag["phase"] = "acknowledged"
+                checkpoint()
+            if not verify_linkage(token, served, kind, anchor(item, kind), log):
+                raise VerificationError("source tag not visible; durable pending journal retained; "
+                                        "next run verifies only, never recreates or repeats this tag")
+            tag["phase"] = "verified"
+            rec["also_tagged"] = [x for x in extras
+                                  if rec["tags"].get(x, {}).get("phase") == "verified"]
+            rec["also_tag_pending"] = [x for x in extras if x not in rec["also_tagged"]]
+            checkpoint()
+    except VerificationError:
+        raise  # acknowledged lag is safe to resume through read-only checks
+    except (ApiError, UncertainWrite) as exc:
+        rec["status"] = "uncertain"
+        rec["blocked"] = True
+        rec["reason"] = "429" if isinstance(exc, ThrottledError) else "interrupted target/tag"
+        checkpoint()
+        if isinstance(exc, ThrottledError):
+            raise
+        raise UncertainWrite("target/tag interrupted; explicit reconciliation required") from exc
+    rec["status"] = "uploaded"
+    rec["verified_by"] = "get-readback"
+    checkpoint()
+    if key not in state["uploaded"]:
+        state["uploaded"].append(key)
+    state.setdefault("objects", {})[key] = {"id": oid, "verified": True}
+    state.get("pending", {}).pop(key, None)
+    save_state(state_path, state)
+
+
 def process_target(t, token, state, state_path, status, manifest_path,
                    log, smoke=False, sync_repo=True, sync_failed=None,
                    targets_by_pid=None):
@@ -747,6 +851,14 @@ def process_target(t, token, state, state_path, status, manifest_path,
         for item in t.get(kind) or []:
             key = f"{pid}:{kind}:{item['title']}"
             it = label(item)
+            pending = state.get("pending", {}).get(key)
+            if pending:
+                status["items"][key] = pending
+            if status["items"].get(key, {}).get("journal_version") == 1:
+                durable_upload(item, kind, base, add_kind, tag_kind, pid, node_id,
+                               token, key, state, state_path, status, manifest_path,
+                               log, sync_repo, targets_by_pid or {})
+                continue
             if status["items"].get(key, {}).get("status") == "not_found":
                 pass  # user checked Geni: object absent -> safe to retry
             elif status["items"].get(key, {}).get("status") == "uncertain" or \
@@ -783,148 +895,9 @@ def process_target(t, token, state, state_path, status, manifest_path,
                 log.log(f"  skip {it}: status/state only (server listing "
                         "unavailable)")
                 continue
-            data = upload_payload(item, kind)
-            try:
-                res = execute("POST", add_kind, f"{API_BASE}/{base}/add", token, data)
-            except UncertainWrite as e:
-                # Reconcile once via the listing; never re-send the mutation.
-                log.log(f"  UNCERTAIN write for {it}: {e}")
-                _sleep(5)
-                try:
-                    new_listing = list_tagged(token, node_id, kind)
-                except ThrottledError:
-                    raise  # stop-on-throttle wins over reconciliation
-                except ApiError:
-                    new_listing = None
-                if new_listing is not None and anchor(item, kind) in new_listing:
-                    log.log("  reconciled via GET readback: object exists and is "
-                            "tagged; recording as done")
-                    state["uploaded"].append(key)
-                    state.setdefault("objects", {})[key] = {"verified": True}
-                    save_state(state_path, state)
-                    continue
-                status["items"][key] = {
-                    "status": "uncertain",
-                    "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
-                save_status(manifest_path, status)
-                state.setdefault("uncertain", [])
-                if key not in state["uncertain"]:
-                    state["uncertain"].append(key)
-                save_state(state_path, state)
-                if sync_repo:
-                    repo_sync(manifest_path, log)
-                raise UncertainWrite(
-                    f"STOPPED after uncertain write of {it}. The object may "
-                    "exist on Geni, possibly UNTAGGED. It is marked 'uncertain' "
-                    "in upload-status.yaml and future runs will REFUSE to touch "
-                    "it until you check Geni manually and resolve the entry. "
-                    "The mutation was NOT retried.")
-            obj_id = res.get("id")
-            if not obj_id:
-                save_state(state_path, state)
-                raise ApiError(f"no id returned for {item['title']!r}; stopped")
-            log.log(f"  upload acknowledged: {it} -> {base}-{obj_id}")
-            execute("POST", tag_kind,
-                    f"{API_BASE}/{base}-{obj_id}/tag/profile-{node_id}",
-                    token, {})
-            log.log(f"  tag acknowledged: {base}-{obj_id} -> profile-{node_id}")
-            if not verify_linkage(token, node_id, kind, anchor(item, kind), log):
-                save_state(state_path, state)
-                raise VerificationError(
-                    f"POSTs for {it} ({base}-{obj_id}) were acknowledged but the "
-                    f"GET readback does not show it tagged to profile {node_id}. "
-                    "NOT recorded as done. Check Geni manually; re-run skips only "
-                    "verified items.")
-            state["uploaded"].append(key)
-            state.setdefault("objects", {})[key] = {"id": obj_id, "verified": True}
-            save_state(state_path, state)
-            status["items"][key] = {
-                "status": "uploaded", "object_id": obj_id,
-                "verified_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "verified_by": "get-readback"}
-            save_status(manifest_path, status)
-            log.log(f"  VERIFIED via GET readback: {it} ({base}-{obj_id}) "
-                    f"tagged to profile-{node_id}")
-            tagged_ok = []
-            extras = [str(x) for x in item.get("also_tag") or []]
-
-            def _mark_uncertain(reason, key=key, obj_id=obj_id,
-                                extras=extras, tagged_ok=tagged_ok):
-                status["items"][key] = {
-                    "status": "uncertain",
-                    "object_id": obj_id,
-                    "at": time.strftime("%Y-%m-%dT%H:%M:%SZ",
-                                        time.gmtime()),
-                    "also_tagged": tagged_ok[:],
-                    "also_tag_pending": extras[len(tagged_ok):],
-                    "reason": reason + " Resolve by setting the entry to "
-                            "'resolved' once Geni shows the tags - do NOT "
-                            "set 'not_found' (that uploads a NEW object)."}
-                save_status(manifest_path, status)
-                state.setdefault("uncertain", [])
-                if key not in state["uncertain"]:
-                    state["uncertain"].append(key)
-                save_state(state_path, state)
-                if sync_repo:
-                    repo_sync(manifest_path, log)
-
-            for extra_pid in extras:
-                # One object, several profiles: tag the SAME object to each
-                # extra manifest target, with the full identity guard per
-                # profile. ANY interruption after the verified primary
-                # upload - identity failure, tag/readback error, or 429 -
-                # records the partial also_tagged list, marks the item
-                # UNCERTAIN (never left 'uploaded', or a rerun would skip it
-                # and the missing tags would silently never happen), and
-                # stops the run. Nothing is retried automatically.
-                xt = (targets_by_pid or {}).get(extra_pid)
-                if xt is None:
-                    raise ApiError(f"also_tag id {extra_pid} is not a manifest target "
-                                   "(load_manifest rejects this; refusing)")
-
-                try:
-                    xnode, _xname = verify_profile(token, extra_pid,
-                                                   xt["expect_name"])
-                    via = (" (resolved via guid)" if xnode != extra_pid else "")
-                    log.log(f"  also_tag target {extra_pid}: profile name "
-                            f"verified{via}")
-                    execute("POST", tag_kind,
-                            f"{API_BASE}/{base}-{obj_id}/tag/profile-{xnode}",
-                            token, {})
-                    extra_ok = verify_linkage(token, xnode, kind,
-                                              anchor(item, kind), log)
-                    if not extra_ok:
-                        raise ApiError("tag acknowledged but the GET readback "
-                                       "does not confirm it")
-                except ThrottledError:
-                    # stop-on-throttle wins over everything: persist what is
-                    # known, make NO further Geni calls, and stop.
-                    _mark_uncertain(
-                        f"primary upload+tag VERIFIED, but also_tag to "
-                        f"{extra_pid} was interrupted by Geni rate limiting "
-                        f"(HTTP 429). Object {base}-{obj_id} exists; "
-                        f"{len(tagged_ok)} extra tag(s) verified, "
-                        f"{len(extras) - len(tagged_ok)} NOT confirmed.")
-                    raise
-                except (ApiError, UncertainWrite) as e:
-                    log.log(f"  also_tag to {extra_pid} failed: {e}")
-                    _mark_uncertain(
-                        f"primary upload+tag VERIFIED, but also_tag to "
-                        f"{extra_pid} failed or is NOT confirmed. Object "
-                        f"{base}-{obj_id} exists.")
-                    raise UncertainWrite(
-                        f"STOPPED: also_tag of {base}-{obj_id} to profile "
-                        f"{extra_pid} failed or could not be verified "
-                        f"({len(tagged_ok)} of {len(extras)} extra tags "
-                        "confirmed). The object exists and the primary tag is "
-                        "verified; the extra tag was NOT retried. Marked "
-                        "'uncertain' in upload-status.yaml - check Geni "
-                        "manually and resolve the entry.")
-                tagged_ok.append(extra_pid)
-                status["items"][key]["also_tagged"] = tagged_ok[:]
-                save_status(manifest_path, status)
-                log.log(f"  VERIFIED via GET readback: {base}-{obj_id} also "
-                        f"tagged to profile-{xnode}")
+            durable_upload(item, kind, base, add_kind, tag_kind, pid, node_id,
+                           token, key, state, state_path, status, manifest_path,
+                           log, sync_repo, targets_by_pid or {})
             if (sync_repo and repo_sync(manifest_path, log) is False
         and sync_failed is not None):
                 sync_failed.append(key)
