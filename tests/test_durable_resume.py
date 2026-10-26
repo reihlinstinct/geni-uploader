@@ -133,3 +133,53 @@ def test_remote_journal_survives_container_loss(tmp_path):
         new_run({'uploaded': []}, journal, sync=True)
     assert posts == ['document_add', 'document_tag', 'document_tag']
     assert 'uploaded' in git('--git-dir', str(remote), 'show', 'main:upload-status.yaml')
+
+
+def test_prefixed_journal_node_resumes_without_reposting_primary(tmp_path):
+    run, _, status, _ = harness(tmp_path)
+    with patch.object(g, 'execute', return_value={'id': '999'}), \
+            patch.object(g, 'verify_linkage', return_value=False), \
+            pytest.raises(g.VerificationError):
+        run()
+    rec = next(iter(status['items'].values()))
+    rec['primary_node'] = 'profile-123'
+    rec['tags']['123']['node'] = 'profile-123'
+    posts = []
+
+    def execute(method, kind, url, token, data):
+        posts.append((kind, url))
+        return {}
+
+    with patch.object(g, 'execute', execute), patch.object(g, 'verify_linkage', return_value=True), \
+            patch.object(g, 'verify_profile', return_value=('456', 'ZZ Extra')):
+        run({'uploaded': []}, status)
+    assert len(posts) == 1
+    assert posts[0][0] == 'document_tag'
+    assert posts[0][1].endswith('/document-999/tag/profile-456')
+    assert rec['tags']['123']['phase'] == 'verified'
+
+
+def test_guid_response_prefixed_node_is_normalized():
+    replies = [{'results': []}, {'id': 'profile-789', 'guid': '123',
+                                 'display_name': 'ZZ Synthetic'}]
+    with patch.object(g, 'execute', side_effect=replies):
+        assert g.verify_profile('ZZtoken', '123', 'ZZ Synthetic')[0] == '789'
+
+
+@pytest.mark.parametrize('bad', ['profile-profile-123', 'profile-g123', 'ZZ', None])
+def test_profile_node_rejects_noncanonical_forms(bad):
+    with pytest.raises(g.ApiError):
+        g.profile_node_number(bad)
+
+
+def test_upload_timeout_is_bounded_for_full_resume_batch():
+    from pathlib import Path
+
+    import yaml
+
+    workflow = yaml.load((Path(g.__file__).parent / '.github/workflows/geni-upload.yml')
+                         .read_text(), Loader=yaml.BaseLoader)
+    assert workflow['jobs']['upload']['timeout-minutes'] == '90'
+    guard = workflow['jobs']['upload']['if']
+    assert "github.actor == 'reihl'" in guard
+    assert "github.triggering_actor == 'reihl'" in guard

@@ -39,7 +39,7 @@ jobs:
     # No cron, push, pull_request or repository_dispatch trigger is permitted.
     if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.event_name == 'workflow_dispatch' && github.actor == 'reihl' && github.triggering_actor == 'reihl' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
     env:
       IMAGE: ghcr.io/reihlinstinct/geni-uploader@sha256:f9ec8988296da9634e2c1cb5feb5df8060b7c99edb804cd0c301741045873909
       SOURCE_DETAILS_IMAGE_READY: "yes"

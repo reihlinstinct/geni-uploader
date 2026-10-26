@@ -365,6 +365,14 @@ def observed_response_keys(p):
     return json.dumps(out, sort_keys=True)
 
 
+def profile_node_number(value):
+    """Canonical numeric portion of a served API profile node, never a GUID."""
+    node = str(value or "").removeprefix("profile-")
+    if not node.isdigit():
+        raise ApiError("invalid served profile node ID")
+    return node
+
+
 def verify_profile(token, pid, expect_name):
     """Verify a manifest target; return (node_id, display_name).
 
@@ -411,7 +419,7 @@ def verify_profile(token, pid, expect_name):
             and str(gobj.get("guid") or "") == pid
             and str(gobj.get("id") or "")
             and name_matches(profile_name_surface(gobj), expect_name)):
-        return str(gobj["id"]), gobj.get("display_name") or ""
+        return profile_node_number(gobj["id"]), gobj.get("display_name") or ""
     raise ApiError(f"profile {pid}: not served as a node id and not "
                    "resolvable as a guid (profile-g) with a matching "
                    "identity - target SKIPPED")
@@ -744,8 +752,12 @@ def durable_upload(item, kind, base, add_kind, tag_kind, pid, node_id,
         sort_keys=True).encode()).hexdigest()
     rec = status["items"].get(key)
     if rec and rec.get("journal_version") == 1:
-        if rec.get("binding") != binding or rec.get("primary_node") != node_id:
+        if (rec.get("binding") != binding
+                or profile_node_number(rec.get("primary_node")) != node_id):
             raise ApiError("pending source/target precondition changed; manual review required")
+        # Accept only exactly equivalent legacy node representation.
+        # Preserve every object ID and operation phase; never clear an intent.
+        rec["primary_node"] = node_id
         if rec.get("blocked"):
             raise UncertainWrite("journal blocked after an interrupted mutation/identity check; "
                                  "explicit reviewed reconciliation required")
@@ -792,8 +804,10 @@ def durable_upload(item, kind, base, add_kind, tag_kind, pid, node_id,
                     raise ApiError("extra target missing; manual review required")
                 served, _ = verify_profile(token, target, xt["expect_name"])
             tag = rec["tags"].get(target)
-            if tag and tag.get("node") != served:
+            if tag and profile_node_number(tag.get("node")) != served:
                 raise ApiError("journal target identity changed; manual review required")
+            if tag:
+                tag["node"] = served
             if not tag:
                 tag = {"node": served, "phase": "intent"}
                 rec["tags"][target] = tag
