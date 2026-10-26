@@ -8,3 +8,5 @@ image build and usage:
 [github.com/reihlinstinct/geni-uploader](https://github.com/reihlinstinct/geni-uploader)
 
 [Privacy Policy](privacy.md)
+
+[New-profile creation design](profile-creation-design.md)
