@@ -38,3 +38,10 @@ def test_probe_stops_on_throttle():
             patch.object(g, 'execute') as call, pytest.raises(g.ThrottledError):
         g.cmd_listing_shape(args)
     call.assert_not_called()
+
+
+def test_nested_tags_no_values_or_unknown_key_names():
+    response = {'id': '123', 'tags': [{'id': '456', 'ZZNAME': 'ZZPERSON'}, 'ZZURL', None]}
+    shape = g.listing_shape(response)
+    assert 'ZZ' not in json.dumps(shape)
+    assert shape['tags_samples'][0]['entry_types'] == {'NoneType': 1, 'dict': 1, 'str': 1}

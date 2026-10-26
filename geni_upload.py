@@ -428,6 +428,28 @@ def verify_profile(token, pid, expect_name):
                    "identity - target SKIPPED")
 
 
+def source_listing_rows(response, kind):
+    """Normalize documented collections and a strictly typed singleton."""
+    if isinstance(response, list):
+        rows = response
+    elif isinstance(response, dict) and "error" not in response:
+        if "results" in response:
+            rows = response["results"]
+        else:
+            base = "document" if kind == "documents" else "photo"
+            oid = str(response.get("id") or "").removeprefix(base + "-")
+            if (not oid.isascii() or not oid.isdigit()
+                    or not all(isinstance(response.get(k), str) for k in ("guid", "title", "url"))
+                    or not isinstance(response.get("tags"), list)):
+                raise ApiError("invalid singleton source listing")
+            rows = [response]
+    else:
+        raise ApiError("invalid profile source listing")
+    if not isinstance(rows, list) or any(not isinstance(x, dict) or "error" in x for x in rows):
+        raise ApiError("invalid profile source listing")
+    return rows
+
+
 def list_tagged(token, pid, kind):
     """Set of idempotency anchors already tagged to the profile.
     Legacy anchors plus (object-id, typed kind, numeric id) for durable proof."""
@@ -438,9 +460,7 @@ def list_tagged(token, pid, kind):
     try:
         while url and pages < 10:
             res = execute("GET", ek, url, token)
-            rows = res.get("results") if isinstance(res, dict) else res
-            if not isinstance(rows, list) or any(not isinstance(x, dict) for x in rows):
-                raise ApiError("invalid profile source listing")
+            rows = source_listing_rows(res, kind)
             items.extend(rows)
             links = [res.get(k) for k in ("next", "next_page") if res.get(k)] if isinstance(res, dict) else []
             if any(not isinstance(x, str) for x in links):
@@ -1286,6 +1306,17 @@ def listing_shape(response):
         out["entry_types"] = {name: sum(type(x).__name__ == name for x in rows)
                               for name in sorted({type(x).__name__ for x in rows})}
         out["entries_sample"] = [shape(x) for x in rows[:3]]
+    candidates = rows if isinstance(rows, list) else [response] if isinstance(response, dict) else []
+    out["tags_samples"] = []
+    for candidate in candidates[:3]:
+        if isinstance(candidate, dict) and "tags" in candidate:
+            tags = candidate["tags"]
+            item = {"container": shape(tags)}
+            if isinstance(tags, list):
+                item["entry_types"] = {name: sum(type(x).__name__ == name for x in tags)
+                                       for name in sorted({type(x).__name__ for x in tags})}
+                item["entries_sample"] = [shape(x) for x in tags[:3]]
+            out["tags_samples"].append(item)
     return out
 
 
