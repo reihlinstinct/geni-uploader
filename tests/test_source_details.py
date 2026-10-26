@@ -162,6 +162,6 @@ def test_checkpoint_commit_uses_local_identity():
 def test_released_metadata_image_is_pinned_with_explicit_readiness():
     from pathlib import Path
     text = (Path(s.__file__).parent / ".github/workflows/geni-upload.yml").read_text()
-    assert "sha256:8c0083e120b9117e6f6b868b5ee1aaa694e768150414e433ce079f5206142c4e" in text
+    assert "sha256:f57821b1393b038cd193251e7bb6994674cd1bb92903786eef0ccca6aaefec76" in text
     assert 'SOURCE_DETAILS_IMAGE_READY: "yes"' in text
     assert '${SOURCE_DETAILS_IMAGE_READY:-no}' in text
