@@ -781,9 +781,6 @@ def durable_upload(item, kind, base, add_kind, tag_kind, pid, node_id,
         # Accept only exactly equivalent legacy node representation.
         # Preserve every object ID and operation phase; never clear an intent.
         rec["primary_node"] = node_id
-        if rec.get("blocked"):
-            raise UncertainWrite("journal blocked after an interrupted mutation/identity check; "
-                                 "explicit reviewed reconciliation required")
     else:
         rec = {"journal_version": 1, "status": "pending", "binding": binding,
                "primary_node": node_id, "object_id": None, "tags": {},
@@ -796,6 +793,38 @@ def durable_upload(item, kind, base, add_kind, tag_kind, pid, node_id,
         save_status(manifest_path, status)
         if sync_repo and repo_sync(manifest_path, log) is not True:
             raise ApiError("durable journal push failed; STOP before further mutations")
+
+    if rec.get("blocked"):
+        tags = rec.get("tags")
+        oid = str(rec.get("object_id") or "")
+        if (rec.get("reconcile_readback") is not True
+                or rec.get("reason") != "interrupted target/tag"
+                or rec.get("create_intent") is not True
+                or not oid.isascii() or not oid.isdigit()
+                or not isinstance(tags, dict) or pid not in tags
+                or any(target not in [pid] + extras or not isinstance(tag, dict)
+                       or tag.get("phase") not in ("acknowledged", "verified")
+                       for target, tag in tags.items())):
+            raise UncertainWrite("journal blocked; reviewed acknowledged-tag reconciliation required")
+        # Proof phase is read-only. Do not edit phases or unblock incrementally.
+        for target, tag in tags.items():
+            if target == pid:
+                served = node_id
+            else:
+                xt = targets_by_pid.get(target)
+                if xt is None:
+                    raise UncertainWrite("reconciliation target absent; block retained")
+                served, _ = verify_profile(token, target, xt["expect_name"])
+            if profile_node_number(tag.get("node")) != served:
+                raise UncertainWrite("reconciliation target changed; block retained")
+            if not verify_linkage(token, served, kind, ("object-id", base, oid), log):
+                raise VerificationError("reconciliation tag not proven; block retained")
+        rec.pop("blocked")
+        rec.pop("reason")
+        rec.pop("reconcile_readback")
+        rec["status"] = "pending"
+        checkpoint()  # failure stops BEFORE further service mutations
+        log.log("  acknowledged-tag reconciliation proven by GET; journal checkpointed")
 
     if not rec.get("object_id"):
         if rec.get("create_intent"):
@@ -853,6 +882,7 @@ def durable_upload(item, kind, base, add_kind, tag_kind, pid, node_id,
         rec["status"] = "uncertain"
         rec["blocked"] = True
         rec["reason"] = "429" if isinstance(exc, ThrottledError) else "interrupted target/tag"
+        log.log(f"  target/tag stop category: {type(exc).__name__}")
         checkpoint()
         if isinstance(exc, ThrottledError):
             raise
