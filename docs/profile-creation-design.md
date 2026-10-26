@@ -45,13 +45,14 @@ Geni has two id spaces: the node id (`profile-<N>`) and the guid shown in profil
 
 - The status file stores the id exactly as the API returned it in the POST response, plus the form (`node` or `guid`) it was verified in. A number copied from a URL is never stored or used until its form is verified with the existing identity check (try as given, fall back with the strict name guard, never conflate the spaces). Watch the `profile-` prefix: an id with the prefix and one without must compare equal only after normalisation to the same form.
 - Anchors given as a Geni ref in the manifest carry `expect_name`. Plan mode verifies the anchor exists and matches before the rest of the plan is shown, which catches a typo or the wrong profile.
+- `profile-g<guid>` works for a single-profile GET, but bulk reads by `ids=` can return empty results for it. Reconcile and verification therefore use single-profile GETs for guid-form ids, and an empty bulk result is never read as "not found".
 - Responses that look empty or wrapped (for example `{"results": []}`) are handled fail closed, as in guid-resolution.md: an empty wrapper is an error, not "no relatives".
 
 ## Reconciliation after an uncertain write
 
 An uncertain POST (timeout, dropped connection, unparseable response) is never retried. The run stops and the person is marked `uncertain` in the status file, written before the stop.
 
-- Reconcile happens during the next plan, before any new POST. It GETs the anchor's relatives, then compares candidates with a strict predicate: same relation to the anchor, same first and last name after case and whitespace normalisation, and, when the manifest has a birth year, the same birth year. Middle names, suffixes and nicknames do not block a match. Matching is exact; there is no fuzzy year window, because a false match would silently skip a person.
+- Reconcile happens during the next plan, before any new POST. It GETs the anchor's relatives, then compares candidates with a strict predicate: same relation to the anchor, same first and last name after case and whitespace normalisation, and, when the manifest has a birth year, the same birth year. Middle names, suffixes and nicknames do not block a match. Matching is exact; there is no fuzzy year window, because a false match would silently skip a person. Near-matches (same relation and name, different or missing year, or a spelling variant) are never treated as a match and never auto-skipped: the plan lists them as local ids for the operator's manual review.
 - Open question to settle offline before implementation: whether the relatives endpoint returns full profiles or only ids. If only ids, each candidate needs one more GET, and the plan prints the call count. All reconcile GETs go through the shared rate limiter and stop on 429.
 - Exactly one match: record `{local_id, geni_id, reconciled: true}` and skip the POST. More than one match: stop, the operator decides. No match: the person stays `uncertain` and the plan fails with exit 1 until the operator edits the status file in the private repo to `not_created` (or to the Geni id they found by hand). The tool has no force flag that re-POSTs.
 - Reconcile results appear in the private log only. Public output uses local ids and counts.
@@ -101,7 +102,7 @@ Merging, deleting, editing existing profiles, fact citations, photos for new pro
 
 ## Test plan
 
-Unit: manifest validation (required fields, `is_alive`, consent gate, schema_version), cycle detection and topological order (the worked example above), the duplicate predicate, node-id vs guid handling, payload building, locale names. Functional, against a fake Geni server: end to end; kill between POST and status write, then reconcile finds a match; reconcile finds none (plan fails, no re-POST); POST ok but GET mismatch (exit 4); 429 on any call stops at once; living person without the flag fails validation; cap and confirm-count (exit 2); reconcile GETs paced and counted. Regression test per bug. Coverage floor 80% overall, and 90% for manifest validation, reconcile and identity checks.
+Unit: manifest validation (required fields, `is_alive`, consent gate, schema_version), cycle detection and topological order (the worked example above), the duplicate predicate, node-id vs guid handling, payload building, locale names. Functional, against a fake Geni server: end to end; kill between POST and status write, then reconcile finds a match; reconcile finds none (plan fails, no re-POST); POST ok but GET mismatch (exit 4); 429 on any call stops at once; living person without the flag fails validation; cap and confirm-count (exit 2); reconcile GETs paced and counted. Regression test per bug. Coverage floor stays at the existing 80%.
 
 ## Delivery
 
