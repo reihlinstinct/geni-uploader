@@ -6,7 +6,7 @@ name: Publish uploader image (manual)
 # no repository names. This workflow proves that before pushing:
 #   1. the baked /opt/geni_upload.py is byte-identical to the repo file;
 #   2. the full layer history is printed for audit.
-# It runs only on manual dispatch by the repository owner.
+# It runs only on manual dispatch by the designated human operator.
 
 on:
   workflow_dispatch:
@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   build:
-    if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.actor == github.repository_owner }}
+    if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.event_name == 'workflow_dispatch' && github.actor == 'reihl' && github.triggering_actor == 'reihl' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
