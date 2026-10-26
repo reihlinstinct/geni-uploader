@@ -19,8 +19,20 @@ Safety model:
 - Logs never contain tokens, headers, payloads, or personal names/titles
   (items are logged as short hashes).
 """
-import argparse, base64, fcntl, hashlib, http.client, json, os, subprocess, sys, tempfile, time, urllib.error
-import urllib.parse, urllib.request
+import argparse
+import base64
+import fcntl
+import hashlib
+import http.client
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 
 # GENI_API_BASE overrides the API root for end-to-end tests against a local
 # fake server ONLY: it requires GENI_UPLOAD_E2E=1 and a loopback URL, so an
@@ -82,7 +94,9 @@ class RunLog:
     API response payloads. Default file sits next to the state file so it
     survives on the same durable mount; share it when reporting a problem."""
     def __init__(self, path=None):
-        self.f = open(path, "a", encoding="utf-8") if path else None
+        # Held open for the whole run and closed in close(): a context
+        # manager cannot span the run loop.
+        self.f = open(path, "a", encoding="utf-8") if path else None  # noqa: SIM115
 
     def log(self, msg):
         line = f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())} {msg}"
@@ -342,7 +356,7 @@ def observed_response_keys(p):
     carrying any personal data even into the encrypted log."""
     if not isinstance(p, dict):
         return json.dumps({"_type": type(p).__name__})
-    out = {"keys": sorted(str(k) for k in p.keys())}
+    out = {"keys": sorted(str(k) for k in p)}
     r = p.get("results")
     if r is not None:
         out["results_type"] = type(r).__name__
@@ -420,7 +434,7 @@ def list_tagged(token, pid, kind):
             return None  # pagination incomplete: treat as unavailable
     except ThrottledError:
         raise  # never suppress rate limits as an unavailable photo listing
-    except ApiError as e:
+    except ApiError:
         if kind == "photos":
             return None  # listing unavailable: fall back to state file + warning
         raise
@@ -500,7 +514,7 @@ def repo_sync(manifest_path, log):
     try:
         cwd = os.path.dirname(os.path.abspath(manifest_path))
         top = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=cwd,
-                             capture_output=True, text=True, timeout=30)
+                             capture_output=True, text=True, timeout=30, check=False)
         if top.returncode != 0:
             log.log("  repo sync: not inside a git repo; status kept in the "
                     "local file only")
@@ -517,7 +531,7 @@ def repo_sync(manifest_path, log):
                             "commit", "-q", "-m", "geni-upload: checkpoint source progress"],
                            cwd=top, check=True, capture_output=True, timeout=30)
         push = subprocess.run(["git", "push"], cwd=top, capture_output=True,
-                              text=True, timeout=120)
+                              text=True, timeout=120, check=False)
         if push.returncode != 0:
             log.log("  repo sync: PUSH FAILED (read-only token or remote moved); "
                     "STOP; pending journal must be reconciled before further writes")
@@ -924,7 +938,9 @@ def cmd_run(args):
         return 1
     lock_path = os.path.join(os.path.dirname(os.path.abspath(args.state)),
                              ".geni-upload.lock")
-    lock_fd = open(lock_path, "w")
+    # The flock must be held until the process exits; a with-block would
+    # release it after acquisition.
+    lock_fd = open(lock_path, "w")  # noqa: SIM115
     try:
         fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
@@ -936,7 +952,6 @@ def cmd_run(args):
     log = RunLog(log_path)
     log.log(f"run start: manifest={args.manifest} state={args.state} "
             f"log={log_path} smoke={bool(args.smoke)}")
-    rc = 0
     try:
         m = load_manifest(args.manifest)
         state = load_state(args.state)

@@ -7,9 +7,3 @@ dependencies = ["PyYAML==6.0.3"]
 
 [tool.ruff]
 line-length = 100
-
-[tool.ruff.lint.per-file-ignores]
-# Loader is byte-synced with the reviewed private-repo copy; lint cleanup is
-# tracked separately (issue #17) so a cosmetic change never rides a reviewed
-# security sync.
-"geni_upload.py" = ["SIM115", "SIM118", "PLW1510", "F841", "EXE001", "I001"]
