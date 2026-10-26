@@ -213,7 +213,7 @@ class RunTests(unittest.TestCase):
                 k = ("123", "documents" if kind == "profile_documents" else "photos")
                 return {
                     "results": [
-                        {"title": t[0], "source_url": t[1] if len(t) > 1 else None}
+                        {"id": "999", "title": t[0], "source_url": t[1] if len(t) > 1 else None}
                         for t in self.listings[k]
                     ]
                 }
@@ -377,7 +377,7 @@ class VerificationAndLogTests(unittest.TestCase):
                 k = ("123", "documents" if kind == "profile_documents" else "photos")
                 return {
                     "results": [
-                        {"title": t[0], "source_url": t[1] if len(t) > 1 else None}
+                        {"id": "999", "title": t[0], "source_url": t[1] if len(t) > 1 else None}
                         for t in self.listings[k]
                     ]
                 }
@@ -438,7 +438,7 @@ class RepoSyncTests(unittest.TestCase):
                 k = ("123", "documents" if kind == "profile_documents" else "photos")
                 return {
                     "results": [
-                        {"title": t[0], "source_url": t[1] if len(t) > 1 else None}
+                        {"id": "999", "title": t[0], "source_url": t[1] if len(t) > 1 else None}
                         for t in self.listings[k]
                     ]
                 }
@@ -581,7 +581,7 @@ class SyncFailureTests(unittest.TestCase):
                 k = ("123", "documents" if kind == "profile_documents" else "photos")
                 return {
                     "results": [
-                        {"title": t[0], "source_url": t[1] if len(t) > 1 else None}
+                        {"id": "999", "title": t[0], "source_url": t[1] if len(t) > 1 else None}
                         for t in self.listings[k]
                     ]
                 }
@@ -694,7 +694,7 @@ class UncertainBlockTests(unittest.TestCase):
                 k = ("123", "documents" if kind == "profile_documents" else "photos")
                 return {
                     "results": [
-                        {"title": t[0], "source_url": t[1] if len(t) > 1 else None}
+                        {"id": "999", "title": t[0], "source_url": t[1] if len(t) > 1 else None}
                         for t in self.listings[k]
                     ]
                 }
@@ -1901,7 +1901,7 @@ class AlsoTagRunTest(unittest.TestCase):
                 for pid in names:
                     if f"profile-{pid}" in url:
                         return {"results": [
-                            {"title": t[0],
+                            {"id": "999", "title": t[0],
                              "source_url": t[1] if len(t) > 1 else None}
                             for t in listings[(pid, kd)]]}
                 raise g.ApiError(f"unknown listing url {url}")
@@ -2028,7 +2028,7 @@ class AlsoTagInterruptionTest(unittest.TestCase):
                 for pid in names:
                     if f"profile-{pid}" in url:
                         return {"results": [
-                            {"title": t[0],
+                            {"id": "999", "title": t[0],
                              "source_url": t[1] if len(t) > 1 else None}
                             for t in listings[(pid, kd)]]}
                 raise g.ApiError(f"unknown listing url {url}")

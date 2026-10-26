@@ -294,6 +294,9 @@ def verify_linkage(token, pid, kind, expect_anchor, log):
     budget = 13  # immediate read + twelve 30s intervals; rate limiter still applies
     for i in range(budget):
         listing = list_tagged(token, pid, kind)
+        if expect_anchor and expect_anchor[0] == "object-id":
+            ids = sum(1 for x in listing or [] if x and x[0] == "object-id")
+            log.log(f"    readback shape: available={listing is not None} object_ids={ids}")
         if listing is not None and expect_anchor in listing:
             return True
         log.log(f"    readback {i + 1}/{budget}: not yet visible in {kind} listing")
@@ -427,7 +430,7 @@ def verify_profile(token, pid, expect_name):
 
 def list_tagged(token, pid, kind):
     """Set of idempotency anchors already tagged to the profile.
-    documents: (title, source_url); photos: (title,)."""
+    Legacy anchors plus (object-id, typed kind, numeric id) for durable proof."""
     ek = "profile_documents" if kind == "documents" else "profile_photos"
     url = f"{API_BASE}/profile-{pid}/{kind}"
     items = []
@@ -435,8 +438,24 @@ def list_tagged(token, pid, kind):
     try:
         while url and pages < 10:
             res = execute("GET", ek, url, token)
-            items.extend(res.get("results", res if isinstance(res, list) else []))
-            url = res.get("next") if isinstance(res, dict) else None
+            rows = res.get("results") if isinstance(res, dict) else res
+            if not isinstance(rows, list) or any(not isinstance(x, dict) for x in rows):
+                raise ApiError("invalid profile source listing")
+            items.extend(rows)
+            links = [res.get(k) for k in ("next", "next_page") if res.get(k)] if isinstance(res, dict) else []
+            if any(not isinstance(x, str) for x in links):
+                raise ApiError("invalid listing pagination")
+            if len(set(links)) > 1:
+                raise ApiError("conflicting listing pagination")
+            url = links[0] if links else None
+            if url:
+                if not isinstance(url, str):
+                    raise ApiError("invalid listing pagination")
+                url = urllib.parse.urljoin(f"{API_BASE}/profile-{pid}/{kind}", url)
+                parsed = urllib.parse.urlsplit(url)
+                allowed = urllib.parse.urlsplit(f"{API_BASE}/profile-{pid}/{kind}")
+                if (parsed.scheme, parsed.netloc, parsed.path) != (allowed.scheme, allowed.netloc, allowed.path) or parsed.fragment:
+                    raise ApiError("listing pagination changed endpoint")
             pages += 1
         if url:
             return None  # pagination incomplete: treat as unavailable
@@ -451,6 +470,10 @@ def list_tagged(token, pid, kind):
         if isinstance(d, dict):
             out.add((d.get("title"), d.get("source_url")) if kind == "documents"
                     else (d.get("title"),))
+            base = "document" if kind == "documents" else "photo"
+            value = str(d.get("id") or "").removeprefix(base + "-")
+            if value.isascii() and value.isdigit():
+                out.add(("object-id", base, value))
     return out
 
 
@@ -816,7 +839,7 @@ def durable_upload(item, kind, base, add_kind, tag_kind, pid, node_id,
                         f"{API_BASE}/{base}-{oid}/tag/profile-{served}", token, {})
                 tag["phase"] = "acknowledged"
                 checkpoint()
-            if not verify_linkage(token, served, kind, anchor(item, kind), log):
+            if not verify_linkage(token, served, kind, ("object-id", base, str(oid)), log):
                 raise VerificationError("source tag not visible; durable pending journal retained; "
                                         "next run verifies only, never recreates or repeats this tag")
             tag["phase"] = "verified"
