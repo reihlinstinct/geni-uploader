@@ -11,6 +11,7 @@ Invalid modes, misplaced top-level options and missing required flags must be
 rejected by the parser (exit 2) before any command function runs. No
 credentials, no network, no workflow dispatch.
 """
+import argparse
 import os
 import shutil
 import subprocess
@@ -109,19 +110,28 @@ def parse_geni(argv):
 
 
 def parse_details(argv):
-    """Run source_details.main's real parser; stop at the first post-parse step."""
+    """Run source_details.main's real parser; stop at the first post-parse step.
+
+    Returns the real parsed Namespace, captured at the parse_args boundary, so
+    every flag the workflow passes (token, confirm, state, sync) is asserted."""
     seen = {}
+    real_parse = argparse.ArgumentParser.parse_args
+
+    def capture(self, *a, **k):
+        ns = real_parse(self, *a, **k)
+        seen["args"] = ns
+        return ns
 
     def load(path):
-        seen["manifest"] = path
         raise Ran
 
     with patch.object(sys, "argv", ["source_details.py", *argv]), \
+            patch.object(argparse.ArgumentParser, "parse_args", capture), \
             patch.object(s, "load_records", load), \
             patch.object(s.api, "get_token", side_effect=AssertionError("network")), \
             pytest.raises(Ran):
         s.main()
-    return seen["manifest"]
+    return seen["args"]
 
 
 def test_matrix_covers_every_workflow_mode():
@@ -136,7 +146,20 @@ def test_mode_reaches_the_right_parser_command(mode, tmp_path):
     assert routed_script == script
     if script.endswith("source_details.py"):
         assert routed_args[0] == command
-        assert parse_details(routed_args) == "ZZ-manifest.yaml"
+        ns = parse_details(routed_args)
+        assert ns.mode == command
+        assert ns.manifest == "ZZ-manifest.yaml"
+        assert ns.token_file == "/run/geni-token"
+        assert ns.output is None
+        if mode == "details-repair":
+            assert ns.confirm == "YES"
+            assert ns.state == "ZZ-manifest.yaml.repair-state.json"
+            assert ns.sync_state is True
+        else:
+            assert ns.confirm == ""
+            assert ns.state is None
+            assert ns.sync_state is False
+        assert (ns.confirm == "YES") == wants_confirm
         return
     cmd, ns = parse_geni(routed_args)
     assert cmd == command
