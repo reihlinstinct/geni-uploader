@@ -19,7 +19,7 @@ on:
         default: "plan"
         required: true
         type: choice
-        options: [plan, run, details-plan, details-repair, selftest, whoami, contrast, guidmap, pguid]
+        options: [plan, run, details-plan, details-repair, selftest, whoami, contrast, guidmap, pguid, listing-shape]
       confirm:
         description: "type YES to allow uploads in run mode"
         default: ""

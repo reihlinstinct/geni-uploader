@@ -1266,6 +1266,54 @@ def cmd_pguid(args):
     print("No writes performed.")
     return 0
 
+def listing_shape(response):
+    """Bounded value-free structural summary; unknown key names may be PII."""
+    known = {"results", "next", "next_page", "prev_page", "page", "total_count",
+             "id", "guid", "title", "source_url", "url", "tags", "error"}
+    def shape(value):
+        out = {"type": type(value).__name__}
+        if isinstance(value, (list, dict)):
+            out["count"] = len(value)
+        if isinstance(value, dict):
+            out["keys"] = sorted(k for k in value if k in known)
+            out["unknown_keys"] = sum(k not in known for k in value)
+            out["field_types"] = {k: type(value[k]).__name__ for k in out["keys"]}
+        return out
+    out = {"response": shape(response)}
+    rows = response.get("results") if isinstance(response, dict) else response
+    out["results"] = shape(rows)
+    if isinstance(rows, list):
+        out["entry_types"] = {name: sum(type(x).__name__ == name for x in rows)
+                              for name in sorted({type(x).__name__ for x in rows})}
+        out["entries_sample"] = [shape(x) for x in rows[:3]]
+    return out
+
+
+def cmd_listing_shape(args):
+    token = get_token(args)
+    if not token:
+        raise ApiError("listing-shape requires a token")
+    manifest = load_manifest(args.manifest)
+    for index, target in enumerate(manifest["targets"]):
+        kinds = [kind for kind in ("documents", "photos") if target.get(kind)]
+        if not kinds:
+            continue
+        try:
+            node, _ = verify_profile(token, str(target["profile_id"]), target["expect_name"])
+            for kind in kinds:
+                endpoint = "profile_documents" if kind == "documents" else "profile_photos"
+                response = execute("GET", endpoint, f"{API_BASE}/profile-{node}/{kind}", token)
+                print(json.dumps({"target_index": index, "kind": kind,
+                                  "shape": listing_shape(response)}, sort_keys=True))
+        except ThrottledError:
+            raise
+        except ApiError:
+            print(json.dumps({"target_index": index, "error": "identity-or-listing-failed"}))
+            return 1
+    print("listing-shape complete: first pages only; no writes, no pagination")
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--token-file", help="file outside the repo holding the access token")
@@ -1278,7 +1326,7 @@ def main():
     p = sub.add_parser("whoami"); p.set_defaults(fn=cmd_whoami)
     for name, fn in (("plan", cmd_plan), ("run", cmd_run),
                      ("contrast", cmd_contrast), ("guidmap", cmd_guidmap),
-                     ("pguid", cmd_pguid)):
+                     ("pguid", cmd_pguid), ("listing-shape", cmd_listing_shape)):
         p = sub.add_parser(name); p.add_argument("--manifest", required=True)
         p.set_defaults(fn=fn)
     sub.choices["run"].add_argument("--confirm", default="")

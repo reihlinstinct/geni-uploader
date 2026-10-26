@@ -1809,7 +1809,7 @@ class WorkflowModeAlignmentTest(unittest.TestCase):
         with open(os.path.join(root, "geni_upload.py"), encoding="utf-8") as f:
             src = f.read()
         registered = (set(re.findall(r'add_parser\("([a-z-]+)"\)', src))
-                      | set(re.findall(r'\("([a-z]+)", cmd_', src)))
+                      | set(re.findall(r'\("([a-z-]+)", cmd_', src)))
         workflow_only = {"selftest", "details-plan", "details-repair"}  # entrypoint routes
         cli_only = {"auth-url"}       # local helper, never dispatched
         self.assertEqual(options - workflow_only, registered - cli_only)
