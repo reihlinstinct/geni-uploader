@@ -310,7 +310,20 @@ class RunTests(unittest.TestCase):
         self.assertEqual(g.cmd_run(args), 3)  # uncertain-write stop, no retry
 
 
+def _state_path_under_a_file():
+    """A state path whose parent 'directory' is a regular file. Creating a
+    temp file there fails with ENOTDIR for every user, root included, unlike
+    chmod 0o555, which root ignores (CI containers often run as root)."""
+    fd, blocker = tempfile.mkstemp()
+    os.close(fd)
+    return os.path.join(blocker, "s.json")
+
+
+IS_ROOT = hasattr(os, "geteuid") and os.geteuid() == 0
+
+
 class StatePreflightTests(unittest.TestCase):
+    @unittest.skipIf(IS_ROOT, "root ignores directory write permissions")
     def test_preflight_rejects_unwritable_dir(self):
         d = tempfile.mkdtemp()
         os.chmod(d, 0o555)
@@ -320,6 +333,10 @@ class StatePreflightTests(unittest.TestCase):
         finally:
             os.chmod(d, 0o755)
 
+    def test_preflight_rejects_unusable_state_dir_for_any_user(self):
+        with self.assertRaises(g.ApiError):
+            g.preflight_state_writable(_state_path_under_a_file())
+
     def test_preflight_accepts_writable_dir(self):
         d = tempfile.mkdtemp()
         g.preflight_state_writable(os.path.join(d, "s.json"))
@@ -328,10 +345,8 @@ class StatePreflightTests(unittest.TestCase):
         calls = []
         orig = g.execute
         g.execute = lambda *a, **k: calls.append(a)
-        d = tempfile.mkdtemp()
-        os.chmod(d, 0o555)
         try:
-            args = _run_args(manifest=_manifest_file(MANIFEST), state=os.path.join(d, "s.json"))
+            args = _run_args(manifest=_manifest_file(MANIFEST), state=_state_path_under_a_file())
             old = os.environ.get("GENI_ACCESS_TOKEN")
             os.environ["GENI_ACCESS_TOKEN"] = "t"
             try:
@@ -345,7 +360,6 @@ class StatePreflightTests(unittest.TestCase):
             self.assertEqual(calls, [], "no network call may happen before state preflight passes")
         finally:
             g.execute = orig
-            os.chmod(d, 0o755)
 
 
 class VerificationAndLogTests(unittest.TestCase):
