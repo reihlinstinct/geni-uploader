@@ -167,3 +167,33 @@ def test_description_hash_alone_is_not_an_identity_anchor(tmp_path):
     manifest.write_text(json.dumps({'schema_version': 1, 'items': [item]}))
     with pytest.raises(s.api.ApiError, match='expected title or source URL'):
         s.load_records(manifest)
+
+
+def test_checkpoint_fsyncs_file_then_replaces_then_fsyncs_directory_before_post(tmp_path):
+    fake = Fake()
+    events = []
+    real_fsync, real_replace = s.os.fsync, s.os.replace
+    def fsync(fd):
+        import stat
+        events.append('dir-fsync' if stat.S_ISDIR(s.os.fstat(fd).st_mode) else 'file-fsync')
+        return real_fsync(fd)
+    def replace(src, dest):
+        events.append('replace')
+        return real_replace(src, dest)
+    def execute(method, *args, **kwargs):
+        if method == 'POST':
+            assert events[-3:] == ['file-fsync', 'replace', 'dir-fsync']
+            events.append('post')
+        return fake(method, *args, **kwargs)
+    with patch.object(s.os, 'fsync', fsync), patch.object(s.os, 'replace', replace), \
+            patch.object(s.api, 'execute', execute):
+        s.apply_plan(plan(fake), 'ZZtoken', tmp_path / 'state')
+    assert events.count('post') == 1
+
+
+def test_fsync_failure_prevents_post(tmp_path):
+    fake = Fake()
+    with patch.object(s.os, 'fsync', side_effect=OSError('ZZ fsync failed')), \
+            patch.object(s.api, 'execute', fake), pytest.raises(OSError):
+        s.apply_plan(plan(fake), 'ZZtoken', tmp_path / 'state')
+    assert not fake.posts

@@ -249,7 +249,14 @@ def apply_description_plan(plan, token, state_path, sync_state=False):
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as out:
                 json.dump(journal, out, ensure_ascii=False, sort_keys=True)
+                out.flush()
+                os.fsync(out.fileno())
             os.replace(name, state)
+            directory_fd = os.open(state.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
             if sync_state:
                 _sync_description_state(state)
         finally:
