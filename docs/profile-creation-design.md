@@ -33,7 +33,7 @@ flowchart TD
 
 Planning builds a graph with one node per local id and one edge from each person to the anchor it depends on. Geni profile refs are roots with no dependencies. Planning makes no network calls.
 
-- Algorithm: Kahn's algorithm (in-degree counting). Ties are broken by manifest declaration order, so the plan is deterministic and reviewable. Each connected component is sorted on its own; components run in declaration order.
+- Algorithm: Kahn's algorithm (in-degree counting; equivalent to a DFS that aborts on a back-edge, chosen because leftover nodes give the cycle members directly). Ties are broken by manifest declaration order, so the plan is deterministic and reviewable. Each connected component is sorted on its own; components run in declaration order.
 - Cycle detection: if nodes remain after the queue empties, they are on or behind a cycle. The plan fails with exit 1 and lists the local ids involved (local ids only, no names). Nothing is written. A self-anchor and an anchor that names an unknown local id fail the same way.
 - Cycles can arise by manifest error even though each edge is valid alone (X is child of Y, Y is child of X). The doc does not rely on Geni's API to prevent them.
 - A person whose anchor is a Geni ref must have that ref confirmed by the anchor identity check (below) before anything else in the plan is shown.
