@@ -10,7 +10,7 @@ import source_details as s
 
 ITEM = {"key": "ZZsource", "kind": "document", "object_id": "101",
         "expect": {"source_url": "https://example.invalid/ZZsource"},
-        "set": {"description": "ZZ approved description", "date": "1933-01-04"},
+        "set": {"description_en": "ZZ approved description", "date": "1933-01-04"},
         "targets": [{"profile_id": "201", "expect_name": "ZZPerson ZZTest"}],
         "manual_facts": ["ZZ name citation"]}
 
@@ -64,7 +64,7 @@ def test_existing_object_repair_keeps_tags_and_is_idempotent(tmp_path):
         n = len([c for c in fake.calls if c[0] == "POST"])
         s.apply_plan(s.checked_plan(items, "ZZtoken"), "ZZtoken", tmp_path / "state")
         assert len([c for c in fake.calls if c[0] == "POST"]) == n
-    assert fake.obj["description"] == ITEM["set"]["description"]
+    assert fake.obj["description"] == ITEM["set"]["description_en"]
     assert set(fake.obj["tags"]) == {"profile-999", "profile-201"}
     assert n == 2
 

@@ -19,7 +19,7 @@ MANIFEST = {
                 {
                     "title": "Doc A",
                     "source_url": "https://x/1",
-                    "description": "d",
+                    "description_en": "ZZ synthetic source description", "description": "d",
                     "labels": "source",
                 }
             ],
@@ -85,7 +85,7 @@ class ManifestTests(unittest.TestCase):
                     "photos": [
                         {
                             "title": "Scan",
-                            "description": "d",
+                            "description_en": "ZZ synthetic source description", "description": "d",
                             "file": "scripts/geni_upload/packages/x/scan.jpg",
                         }
                     ],
@@ -1056,12 +1056,12 @@ class PlanThrottleAbortTests(unittest.TestCase):
                 {
                     "profile_id": "123",
                     "expect_name": "Tamar Vardi",
-                    "documents": [{"title": "A", "source_url": "https://x/1"}],
+                    "documents": [{"title": "A", "description_en": "ZZ synthetic source description", "source_url": "https://x/1"}],
                 },
                 {
                     "profile_id": "456",
                     "expect_name": "Second Person",
-                    "documents": [{"title": "B", "source_url": "https://x/2"}],
+                    "documents": [{"title": "B", "description_en": "ZZ synthetic source description", "source_url": "https://x/2"}],
                 },
             ]
         }
@@ -1817,7 +1817,7 @@ class WorkflowModeAlignmentTest(unittest.TestCase):
 
 class AlsoTagValidationTest(unittest.TestCase):
     def _item(self, **kw):
-        it = {"title": "Doc A", "source_url": "https://x/1"}
+        it = {"description_en": "ZZ synthetic source description", "title": "Doc A", "source_url": "https://x/1"}
         it.update(kw)
         return {"targets": [
             {"profile_id": "123", "expect_name": "Tamar Vardi",
@@ -1860,7 +1860,7 @@ class AlsoTagRunTest(unittest.TestCase):
         "targets": [
             {"profile_id": "123", "expect_name": "Tamar Vardi",
              "documents": [], "photos": [
-                 {"title": "Scan", "description": "d",
+                 {"title": "Scan", "description_en": "ZZ synthetic source description", "description": "d",
                   "file": "scan.jpg", "also_tag": ["456"]}]},
             {"profile_id": "456", "expect_name": "Gadi Vardi",
              "documents": [], "photos": []},
@@ -1978,7 +1978,7 @@ class AlsoTagInterruptionTest(unittest.TestCase):
         "targets": [
             {"profile_id": "123", "expect_name": "Tamar Vardi",
              "documents": [], "photos": [
-                 {"title": "Scan", "description": "d",
+                 {"title": "Scan", "description_en": "ZZ synthetic source description", "description": "d",
                   "file": "scan.jpg", "also_tag": ["456", "789"]}]},
             {"profile_id": "456", "expect_name": "Gadi Vardi",
              "documents": [], "photos": []},

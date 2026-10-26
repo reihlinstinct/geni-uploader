@@ -9,7 +9,7 @@ import geni_upload as g
 
 def harness(tmp_path):
     manifest = str(tmp_path / 'manifest.yaml')
-    item = {'title': 'ZZ source', 'source_url': 'https://example.invalid/source',
+    item = {'description_en': 'ZZ synthetic source description', 'title': 'ZZ source', 'source_url': 'https://example.invalid/source',
             'also_tag': ['456']}
     state = {'uploaded': []}
     status = {'items': {}}

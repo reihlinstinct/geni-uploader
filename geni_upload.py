@@ -26,6 +26,7 @@ import hashlib
 import http.client
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -110,6 +111,27 @@ class RunLog:
             self.f.close()
 
 
+def render_description(item):
+    """Require an author-declared English section; do not guess its language.
+
+    Mechanical checks reject missing prose, URL-only and non-Latin-only text.
+    They are not language detection: the author/reviewer owns the translation.
+    Legacy description text is an optional supplementary section, never a
+    substitute for description_en. Only the rendered description is sent.
+    """
+    english = item.get("description_en")
+    if not isinstance(english, str) or not english.strip():
+        raise ApiError("description_en is required for every source")
+    english = english.strip()
+    prose = re.sub(r"https?://\S+", "", english)
+    if len(re.findall(r"\b[A-Za-z]{2,}\b", prose)) < 3:
+        raise ApiError("description_en must contain English prose, not only a URL or name")
+    extra = item.get("description")
+    if extra is not None and (not isinstance(extra, str) or not extra.strip()):
+        raise ApiError("supplementary description must be nonempty text")
+    return english + ("\n\n" + extra.strip() if extra else "")
+
+
 def load_manifest(path):
     import yaml  # PyYAML, already a repo dependency
     try:
@@ -157,6 +179,7 @@ def load_manifest(path):
                         raise ApiError(f"target #{i} {kind}[{j}]: file not found: "
                                        f"{item['file']}")
                     item["file"] = real
+                render_description(item)  # fail before any network request
                 extra = item.get("also_tag")
                 if extra is not None:
                     if not isinstance(extra, list) or not extra or \
@@ -502,8 +525,8 @@ def anchor(item, kind):
 
 
 def upload_payload(item, kind):
-    data = {"title": item["title"]}
-    for k in ("description", "source_url", "labels", "date", "text"):
+    data = {"title": item["title"], "description": render_description(item)}
+    for k in ("source_url", "labels", "date", "text"):
         if item.get(k):
             data[k] = str(item[k])
     if item.get("file"):

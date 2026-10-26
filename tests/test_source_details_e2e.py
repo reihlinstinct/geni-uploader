@@ -44,7 +44,7 @@ def test_cli_repair_real_transport_loopback(tmp_path):
     manifest.write_text(json.dumps({"schema_version": 1, "items": [{
         "key": "ZZsource", "kind": "document", "object_id": "101",
         "expect": {"source_url": "https://example.invalid/ZZsource"},
-        "set": {"description": "ZZ new", "date": "1933-01-04"},
+        "set": {"description_en": "ZZ new source description", "date": "1933-01-04"},
         "targets": [{"profile_id": "201", "expect_name": "ZZPerson ZZTest"}],
         "manual_facts": []}]}))
     token = tmp_path / "token"
@@ -60,7 +60,7 @@ def test_cli_repair_real_transport_loopback(tmp_path):
         assert result.returncode == 0, result.stdout + result.stderr
         assert "manual" in result.stdout
         assert "ZZ new" not in result.stdout
-        assert obj["description"] == "ZZ new"
+        assert obj["description"] == "ZZ new source description"
         assert obj["tags"] == ["profile-201"]
         assert calls == ["/document-101/update", "/document-101/tag/profile-201"]
     finally:

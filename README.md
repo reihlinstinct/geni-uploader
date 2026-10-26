@@ -129,6 +129,20 @@ your-private-repo/
 └── README.md
 ```
 
+### English descriptions are mandatory
+
+Every document and photo requires `description_en`: a human-reviewed English
+account of the source, its provenance, relevant facts and limits. Include the
+source URL when available. Hebrew and the source's original language may be
+added in the optional `description` field. The API receives English first,
+followed by that supplementary text. `description_en` itself is never an API
+field. Missing English fails local validation before any network access.
+Mechanical checks reject empty, URL-only and non-Latin-only text; they cannot
+prove a text is English or a translation is accurate. Author review remains
+required. Old manifests must be migrated deliberately. Do not change the
+binding of an uploaded item and rerun it as if it were a new source; use the
+separately approved existing-source repair flow instead.
+
 ### Manifest schema
 
 One YAML file, for example `packages/my-batch/upload-manifest.yaml`:
@@ -140,10 +154,12 @@ targets:
     documents:
       - title: "Short descriptive title"
         source_url: "https://example.org/source-page"  # or use file:
-        description: "What this source is, dated and attributed"
+        description_en: "Describe this source in English, with date, attribution and limits."
+        description: "Optional Hebrew or original-language text."
         labels: "source"
     photos:
       - title: "Another scan"
+        description_en: "Family-provided scan; describe its evidence and limits in English."
         file: "scan-page-12.jpg"          # relative to THIS manifest file
         also_tag: ["9876543210987654321"]  # optional: tag the SAME object
                                             # to these profiles too

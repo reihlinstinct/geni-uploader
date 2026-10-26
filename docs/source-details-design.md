@@ -87,3 +87,24 @@ command accepts a confirmed API node ID only and compares the returned object
 ID. It does not invent a document-g/photo-g mapping. A data item whose API ID
 has not been confirmed remains blocked, even if its webpage link is known.
 The first release must not silently recreate such an object.
+
+## English-first description contract and description-only repair
+
+New document/photo uploads require an explicit `description_en` field. It is
+rendered first into the API `description`; optional `description` text follows.
+Mechanical prose checks are not language detection or translation review.
+
+For an existing object, set `description_only: true` and include only
+`description_en` plus optional supplementary `description` in `set`.
+`expect` must contain the SHA256 of the exact old UTF-8 description in
+`description_sha256`, together with an exact title and/or source URL. Only the
+old text or the exact proposed text passes. The API receives only `description`.
+No tags are added by this mode, even if target tags are absent. Targets are
+identity/deceased checks only. Do not mix this mode with tag-changing repairs.
+
+The private per-item journal binds the entire resolved plan. A pending update
+is reconciled by GET only on a later user-triggered run. Missing readback,
+changed preserved metadata, malformed tags, changed binding or failed state
+sync stops the run. Pending updates are never replayed and no replacement
+object is created. Titles, dates, source URLs and the exact returned tag list
+are compared before/after. Fact citations remain separate and manual.

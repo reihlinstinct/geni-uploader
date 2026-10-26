@@ -101,6 +101,7 @@ jobs:
               expect_name: "ZZSENTINEL PERSONA"
               documents:
                 - title: "ZZSENTINEL DOC"
+                  description_en: "ZZSENTINEL synthetic source description"
                   file: "asset.jpg"
           SELFTESTEOF
               DOCKER_ARGS+=(--network host
