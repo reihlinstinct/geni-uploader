@@ -34,13 +34,14 @@ flowchart TD
 - A create is not repeatable. The status file maps local id to returned Geni id and is written durably right after each POST (extends DURABLE_RESUME). An uncertain outcome (timeout, no response) is never retried blindly: the run stops and the next plan GETs the anchor's relatives to reconcile.
 - Plan mode is the default. Run requires `--confirm-count N` matching the plan, and a per-run cap (default 10).
 - Hard gates kept from today: identity check of the anchor, stop on 429, no unknown request keys.
-- Living people: is_alive true and public false by default. A living person is created only if the manifest carries an explicit consent flag recorded in the private repo. Living data never goes to public logs. Logs stay anonymised; the detailed log stays encrypted.
+- Living people: is_alive true and public false by default. The tree owner may request profiles for living relatives; each such person carries a `requested_by_owner: true` flag recorded in the private repo (the owner's request, not a per-person blocker). A living person without the flag is skipped and reported. Living data never goes to public logs. Logs stay anonymised; the detailed log stays encrypted.
+- Scope: the tree owner's own tree only. Per-run cap (default 10) and plan/dry-run mode stay in force.
 - Only the operator, with their own account and token, triggers runs. Agents develop and test offline against a fake server and never dispatch or call Geni.
 - Terms: the Geni general terms restrict AI access and the API agreement restricts data use. Availability of an endpoint does not resolve that; the operator runs it himself, as with source uploads.
 
 ## Out of scope
 
-Merging, deleting, editing existing profiles, fact citations, photos for new profiles (separate stage).
+Merging, deleting, editing existing profiles, fact citations, photos for new profiles (separate stage). Explicit non-goal: no photo editing or upload for living people's profiles; the tool only creates them.
 
 ## Test plan
 
