@@ -41,6 +41,7 @@ def load_records(path):
             raise api.ApiError("duplicate existing source object")
         seen.add(anchor)
         if (not isinstance(item["expect"], dict) or not item["expect"]
+                or not (set(item["expect"]) & {"title", "source_url"})
                 or set(item["expect"]) - {"title", "source_url", "description_sha256"}
                 or any(not isinstance(v, str) or not v for v in item["expect"].values())):
             raise api.ApiError("expected title or source URL required")

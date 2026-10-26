@@ -158,3 +158,12 @@ def test_loader_renders_english_only_into_api_field(tmp_path):
     with patch.object(s.api, 'execute', fake):
         result = s.checked_plan(s.load_records(manifest), 'ZZtoken')
     assert result[0][0]['set'] == {'description': 'ZZ reviewed English source description.\n\nתיאור מקור בעברית'}
+
+
+def test_description_hash_alone_is_not_an_identity_anchor(tmp_path):
+    item = copy.deepcopy(ITEM)
+    del item['expect']['title']
+    manifest = tmp_path / 'manifest.json'
+    manifest.write_text(json.dumps({'schema_version': 1, 'items': [item]}))
+    with pytest.raises(s.api.ApiError, match='expected title or source URL'):
+        s.load_records(manifest)
