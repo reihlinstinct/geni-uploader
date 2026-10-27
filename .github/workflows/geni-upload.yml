@@ -132,6 +132,7 @@ jobs:
             fi
             docker run "${DOCKER_ARGS[@]}" "$IMAGE" "${ARGS[@]}"
           ) >> "$RAW" 2>&1 || EXIT=$?
+          printf '%s\n' "$EXIT" > "$RUNNER_TEMP/container-exit-status"
           echo "container exit code: $EXIT"
           echo "raw output bytes captured: $(wc -c < "$RAW")"
           if [ "$MODE" = "selftest" ] && [ "$EXIT" -eq 0 ]; then
@@ -182,3 +183,18 @@ jobs:
             exit 1
           fi
           echo "ciphertext committed: yes"
+
+      - name: Enforce clean container result after preserving protected output
+        if: always()
+        run: |
+          set -eu
+          STATUS_FILE="$RUNNER_TEMP/container-exit-status"
+          if [ ! -f "$STATUS_FILE" ]; then
+            echo "source container result unavailable; not a clean plan or run"
+            exit 1
+          fi
+          STATUS="$(cat "$STATUS_FILE")"
+          case "$STATUS" in
+            0) echo "source container finished cleanly" ;;
+            *) echo "source container did not finish cleanly; inspect protected output"; exit 1 ;;
+          esac
