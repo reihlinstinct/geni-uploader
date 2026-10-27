@@ -22,7 +22,8 @@ def test_normalization_hints_never_override_expectations(observed, flag):
 
 
 @pytest.mark.parametrize('obj', [{}, {'source_url': None}, {'source_url': 12},
-    {'source_url': {'ZZPrivateKey': 'ZZPrivateValue'}}, {'source_url': 'http://[ZZPrivate'}])
+    {'source_url': {'ZZPrivateKey': 'ZZPrivateValue'}}, {'source_url': 'http://[ZZPrivate'},
+    {'source_url': 'http://[ZZPrivateNetloc]/ZZPrivatePath'}])
 def test_missing_malformed_and_wrong_types_are_fixed_booleans(obj, capsys):
     item = copy.deepcopy(ITEM)
     output = s.source_url_diagnostics(obj, item)
