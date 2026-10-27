@@ -174,6 +174,7 @@ def test_response_parser_objects_have_no_unreviewed_reads_or_aliases():
 
 def test_parser_allowlist_kills_alternate_reads_after_url_clear():
     import re
+
     import pytest
     page = (ROOT / 'docs/oauth-callback.html').read_text()
     script = re.search(r'<script>(.*?)</script>', page, re.DOTALL).group(1)
