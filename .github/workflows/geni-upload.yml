@@ -141,6 +141,7 @@ jobs:
           echo "container step done"
 
       - name: Encrypt the captured log and commit the ciphertext to the private repo
+        if: always()
         env:
           FAMILY_TREE_PAT: ${{ secrets.FAMILY_TREE_PAT }}
           PRIVATE_REPO_URL: ${{ secrets.PRIVATE_REPO_URL }}
@@ -151,6 +152,11 @@ jobs:
           umask 077
           RAW="$RUNNER_TEMP/raw.log"
           CT="$RUNNER_TEMP/upload-log.age"
+          # Preserve partial output; only create an empty log when none exists.
+          if [ ! -f "$RAW" ]; then
+            umask 077
+            : > "$RAW"
+          fi
           EXIT=0
           (
             # Fail closed: every fallible command exits the subshell
