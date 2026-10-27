@@ -129,6 +129,7 @@ def source_url_diagnostics(obj, item):
               "url_nonempty": isinstance(observed, str) and bool(observed),
               "url_trim_equal": False, "url_host_equal": False,
               "url_path_equal": False, "url_query_equal": False,
+              "url_fragment_equal": False, "url_raw_scheme_equal": False,
               "url_scheme_only": False, "url_trailing_slash_only": False}
     if not isinstance(observed, str) or not isinstance(expected, str):
         return result
@@ -138,6 +139,11 @@ def source_url_diagnostics(obj, item):
         result["url_host_equal"] = actual.netloc == wanted.netloc
         result["url_path_equal"] = actual.path == wanted.path
         result["url_query_equal"] = actual.query == wanted.query
+        result["url_fragment_equal"] = actual.fragment == wanted.fragment
+        # urlsplit lowercases the parsed scheme; compare original bytes too.
+        actual_raw = observed[:observed.find(":")] if actual.scheme else ""
+        wanted_raw = expected[:expected.find(":")] if wanted.scheme else ""
+        result["url_raw_scheme_equal"] = actual_raw == wanted_raw
         result["url_scheme_only"] = (actual.scheme != wanted.scheme and
                                     actual._replace(scheme=wanted.scheme) == wanted)
         result["url_trailing_slash_only"] = (
@@ -169,7 +175,8 @@ DIAGNOSTIC_CHECKS = frozenset({"title", "source_url", "description_present",
                               "description_hash", "description_desired",
                               "url_present", "url_is_string", "url_nonempty",
                               "url_trim_equal", "url_host_equal", "url_path_equal",
-                              "url_query_equal", "url_scheme_only", "url_trailing_slash_only"})
+                              "url_query_equal", "url_fragment_equal", "url_raw_scheme_equal",
+                              "url_scheme_only", "url_trailing_slash_only"})
 
 
 def diagnostic(stage, result="start", item=0, target=0):
