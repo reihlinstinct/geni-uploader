@@ -182,3 +182,11 @@ jobs:
             exit 1
           fi
           echo "ciphertext committed: yes"
+
+      - name: Remove temporary plaintext after protected output preservation
+        if: always()
+        run: |
+          # Best effort only: runner loss or cancellation may prevent cleanup.
+          rm -f -- "$RUNNER_TEMP/raw.log" "$RUNNER_TEMP/gh-token" \
+            "$RUNNER_TEMP/geni-token" "$RUNNER_TEMP/git-cred"
+          rm -rf -- "$GITHUB_WORKSPACE/logrepo" "$RUNNER_TEMP/plan-report"
