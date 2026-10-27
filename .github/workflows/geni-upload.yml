@@ -30,10 +30,6 @@ on:
 permissions:
   contents: none   # the built-in GITHUB_TOKEN is unused; all git goes through the scoped PAT
 
-concurrency:
-  group: geni-upload
-  cancel-in-progress: false
-
 jobs:
   command-policy:
     # Issue events always load code and policy from the event's default-branch SHA.
@@ -53,6 +49,9 @@ jobs:
       - id: policy
         run: python .github/geni_command_gate.py
   upload:
+    concurrency:
+      group: geni-upload
+      cancel-in-progress: false
     # Agents never post commands or invoke this source workflow.
     # Comment commands are read-only; writes retain manual dispatch + confirmation.
     needs: command-policy

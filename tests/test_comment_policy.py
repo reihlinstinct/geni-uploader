@@ -108,3 +108,30 @@ def test_issue_number_requires_integer_and_timestamp_nonempty():
     event = copy.deepcopy(EVENT)
     event['comment']['created_at'] = event['comment']['updated_at'] = ''
     assert mode(event) is None
+
+
+@pytest.mark.parametrize('app', [{'slug': 'ZZagent'}, {}, 'ZZunexpected', False, 0])
+def test_app_mediated_commands_are_rejected(app):
+    event = copy.deepcopy(EVENT)
+    event['comment']['performed_via_github_app'] = app
+    assert mode(event) is None
+
+
+def test_explicit_no_app_owner_comment_is_accepted():
+    event = copy.deepcopy(EVENT)
+    event['comment']['performed_via_github_app'] = None
+    assert mode(event) == 'plan'
+
+
+def test_unrelated_comments_never_enter_source_concurrency():
+    data = yaml.load((ROOT / '.github/workflows/geni-upload.yml').read_text(), Loader=yaml.BaseLoader)
+    assert 'concurrency' not in data
+    assert 'concurrency' not in data['jobs']['command-policy']
+    upload = data['jobs']['upload']
+    assert upload['concurrency'] == {'group': 'geni-upload', 'cancel-in-progress': 'false'}
+    assert "needs.command-policy.outputs.allowed == 'true'" in upload['if']
+    event = copy.deepcopy(EVENT)
+    event['comment']['body'] = 'ZZunrelated owner comment'
+    assert mode(event) is None
+    event['issue']['number'] = 121
+    assert mode(event) is None

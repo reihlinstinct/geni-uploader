@@ -7,3 +7,10 @@ The dedicated control issue is selected in `.github/geni-command-policy.json`. O
 Commands use the currently selected private Actions secrets. They do not choose or disclose a private repository, ref, expected SHA or manifest path. Those selections must be reviewed and pinned before a human posts a command. A mismatched expected SHA stops the container. A plan's protected-log commit changes the private branch head; re-pin to its current exact head before the next fresh run. A rejected command performs no source work.
 
 All upload or metadata-repair writes remain manual workflow dispatch with explicit confirmation after review. A plan is not authorization to write.
+
+
+The gate rejects non-null performed_via_github_app attribution. This blocks
+app-mediated command comments, but cannot distinguish an agent using the owner's
+raw PAT from the owner. The agent prohibition still applies to that route.
+Source concurrency is scoped to the upload job so rejected/unrelated comments
+cannot replace pending source work in its concurrency group.
