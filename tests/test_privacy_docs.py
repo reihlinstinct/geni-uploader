@@ -143,3 +143,47 @@ for (const [search, hash, expected] of cases) {
 }
 '''.replace('SCRIPT', json.dumps(script))
     subprocess.run([node, '-e', harness], check=True, capture_output=True, text=True)
+
+
+def assert_response_parser_allowlist(script):
+    import re
+    # The parser objects must never escape to another variable, iterator or sink.
+    # Pin every occurrence, not only get(): getAll/toString/spread also read values.
+    expected = {
+        'query': ['const query = new URLSearchParams(location.search);',
+                  "code: query.has('code'),", "queryToken: query.has('access_token'),",
+                  "queryError: query.has('error') || query.has('status'),",
+                  "else if (diagnostics.queryToken) detail = 'A token field was present in the query, not the fragment. This page does not read query token values. Stop and check the authorization flow.';"],
+        'fields': ['const fields = new URLSearchParams(location.hash.slice(1));',
+                   "const token = fields.get('access_token') || '';",
+                   "fragmentError: fields.has('error') || fields.has('status'),",
+                   "let detail = 'No recognized response fields were found. If this page was refreshed or reopened, its earlier response was already cleared. Do not share the address.';"],
+    }
+    for name, lines in expected.items():
+        actual = [line.strip() for line in script.splitlines()
+                  if re.search(r'\b' + name + r'\b', line)]
+        assert actual == lines
+
+
+def test_response_parser_objects_have_no_unreviewed_reads_or_aliases():
+    import re
+    page = (ROOT / 'docs/oauth-callback.html').read_text()
+    script = re.search(r'<script>(.*?)</script>', page, re.DOTALL).group(1)
+    assert_response_parser_allowlist(script)
+
+
+def test_parser_allowlist_kills_alternate_reads_after_url_clear():
+    import re
+    import pytest
+    page = (ROOT / 'docs/oauth-callback.html').read_text()
+    script = re.search(r'<script>(.*?)</script>', page, re.DOTALL).group(1)
+    for mutation in ["document.title = query.getAll('code');",
+                     'document.title = query.toString();',
+                     'document.title = [...query];',
+                     "document.title = fields.getAll('error');",
+                     'document.title = fields.toString();',
+                     'const alias = fields;']:
+        changed = script.replace("history.replaceState(null, '', location.pathname);",
+                                 "history.replaceState(null, '', location.pathname);\n" + mutation)
+        with pytest.raises(AssertionError):
+            assert_response_parser_allowlist(changed)
