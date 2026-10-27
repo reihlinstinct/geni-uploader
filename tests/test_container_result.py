@@ -26,8 +26,7 @@ def test_result_enforcement_is_fixed_output_and_fails_closed(tmp_path, value, co
     assert 'ZZPrivate' not in result.stdout + result.stderr
 
 
-def test_order_preserves_ciphertext_before_failure_and_status_is_not_public_data():
-    items = steps()
+def assert_order(items):
     capture = next(i for i, step in enumerate(items) if 'output fully captured' in step['name'])
     encrypt = next(i for i, step in enumerate(items) if 'Encrypt the captured log' in step['name'])
     final = next(i for i, s in enumerate(items) if s['name'].startswith('Enforce clean'))
@@ -37,6 +36,11 @@ def test_order_preserves_ciphertext_before_failure_and_status_is_not_public_data
     assert 'ciphertext committed: yes' in items[encrypt]['run']
     assert 'exit 1' in items[encrypt]['run']
     assert 'cat "$RAW"' not in items[final]['run']
+    return final
+
+
+def test_order_preserves_ciphertext_before_failure_and_status_is_not_public_data():
+    assert_order(steps())
 
 
 @pytest.mark.parametrize('value,code', [('1\n', 0), ('47\n', 0), ('255\n', 0),
@@ -55,8 +59,36 @@ def test_selftest_preserves_expected_failure_without_claiming_clean_run(tmp_path
     assert 'source container finished cleanly' not in result.stdout
 
 
-def test_enforcement_selector_tolerates_later_cleanup_step(monkeypatch):
-    original = steps()
-    monkeypatch.setattr(__import__(__name__, fromlist=['steps']), 'steps',
-        lambda: original + [{'name': 'Remove temporary plaintext', 'run': 'false'}])
-    assert next(s for s in steps() if s['name'].startswith('Enforce clean')) == next(s for s in original if s['name'].startswith('Enforce clean'))
+CLEANUP = {'name': 'Remove temporary plaintext', 'if': 'always()', 'run': 'false'}
+
+
+def _without_enforcement(items):
+    return [s for s in items if not s['name'].startswith('Enforce clean')]
+
+
+def test_order_check_accepts_appended_cleanup_after_enforcement():
+    items = steps() + [CLEANUP]
+    final = assert_order(items)
+    # Independent expectation: enforcement sits immediately before the
+    # appended cleanup, which is now the last step.
+    assert items[-1] is CLEANUP
+    assert final == len(items) - 2
+
+
+@pytest.mark.parametrize('mutant', ['cleanup_replaces_enforcement',
+                                    'enforcement_before_encrypt',
+                                    'enforcement_not_always'])
+def test_order_check_rejects_replaced_or_misordered_enforcement(mutant):
+    items = [dict(s) for s in steps()]
+    enforce = next(s for s in items if s['name'].startswith('Enforce clean'))
+    if mutant == 'cleanup_replaces_enforcement':
+        items = _without_enforcement(items) + [CLEANUP]
+    elif mutant == 'enforcement_before_encrypt':
+        rest = _without_enforcement(items)
+        encrypt = next(i for i, s in enumerate(rest) if 'Encrypt the captured log' in s['name'])
+        items = rest[:encrypt] + [enforce] + rest[encrypt:] + [CLEANUP]
+    else:
+        enforce['if'] = 'success()'
+        items = items + [CLEANUP]
+    with pytest.raises((AssertionError, StopIteration)):
+        assert_order(items)
