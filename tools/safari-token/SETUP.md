@@ -19,7 +19,7 @@ Do not add Show Result, Quick Look, notification, speech, file, network, mail or
 
 ## Required synthetic on-device check, before real authorization
 
-A separate synthetic harness must use the exact same extraction logic with an explicitly separate fake-page origin/path, never weaken the production Geni origin guard. No synthetic harness ships with these files. The synthetic value must start ZZ and not be a real token. The harness is not a Geni endpoint or evidence of vendor behavior.
+A separate synthetic harness must use the exact same extraction logic with an explicitly separate fake-page origin/path, never weaken the production Geni origin guard. A separate synthetic harness is proposed in PR152. Do not assume it is deployed until its canonical page has been checked. Use its TEST extractor, which may differ from this production file only in the exact host/path guards. The synthetic value must start ZZ and not be a real token. The harness is not a Geni endpoint or evidence of vendor behavior.
 
 - Verify the action chips and that this iOS version exposes Local Only and Expire At. Stop if either option is absent. Check the dynamic date chips with a token-free screenshot before testing.
 - Invoke through Safari Share Sheet only. Confirm the fake fragment clears, the exact synthetic token reaches a harmless local test field, nothing is displayed or returned to Safari, and clipboard expiry works after two minutes.
@@ -29,6 +29,14 @@ A separate synthetic harness must use the exact same extraction logic with an ex
 This device check is NOT complete. A working desktop-browser JavaScript test does not establish iPhone Share Sheet or clipboard behavior.
 
 ## After all checks pass
+
+Use only an app key you have independently checked in your own application settings. Geni's desktop documentation specifies `https://www.geni.com/platform/oauth/authorize` with `client_id=<your-app-key>`, `response_type=token` and `display=desktop`. This is a parameter description, not a prepared link for a particular app. Do not change registered callbacks based on this document. Stop if the actual return is not the exact Geni success URL this script accepts.
+
+Choose a password-manager/secure-vault secret field before starting, not Notes, email, chat or a browser address/search field. Do not use any destination supplied by a success page or an unsolicited message.
+
+Run only on a success page reached seconds earlier from authorization you personally started in the SAME tab. Never run on a success URL from a message, email, QR code, bookmark or reopened history entry. The extractor does not bind `state` to a locally started transaction: an attacker-supplied token can pass syntax checks. Storage is not proof of ownership. Before any account write, a separate owner-identity check must resolve the token's authoritative self-profile and compare it to the intended owner; stop if this cannot be verified. The parent-creation design lists this as a release blocker, not an implemented safety guarantee.
+
+Shortcuts' isolated-versus-page JavaScript content world is not verified here. If page scripts can redefine URL parsing or history primitives, this guard is not a defense against a hostile page. The synthetic harness does not settle that assumption or prove Geni-page behavior.
 
 Follow your application's documented authorization instructions. On the returned Geni success page, never copy/share its address or screenshot it. Run the Shortcut from Safari Share Sheet. On error stop; report only the fixed error, not URL/content. Paste only into the secure field chosen beforehand, then copy a harmless word and close the tab.
 
@@ -43,3 +51,7 @@ Run `node test-extract.js`. Tests use only synthetic ZZ values and include parsi
 Geni documents an internal success redirect for its desktop flow: https://www.geni.com/platform/developer/help/oauth_desktop . The exact fragment route assumed here is reported by an independent implementation: https://github.com/dmalch/go-geni/releases/tag/v1.28.0 . It remains unverified for an actual iPhone session. Fragment HTTP behavior: https://developer.mozilla.org/en-US/docs/Web/URI/Reference/Fragment . Apple action setup and clipboard options: https://support.apple.com/guide/shortcuts/use-the-run-javascript-on-webpage-action-apdb71a01d93/ios and https://support.apple.com/guide/shortcuts/about-actions-in-complicated-shortcuts-apd081d9d61f/ios .
 
 This project is not affiliated with or endorsed by Geni or Apple. Shortcuts is an Apple product. Supplied under the repository MIT license, AS IS, without warranty.
+
+## Mac preparation
+
+Apple also supports Run JavaScript on Active Safari Tab on macOS. Configure Services Menu, Safari webpages only, and invoke through Safari > Services. Use the same fixed-marker reset, dynamic expiry, explicit result wiring and final Nothing. Confirm this Mac exposes Local Only and Expire At; stop if absent. Do not use a real token before a synthetic Mac test. Source: https://support.apple.com/guide/shortcuts-mac/use-the-run-javascript-on-webpage-action-apdb71a01d93/mac .
