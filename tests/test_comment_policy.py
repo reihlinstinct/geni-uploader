@@ -14,7 +14,7 @@ spec.loader.exec_module(gate)
 POLICY = json.loads((ROOT / '.github/geni-command-policy.json').read_text())
 EVENT = {'repository': {'full_name': 'reihlinstinct/geni-uploader'}, 'action': 'created',
          'issue': {'number': 119}, 'sender': {'login': 'reihl'},
-         'comment': {'body': '/geni plan', 'user': {'login': 'reihl', 'type': 'User'},
+         'comment': {'performed_via_github_app': None, 'body': '/geni plan', 'user': {'login': 'reihl', 'type': 'User'},
                      'created_at': 'ZZtimestamp', 'updated_at': 'ZZtimestamp'}}
 
 
@@ -135,3 +135,15 @@ def test_unrelated_comments_never_enter_source_concurrency():
     assert mode(event) is None
     event['issue']['number'] = 121
     assert mode(event) is None
+
+
+def test_missing_app_attribution_is_rejected():
+    event = copy.deepcopy(EVENT)
+    del event['comment']['performed_via_github_app']
+    assert mode(event) is None
+
+
+def test_queue_limit_warning_stays_documented():
+    text = (ROOT / 'WORKING.md').read_text()
+    assert 'Do not post plan commands while a write run is queued.' in text
+    assert 'one pending job' in text

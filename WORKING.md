@@ -9,8 +9,13 @@ Commands use the currently selected private Actions secrets. They do not choose 
 All upload or metadata-repair writes remain manual workflow dispatch with explicit confirmation after review. A plan is not authorization to write.
 
 
-The gate rejects non-null performed_via_github_app attribution. This blocks
+The gate requires present, null performed_via_github_app attribution. This blocks
 app-mediated command comments, but cannot distinguish an agent using the owner's
 raw PAT from the owner. The agent prohibition still applies to that route.
 Source concurrency is scoped to the upload job so rejected/unrelated comments
 cannot replace pending source work in its concurrency group.
+
+Do not post plan commands while a write run is queued. GitHub keeps at most
+one pending job per concurrency group, even with cancel-in-progress false;
+a newly accepted plan command can cancel an older queued write job. It does
+not run that write. Wait for queued work to finish before posting a plan.

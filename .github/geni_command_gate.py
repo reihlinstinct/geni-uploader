@@ -25,7 +25,8 @@ def select_mode(event, policy, event_name, actor, triggering_actor):
             or comment.get('user', {}).get('login') != policy['owner']
             or event.get('sender', {}).get('login') != policy['owner']
             or comment.get('user', {}).get('type') != 'User'
-            or comment.get('performed_via_github_app') is not None
+            or 'performed_via_github_app' not in comment
+            or comment['performed_via_github_app'] is not None
             or comment.get('created_at') != comment.get('updated_at')
             or not isinstance(comment.get('created_at'), str)
             or not comment['created_at']):
