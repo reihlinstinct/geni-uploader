@@ -14,12 +14,16 @@ def cleanup():
     return data['jobs']['upload']['steps']
 
 
+def cleanup_step():
+    return next(s for s in cleanup() if s['name'].startswith('Remove temporary plaintext'))
+
+
 def test_cleanup_is_last_and_always_after_preservation():
     steps = cleanup()
     assert steps[-1]['if'] == 'always()'
     assert steps[-1]['name'].startswith('Remove temporary plaintext')
     assert next(i for i, s in enumerate(steps) if s['name'].startswith('Encrypt')) < len(steps)-1
-    assert 'cat ' not in steps[-1]['run']
+    assert 'cat ' not in cleanup_step()['run']
 
 
 def test_cleanup_removes_known_paths_only_and_is_idempotent(tmp_path):
@@ -35,8 +39,16 @@ def test_cleanup_removes_known_paths_only_and_is_idempotent(tmp_path):
     keep.write_text('ZZciphertext')
     env = {**os.environ, 'RUNNER_TEMP': str(temp), 'GITHUB_WORKSPACE': str(workspace)}
     for _ in range(2):
-        result = subprocess.run(['bash', '-c', cleanup()[-1]['run']], env=env,
+        result = subprocess.run(['bash', '-c', cleanup_step()['run']], env=env,
                                 capture_output=True, text=True, check=True)
         assert result.stdout == result.stderr == ''
     assert list(temp.iterdir()) == [keep]
     assert list(workspace.iterdir()) == []
+
+
+def test_named_cleanup_selector_tolerates_result_enforcement(monkeypatch):
+    original = cleanup()
+    combined = original[:-1] + [{'name': 'Enforce clean container result', 'run': 'false'}] + original[-1:]
+    monkeypatch.setattr(__import__(__name__, fromlist=['cleanup']), 'cleanup', lambda: combined)
+    assert cleanup_step() == original[-1]
+    test_cleanup_is_last_and_always_after_preservation()
