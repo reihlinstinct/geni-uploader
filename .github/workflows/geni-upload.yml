@@ -1,6 +1,6 @@
 name: Geni source upload (container, protected logs)
 
-# Manual-only workflow: runs the PINNED public container image against the
+# Owner-controlled workflow: runs the PINNED public container image against the
 # private data repository. All identifying configuration (private repo URL,
 # ref, expected commit, manifest path) lives in Actions SECRETS - never in
 # this file, never in dispatch inputs. Everything the container prints is
@@ -12,6 +12,8 @@ name: Geni source upload (container, protected logs)
 # private clone, the capture/encryption envelope, and public-log silence.
 
 on:
+  issue_comment:
+    types: [created]
   workflow_dispatch:
     inputs:
       mode:
@@ -33,11 +35,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  command-policy:
+    # Issue events always load code and policy from the event's default-branch SHA.
+    # No PR head, comment field, URL or ref becomes code or a shell expression.
+    if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.actor == 'reihl' && github.triggering_actor == 'reihl' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      allowed: ${{ steps.policy.outputs.allowed }}
+      mode: ${{ steps.policy.outputs.mode }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - id: policy
+        run: python .github/geni_command_gate.py
   upload:
-    # User-only manual dispatch. Agents never invoke this workflow or its token.
-    # Explicit personal account, not the automation repository owner.
-    # No cron, push, pull_request or repository_dispatch trigger is permitted.
-    if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.event_name == 'workflow_dispatch' && github.actor == 'reihl' && github.triggering_actor == 'reihl' }}
+    # Agents never post commands or invoke this source workflow.
+    # Comment commands are read-only; writes retain manual dispatch + confirmation.
+    needs: command-policy
+    if: ${{ needs.command-policy.outputs.allowed == 'true' && github.repository == 'reihlinstinct/geni-uploader' && github.actor == 'reihl' && github.triggering_actor == 'reihl' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'issue_comment' && contains(fromJSON('["plan","details-plan"]'), needs.command-policy.outputs.mode))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -62,7 +81,7 @@ jobs:
           PRIVATE_REF: ${{ secrets.PRIVATE_REF }}
           PRIVATE_EXPECT_SHA: ${{ secrets.PRIVATE_EXPECT_SHA }}
           MANIFEST_PATH: ${{ secrets.MANIFEST_PATH }}
-          MODE: ${{ inputs.mode }}
+          MODE: ${{ needs.command-policy.outputs.mode }}
           CONFIRM: ${{ inputs.confirm }}
         run: |
           set +x
