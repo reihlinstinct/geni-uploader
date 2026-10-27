@@ -2,3 +2,6 @@
 /tools/token-probe/ @reihl
 /tests/test_token_probe.py @reihl
 /docs/token-probe.md @reihl
+/tools/profile-probe/ @reihl
+/tests/test_profile_probe.py @reihl
+/docs/profile-probe.md @reihl

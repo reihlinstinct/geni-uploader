@@ -1,0 +1,49 @@
+name: Encrypted own-profile probe (read-only, manual)
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type TEST for one own-profile read and encrypted-only report'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: encrypted-profile-probe
+  cancel-in-progress: false
+jobs:
+  probe:
+    if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && github.actor == 'reihl' && github.triggering_actor == 'reihl' && inputs.confirm == 'TEST' }}
+    environment: token-probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # official v4.3.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Install pinned encryption binary (no credential access)
+        env:
+          AGE_VERSION: v1.3.2
+          AGE_SHA256: cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10
+        run: |
+          set -euo pipefail
+          mkdir -m 700 "$RUNNER_TEMP/profile-age"
+          curl --fail --silent --show-error --location "https://github.com/FiloSottile/age/releases/download/${AGE_VERSION}/age-${AGE_VERSION}-linux-amd64.tar.gz" -o "$RUNNER_TEMP/profile-age/archive.tgz"
+          echo "${AGE_SHA256}  $RUNNER_TEMP/profile-age/archive.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/profile-age/archive.tgz" -C "$RUNNER_TEMP/profile-age"
+      - name: One read; encrypt before publishing; fixed output only
+        env:
+          TOKEN_PROBE_CREDENTIAL: ${{ secrets.TOKEN_PROBE_CREDENTIAL }}
+          PROFILE_REPORT_RECIPIENT: ${{ vars.PROFILE_REPORT_RECIPIENT }}
+          PROFILE_AGE_BINARY: ${{ runner.temp }}/profile-age/age/age
+          PROFILE_OUTPUT_DIR: ${{ runner.temp }}/profile-ciphertext
+        run: python3 -I tools/profile-probe/check.py
+      - name: Upload ciphertext only (one day)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # official v4.6.2
+        with:
+          name: encrypted-profile-report
+          path: ${{ runner.temp }}/profile-ciphertext/profile-report.age
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
