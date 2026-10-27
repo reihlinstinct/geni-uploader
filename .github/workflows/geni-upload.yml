@@ -186,6 +186,8 @@ jobs:
 
       - name: Enforce clean container result after preserving protected output
         if: always()
+        env:
+          MODE: ${{ inputs.mode }}
         run: |
           set -eu
           STATUS_FILE="$RUNNER_TEMP/container-exit-status"
@@ -194,6 +196,16 @@ jobs:
             exit 1
           fi
           STATUS="$(cat "$STATUS_FILE")"
+          if [ "${MODE:-}" = "selftest" ]; then
+            # Preserve the existing selftest contract: the deliberately dead
+            # loopback must fail, never look like a clean source operation.
+            if [[ "$STATUS" =~ ^[1-9][0-9]{0,2}$ ]] && [ "$STATUS" -le 255 ]; then
+              echo "selftest expected failure observed"
+              exit 0
+            fi
+            echo "selftest did not produce the expected failure"
+            exit 1
+          fi
           case "$STATUS" in
             0) echo "source container finished cleanly" ;;
             *) echo "source container did not finish cleanly; inspect protected output"; exit 1 ;;
