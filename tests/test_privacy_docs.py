@@ -198,3 +198,16 @@ def test_parser_allowlist_kills_alternate_reads_after_url_clear():
                                  "history.replaceState(null, '', location.pathname);\n" + mutation)
         with pytest.raises(AssertionError):
             assert_response_parser_allowlist(changed)
+
+
+# Independent review pin: a script change needs explicit review of this digest.
+# CSP consistency alone cannot authorize a new response-value reader.
+REVIEWED_CALLBACK_SCRIPT_SHA256 = 'e7712229a3edad74f18083d11722e13b97f4335c692c59de8055e57a9eec85ae'
+
+
+def test_callback_script_matches_independently_reviewed_digest():
+    import hashlib
+    import re
+    page = (ROOT / 'docs/oauth-callback.html').read_text()
+    script = re.search(r'<script>(.*?)</script>', page, re.DOTALL).group(1)
+    assert hashlib.sha256(script.encode()).hexdigest() == REVIEWED_CALLBACK_SCRIPT_SHA256
