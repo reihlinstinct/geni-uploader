@@ -149,6 +149,11 @@ def assert_response_parser_allowlist(script):
     import re
     # The parser objects must never escape to another variable, iterator or sink.
     # Pin every occurrence, not only get(): getAll/toString/spread also read values.
+    assert 'new URL(' not in script
+    assert '.searchParams' not in script
+    assert script.count('location.hash') == 2
+    assert script.count('location.search') == 1
+    assert 'location.href' not in script
     assert script.count('URLSearchParams(') == 2
     assert script.count('new URLSearchParams(location.hash.slice(1))') == 1
     assert script.count('new URLSearchParams(location.search)') == 1
@@ -187,7 +192,8 @@ def test_parser_allowlist_kills_alternate_reads_after_url_clear():
                      "document.title = fields.getAll('error');",
                      'document.title = fields.toString();',
                      'const alias = fields;',
-                     'const p = new URLSearchParams(location.hash);']:
+                     'const p = new URLSearchParams(location.hash);',
+                     'const p = new URL(location.href).searchParams;']:
         changed = script.replace("history.replaceState(null, '', location.pathname);",
                                  "history.replaceState(null, '', location.pathname);\n" + mutation)
         with pytest.raises(AssertionError):
