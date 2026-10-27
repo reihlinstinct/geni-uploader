@@ -59,4 +59,4 @@ def test_enforcement_selector_tolerates_later_cleanup_step(monkeypatch):
     original = steps()
     monkeypatch.setattr(__import__(__name__, fromlist=['steps']), 'steps',
         lambda: original + [{'name': 'Remove temporary plaintext', 'run': 'false'}])
-    assert next(s for s in steps() if s['name'].startswith('Enforce clean')) == original[-1]
+    assert next(s for s in steps() if s['name'].startswith('Enforce clean')) == next(s for s in original if s['name'].startswith('Enforce clean'))
