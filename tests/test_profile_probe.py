@@ -91,6 +91,8 @@ class Tests(unittest.TestCase):
         self.assertEqual(
             (request.full_url, request.method, request.data, timeout), (probe.URL, "GET", None, 20)
         )
+        self.assertEqual(request.get_header("Authorization"), "Bearer " + TOKEN)
+        self.assertEqual(request.get_header("Accept"), "application/json")
         report = json.loads(self.plaintext)
         self.assertEqual(set(report["profile"]), {"id", "guid", "name", "public", "is_alive"})
         self.assertNotIn("ZZ_DROP_THIS", self.plaintext.decode())
@@ -98,6 +100,29 @@ class Tests(unittest.TestCase):
         self.assertEqual(report["tool_sha"], SHA)
         self.assertEqual([p.name for p in Path(self.out).iterdir()], ["profile-report.age"])
         self.assertNotIn(b"ZZ_SYNTHETIC_NAME", (Path(self.out) / "profile-report.age").read_bytes())
+
+    def test_real_probe_stdout_silence_with_private_success_and_error(self):
+        cases = (
+            Opener(),
+            Opener(b'{"id":"ZZ_ID","name":123}'),
+            Opener(error=RuntimeError("ZZ_PRIVATE_EXCEPTION_" + TOKEN)),
+            Opener(
+                error=urllib.error.HTTPError(
+                    probe.URL, 403, "ZZ_PRIVATE_ERROR_" + TOKEN, {}, io.BytesIO(RAW)
+                )
+            ),
+        )
+        for opener in cases:
+            with tempfile.TemporaryDirectory() as temp:
+                stdout, stderr = io.StringIO(), io.StringIO()
+                with (
+                    contextlib.redirect_stdout(stdout),
+                    contextlib.redirect_stderr(stderr),
+                    patch.object(probe.subprocess, "run", side_effect=self.encrypted),
+                ):
+                    self.call(opener, output_dir=temp + "/out")
+                self.assertEqual(stdout.getvalue(), "")
+                self.assertEqual(stderr.getvalue(), "")
 
     def test_preflight_no_request(self):
         for kwargs in (
