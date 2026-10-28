@@ -64,6 +64,10 @@ async function identity(request, env, cfg) {
   const token = request.headers.get("Cf-Access-Jwt-Assertion");
   if (!token) fail();
   const keys = createRemoteJWKSet(new URL(cfg.team + "/cdn-cgi/access/certs"));
+  return verifyIdentityToken(token, env, cfg, keys);
+}
+
+export async function verifyIdentityToken(token, env, cfg, keys) {
   const { payload } = await jwtVerify(token, keys, {
     issuer: cfg.team,
     audience: env.ACCESS_AUD,

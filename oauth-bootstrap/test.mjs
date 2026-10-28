@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import sodium from "libsodium-wrappers";
-import { handle, OneTimeState } from "./worker.mjs";
+import { generateKeyPair, SignJWT, createLocalJWKSet, exportJWK } from "jose";
+import { handle, OneTimeState, verifyIdentityToken } from "./worker.mjs";
 const origin = "https://example.invalid";
 const env = {
   CALLBACK_ORIGIN: origin,
@@ -193,4 +194,49 @@ test("transport errors and secret writer failures never leak", async () => {
   );
   assert.equal(r.status, 400);
   assert.doesNotMatch(await r.text(), /ZZSECRET|ZZCODE/);
+});
+
+test("real signed JWT verifies issuer audience identity algorithm and expiry", async () => {
+  const { publicKey, privateKey } = await generateKeyPair("RS256");
+  const jwk = await exportJWK(publicKey);
+  jwk.kid = "ZZKEY";
+  const keys = createLocalJWKSet({ keys: [jwk] });
+  const cfg = { team: env.ACCESS_TEAM };
+  async function signed(
+    overrides = {},
+    issuer = env.ACCESS_TEAM,
+    audience = env.ACCESS_AUD,
+    expiry = "5m",
+  ) {
+    return new SignJWT({ email: env.ALLOWED_EMAIL, ...overrides })
+      .setProtectedHeader({ alg: "RS256", kid: "ZZKEY" })
+      .setSubject("ZZSUB")
+      .setIssuer(issuer)
+      .setAudience(audience)
+      .setIssuedAt()
+      .setExpirationTime(expiry)
+      .sign(privateKey);
+  }
+  assert.equal(
+    await verifyIdentityToken(await signed(), env, cfg, keys),
+    "ZZSUB",
+  );
+  for (const token of [
+    await signed({ email: "wrong@example.invalid" }),
+    await signed({}, "https://wrong.invalid"),
+    await signed({}, env.ACCESS_TEAM, "ZZWRONG"),
+    await signed({}, env.ACCESS_TEAM, env.ACCESS_AUD, "-1m"),
+    "bad.jwt.data",
+  ]) {
+    await assert.rejects(() => verifyIdentityToken(token, env, cfg, keys));
+  }
+  const { privateKey: other } = await generateKeyPair("RS256");
+  const forged = await new SignJWT({ email: env.ALLOWED_EMAIL })
+    .setProtectedHeader({ alg: "RS256", kid: "ZZKEY" })
+    .setSubject("ZZSUB")
+    .setIssuer(env.ACCESS_TEAM)
+    .setAudience(env.ACCESS_AUD)
+    .setExpirationTime("5m")
+    .sign(other);
+  await assert.rejects(() => verifyIdentityToken(forged, env, cfg, keys));
 });
