@@ -11,7 +11,7 @@ const secureHeaders = {
   "cache-control": "no-store",
   "referrer-policy": "no-referrer",
   "content-security-policy":
-    "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+    "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self' https://github.com https://www.geni.com",
   "content-type": "text/html; charset=utf-8",
   "x-content-type-options": "nosniff",
 };
@@ -71,7 +71,7 @@ function cookieValue(request, name) {
   if (items.length !== 1) fail();
   return credential(items[0].slice(name.length + 1));
 }
-const cookieHeader = (name, value, age = 300) =>
+const cookieHeader = (name, value, age = 600) =>
   name +
   "=" +
   value +
@@ -86,7 +86,7 @@ async function identity(request, env, cfg) {
       algorithms: ["HS256"],
       issuer: cfg.origin,
       audience: "bootstrap-session",
-      maxTokenAge: "5m",
+      maxTokenAge: "10m",
       requiredClaims: ["exp", "iat", "sub", "jti"],
     },
   );
@@ -184,7 +184,7 @@ async function loginCallback(request, env, cfg, url, fetcher) {
     .setSubject(String(user.id))
     .setJti(random())
     .setIssuedAt()
-    .setExpirationTime("5m")
+    .setExpirationTime("10m")
     .sign(sessionKey(env));
   const response = page("", 303, { location: cfg.origin + "/" });
   response.headers.append("set-cookie", cookieHeader(SESSION_COOKIE, session));
@@ -263,12 +263,12 @@ export class OneTimeState {
         await txn.put("entry", {
           subject: data.subject,
           binding: data.binding,
-          expires: now + 300000,
+          expires: now + 600000,
           payload: data.payload || {},
         });
         return true;
       });
-      await this.state.storage.setAlarm(now + 300000);
+      await this.state.storage.setAlarm(now + 600000);
       return new Response("", { status: accepted ? 201 : 409 });
     }
     if (new URL(request.url).pathname === "/consume") {
@@ -358,15 +358,17 @@ export async function handle(request, env, deps = { fetcher: fetch }) {
         "set-cookie": cookieHeader(LOGIN_COOKIE, binding),
       });
     }
-    if (
-      request.method === "GET" &&
-      url.pathname === "/" &&
-      !(request.headers.get("Cookie") || "").includes(SESSION_COOKIE + "=")
-    )
+    let subject;
+    try {
+      subject = await identity(request, env, cfg);
+    } catch {
+      if (request.method !== "GET" || url.pathname !== "/") fail();
       return page(
         '<h1>Identity check</h1><p>Sign in at GitHub using the approved account. No password or 2FA is collected here.</p><form method="post" action="/login"><button>Sign in with GitHub</button></form>',
+        200,
+        { "set-cookie": cookieHeader(SESSION_COOKIE, "", 0) },
       );
-    const subject = await identity(request, env, cfg);
+    }
     if (request.method === "GET" && url.pathname === "/") {
       return page(
         '<h1>Connect OAuth</h1><p>Confirm the correct Geni account in your own browser. Login and 2FA stay with Geni. No family data is read here.</p><form method="post" action="/start"><button>Connect to Geni</button></form>',
@@ -390,7 +392,7 @@ export async function handle(request, env, deps = { fetcher: fetch }) {
           COOKIE +
           "=" +
           cookie +
-          "; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=300",
+          "; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=600",
       });
     }
     if (request.method === "GET" && url.pathname === "/callback") {

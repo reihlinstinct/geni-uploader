@@ -13,7 +13,7 @@ GitHub OAuth login is the identity gate, with no requested scopes and S256 PKCE.
 A dedicated login app is separate from the repository secret writer. A same-origin
 POST starts login and sets a Secure, HttpOnly, SameSite=Lax browser-binding cookie.
 A one-time Durable Object state stores the verifier, binding hash and expiry for
-five minutes. Callback atomically consumes the state, exchanges the GitHub code
+ten minutes. Callback atomically consumes the state, exchanges the GitHub code
 at the fixed endpoint and checks the numeric GitHub user ID against private
 configuration. Login names and email addresses do not grant access. Unexpected
 scopes, refresh tokens, wrong identities and failed revocation stop the flow.
@@ -21,8 +21,11 @@ The transient GitHub identity token is revoked immediately after identity lookup
 including wrong-account responses. No GitHub user token is persisted or refreshed.
 GitHub owns the user's password and 2FA; neither is collected here.
 
-The Worker issues a five-minute HS256 signed session with fixed issuer/audience,
+The Worker issues a ten-minute HS256 signed session with fixed issuer/audience,
 expiry, subject and random session ID. The cookie is Secure, HttpOnly, SameSite=Lax.
+The session is reusable within its ten-minute lifetime; it is not a one-use credential.
+Only OAuth state/codes are consumed once. A stale landing-page cookie is cleared
+and shows GitHub login again. Expired identity at a protected callback fails closed.
 Geni start requires that session and a separate same-origin POST. Geni state is
 scoped to the authenticated numeric ID plus session ID and a second browser-binding
 cookie. Invalid bindings do not consume another session's state. Replays, duplicate
@@ -53,6 +56,10 @@ log output, external analytics or token display exists here.
   account ID), GITHUB_LOGIN_CLIENT_ID, GENI_CLIENT_ID. Secrets SESSION_SIGNING_KEY
   (independent random 256-bit hex), GITHUB_LOGIN_CLIENT_SECRET, GENI_APP_SECRET and
   GITHUB_WRITER. Real identities and credentials are private deployment settings.
+- Live compatibility checklist, not established by offline tests: GitHub returns
+  token scope as the exact empty string for this no-scope app, accepts
+  prompt=select_account and S256 PKCE, and revokes the transient token with204;
+  Geni accepts the documented token exchange by POST. Stop if any check differs.
 - Verify unauthenticated /start and /callback fail, wrong GitHub identity cannot
   establish a session, correct identity succeeds, code/query logs are disabled,
   and browser cookies have required flags. Do not start real Geni authorization

@@ -377,3 +377,54 @@ test("login CSRF wrong cookie duplicates cancellation and expiry never reach net
     400,
   );
 });
+
+test("stale landing session offers login while protected endpoints stay closed", async () => {
+  const cookie = await session(env.ALLOWED_GITHUB_ID, "-1m");
+  const landing = await handle(
+    request("/", { headers: { Cookie: cookie } }),
+    setup(),
+    { fetcher: nofetch },
+  );
+  assert.equal(landing.status, 200);
+  assert.match(await landing.text(), /Sign in with GitHub/);
+  assert.match(landing.headers.get("set-cookie"), /Max-Age=0/);
+  assert.match(
+    landing.headers.get("content-security-policy"),
+    /form-action 'self' https:\/\/github.com https:\/\/www.geni.com/,
+  );
+  const protectedResponse = await handle(
+    request("/callback?code=ZZCODE&state=" + "a".repeat(64), {
+      headers: { Cookie: cookie },
+    }),
+    setup(),
+    { fetcher: nofetch },
+  );
+  assert.equal(protectedResponse.status, 400);
+});
+test("state and session budget is ten minutes and session is reusable", async () => {
+  const e = setup(),
+    b = await loginBegin(e),
+    calls = [];
+  const expires = e.OAUTH_STATES.entries.get("entry").expires;
+  assert.ok(expires - Date.now() > 590000 && expires - Date.now() <= 600000);
+  const r = await handle(
+    request("/login/callback?code=ZZCODE&state=" + b.state, {
+      headers: { Cookie: b.cookie },
+    }),
+    e,
+    { fetcher: loginFetcher(calls) },
+  );
+  assert.match(r.headers.get("set-cookie"), /Max-Age=600/);
+  const match = r.headers
+    .get("set-cookie")
+    .match(/__Host-bootstrap-session=([^;]+)/);
+  for (let i = 0; i < 2; i++)
+    assert.equal(
+      (
+        await handle(request("/", { headers: { Cookie: match[0] } }), setup(), {
+          fetcher: nofetch,
+        })
+      ).status,
+      200,
+    );
+});
