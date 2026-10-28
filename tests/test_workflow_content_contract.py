@@ -257,3 +257,8 @@ def test_base64_ignored_characters_never_permitted(suffix):
     data[4]['content'] += suffix
     with pytest.raises(Blocked):
         verify(p, envelopes(data, routes))
+
+
+def test_candidate_byte_caps_are_fixed_not_self_referential():
+    assert LIMIT == 262144
+    assert RESPONSE_LIMIT == 1048576
