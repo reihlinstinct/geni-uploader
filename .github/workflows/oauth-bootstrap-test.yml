@@ -23,3 +23,5 @@ jobs:
           CLOUDFLARE_SEND_METRICS: "false"
       - run: node --test browser.test.mjs
         working-directory: oauth-bootstrap
+      - run: node --test transport.test.mjs
+        working-directory: oauth-bootstrap

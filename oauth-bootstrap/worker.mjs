@@ -148,7 +148,7 @@ async function loginCallback(request, env, cfg, url, fetcher, diagnostic) {
   diagnostic.stage = "github-exchange";
   const token = await githubExchange(fetcher, diagnostic, {
     method: "POST",
-    redirect: "error",
+    redirect: "manual",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       Accept: "application/json",
@@ -176,7 +176,7 @@ async function loginCallback(request, env, cfg, url, fetcher, diagnostic) {
     diagnostic.stage = "github-user";
     user = await responseJson(
       await fetcher("https://api.github.com/user", {
-        redirect: "error",
+        redirect: "manual",
         headers: {
           Authorization: "Bearer " + token.access_token,
           Accept: "application/vnd.github+json",
@@ -194,7 +194,7 @@ async function loginCallback(request, env, cfg, url, fetcher, diagnostic) {
         "/token",
       {
         method: "DELETE",
-        redirect: "error",
+        redirect: "manual",
         headers: {
           Authorization:
             "Basic " +
@@ -297,7 +297,7 @@ async function writeSecret(name, value, env, fetcher, diagnostic, writeStage) {
     "User-Agent": "oauth-bootstrap",
   };
   const key = await responseJson(
-    await fetcher(GH + "/public-key", { headers, redirect: "error" }),
+    await fetcher(GH + "/public-key", { headers, redirect: "manual" }),
   );
   const rawKey = Uint8Array.from(atob(key.key), (c) => c.charCodeAt(0));
   if (rawKey.length !== 32) fail();
@@ -307,7 +307,7 @@ async function writeSecret(name, value, env, fetcher, diagnostic, writeStage) {
   const response = await fetcher(GH + "/" + name, {
     method: "PUT",
     headers,
-    redirect: "error",
+    redirect: "manual",
     body: JSON.stringify({ key_id: key.key_id, encrypted_value: encrypted }),
   });
   if (![201, 204].includes(response.status)) fail();
@@ -386,7 +386,11 @@ async function stateRequest(
 }
 
 // Dependency injection is for offline tests; exported handler always uses real verification.
-export async function handle(request, env, deps = { fetcher: fetch }) {
+export async function handle(
+  request,
+  env,
+  deps = { fetcher: (...args) => fetch(...args) },
+) {
   const diagnostic = { stage: "setup" };
   try {
     const cfg = config(env);
@@ -515,7 +519,7 @@ export async function handle(request, env, deps = { fetcher: fetch }) {
       const token = await responseJson(
         await deps.fetcher(GENI + "request_token", {
           method: "POST",
-          redirect: "error",
+          redirect: "manual",
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
             Accept: "application/json",

@@ -150,7 +150,7 @@ test("code flow seals secrets, consumes state once, never leaks", async () => {
   const e = setup();
   const { state, cookie } = await begin(e);
   const fetcher = async (u, o) => {
-    assert.equal(o.redirect, "error");
+    assert.equal(o.redirect, "manual");
     if (u.endsWith("request_token")) {
       assert.equal(o.method, "POST");
       assert.equal(o.body.get("code"), "ZZCODE");
@@ -275,7 +275,7 @@ async function loginBegin(e) {
 function loginFetcher(calls, options = {}) {
   return async (u, o) => {
     calls.push(u);
-    assert.equal(o.redirect, "error");
+    assert.equal(o.redirect, "manual");
     if (u === "https://github.com/login/oauth/access_token") {
       assert.equal(o.body.get("redirect_uri"), origin + "/login/callback");
       assert.match(o.body.get("code_verifier"), /^[a-f0-9]{64}$/);
@@ -690,7 +690,7 @@ test("GitHub exchange maps only fixed outcomes and sets server User-Agent", asyn
           calls++;
           assert.equal(u, "https://github.com/login/oauth/access_token");
           assert.equal(o.method, "POST");
-          assert.equal(o.redirect, "error");
+          assert.equal(o.redirect, "manual");
           assert.equal(o.headers["User-Agent"], "oauth-bootstrap");
           assert.equal(o.headers.Accept, "application/json");
           assert.equal(o.body.get("redirect_uri"), origin + "/login/callback");
