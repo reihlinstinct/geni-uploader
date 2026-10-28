@@ -4,7 +4,7 @@
   "description": "Offline-tested gated authorization-code bootstrap",
   "main": "index.js",
   "scripts": {
-    "test": "node --test test.mjs"
+    "test": "node --test test.mjs runtime.test.mjs browser.test.mjs"
   },
   "keywords": [],
   "license": "ISC",

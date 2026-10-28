@@ -358,16 +358,22 @@ export async function handle(request, env, deps = { fetcher: fetch }) {
     try {
       subject = await identity(request, env, cfg);
     } catch {
-      if (request.method !== "GET" || url.pathname !== "/") fail();
+      if (request.method !== "GET" || url.pathname !== "/" || url.search)
+        fail();
       return page(
         '<h1>Identity check</h1><p>Sign in at GitHub using the approved account. No password or 2FA is collected here.</p><form method="post" action="/login"><button>Sign in with GitHub</button></form>',
         200,
-        { "set-cookie": cookieHeader(SESSION_COOKIE, "", 0) },
+        {
+          "set-cookie": cookieHeader(SESSION_COOKIE, "", 0),
+          "referrer-policy": "strict-origin",
+        },
       );
     }
-    if (request.method === "GET" && url.pathname === "/") {
+    if (request.method === "GET" && url.pathname === "/" && !url.search) {
       return page(
         '<h1>Connect OAuth</h1><p>Confirm the correct Geni account in your own browser. Login and 2FA stay with Geni. No family data is read here.</p><form method="post" action="/start"><button>Connect to Geni</button></form>',
+        200,
+        { "referrer-policy": "strict-origin" },
       );
     }
     if (request.method === "POST" && url.pathname === "/start") {

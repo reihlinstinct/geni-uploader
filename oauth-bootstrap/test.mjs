@@ -428,3 +428,41 @@ test("state and session budget is ten minutes and session is reusable", async ()
       200,
     );
 });
+
+test("only query-free form pages use strict-origin; callbacks and rejects retain no-referrer", async () => {
+  for (const headers of [{}, { Cookie: await session() }]) {
+    const form = await handle(request("/", { headers }), setup());
+    assert.equal(form.status, 200);
+    assert.equal(form.headers.get("referrer-policy"), "strict-origin");
+    const query = await handle(
+      request("/?code=ZZSYNTHETIC", { headers }),
+      setup(),
+    );
+    assert.ok(query.status >= 400);
+    assert.equal(query.headers.get("referrer-policy"), "no-referrer");
+  }
+  for (const path of ["/login/callback", "/callback", "/start"]) {
+    const r = await handle(request(path), setup());
+    assert.equal(r.status, 400);
+    assert.equal(r.headers.get("referrer-policy"), "no-referrer");
+  }
+  for (const value of ["null", "https://evil.invalid"]) {
+    for (const path of ["/login", "/start"]) {
+      const r = await handle(
+        request(path, {
+          method: "POST",
+          headers: { Origin: value, Cookie: await session() },
+        }),
+        setup(),
+      );
+      assert.equal(r.status, 400);
+      assert.equal(r.headers.get("referrer-policy"), "no-referrer");
+    }
+  }
+  const redirect = await handle(
+    request("/login", { method: "POST", headers: { Origin: origin } }),
+    setup(),
+  );
+  assert.equal(redirect.status, 303);
+  assert.equal(redirect.headers.get("referrer-policy"), "no-referrer");
+});
