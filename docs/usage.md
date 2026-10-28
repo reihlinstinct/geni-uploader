@@ -256,8 +256,10 @@ status-file push back to the repo failed (the next run retries the sync);
 ## Existing-source details (user-only, pending image release)
 
 See [source-details design](source-details-design.md). The user alone manually
-triggers the service workflow from the personal account. Agents do not dispatch,
-schedule or invoke it, and code CI uses mocks only. The target list comes from
+triggers the source-upload/details service workflow (`geni-upload.yml`) from the
+personal account. Agents do not dispatch, schedule or invoke that write workflow,
+and code CI uses mocks only. The separately scoped read-only evidence workflow
+is not a details-repair or creation executor; see [workflow authority](workflow-authority.md). The target list comes from
 private git data. An endpoint being available is not permission to use it.
 
 The new `details-plan` and `details-repair` modes use a separate JSON manifest.
