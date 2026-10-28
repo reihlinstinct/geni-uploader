@@ -11,6 +11,7 @@ from contextlib import ExitStack
 from pathlib import Path
 
 import geni_upload as api
+import plan_report
 
 FIELDS = {"document": {"title", "description", "date", "labels"},
           "photo": {"title", "description", "date"}}
@@ -85,43 +86,91 @@ def object_read(token, kind, oid):
     raise api.ApiError("existing source node identity not confirmed")
 
 
-def deceased_target(token, target):
+def deceased_target(token, target, progress=None):
+    if progress:
+        progress("target_identity")
     pid, _ = api.verify_profile(token, str(target["profile_id"]), target["expect_name"])
     pid = str(pid).removeprefix("profile-")
     if not pid.isdigit():
         raise api.ApiError("invalid served target ID")
+    if progress:
+        progress("target_deceased")
     obj = api.execute("GET", "profile", f"{api.API_BASE}/profile-{pid}", token)
     if not isinstance(obj, dict) or obj.get("is_alive") is not False:
         raise api.ApiError("target not confirmed deceased")
     return pid
 
 
-def matches_expect(obj, item):
+def expectation_checks(obj, item):
+    """Fixed-key booleans only; never return observed or expected source data."""
+    checks = {}
     for key, value in item["expect"].items():
         if key == "description_sha256":
             text = obj.get("description")
-            if not isinstance(text, str):
-                return False
-            old = hashlib.sha256(text.encode()).hexdigest() == value
-            # Exact desired text permits idempotent GET-only verification.
+            checks["description_present"] = isinstance(text, str)
+            checks["description_hash"] = (isinstance(text, str)
+                                          and hashlib.sha256(text.encode()).hexdigest() == value)
             desired = item["set"].get("description")
             if "description_en" in item["set"]:
                 desired = api.render_description(item["set"])
-            if not old and text != desired:
-                return False
-        elif obj.get(key) != value:
-            return False
-    return True
+            checks["description_desired"] = isinstance(text, str) and text == desired
+        elif key in {"title", "source_url"}:
+            checks[key] = obj.get(key) == value
+        else:
+            raise api.ApiError("unsupported expectation")
+    return checks
+
+
+def expectations_pass(checks):
+    anchors = all(value for key, value in checks.items() if key in {"title", "source_url"})
+    description = ("description_present" not in checks or
+                   (checks["description_present"] and
+                    (checks["description_hash"] or checks["description_desired"])))
+    return anchors and description
+
+
+def matches_expect(obj, item):
+    return expectations_pass(expectation_checks(obj, item))
+
+
+DIAGNOSTIC_STAGES = frozenset({"schema", "token", "object_identity", "preconditions",
+                              "target_identity", "target_deceased", "item_checked",
+                              "plan_checked", "repair", "snapshot"})
+DIAGNOSTIC_RESULTS = frozenset({"start", "pass", "fail", "true", "false"})
+DIAGNOSTIC_CHECKS = frozenset({"title", "source_url", "description_present",
+                              "description_hash", "description_desired"})
+
+
+def diagnostic(stage, result="start", item=0, target=0):
+    # Only fixed vocabulary and internally generated ordinals reach the log.
+    if (stage not in DIAGNOSTIC_STAGES | DIAGNOSTIC_CHECKS or
+            result not in DIAGNOSTIC_RESULTS or type(item) is not int or
+            type(target) is not int or item < 0 or target < 0):
+        raise ValueError("invalid diagnostic fields")
+    print(f"source-details item={item} target={target} stage={stage} result={result}", flush=True)
 
 
 def checked_plan(items, token):
     """All identities and old metadata checked before the first mutation."""
     plan = []
-    for item in items:
+    for ordinal, item in enumerate(items, 1):
+        diagnostic("object_identity", item=ordinal)
         obj = object_read(token, item["kind"], item["object_id"])
-        if not matches_expect(obj, item):
+        diagnostic("object_identity", "pass", item=ordinal)
+        diagnostic("preconditions", item=ordinal)
+        checks = expectation_checks(obj, item)
+        for key, passed in checks.items():
+            diagnostic(key, "true" if passed else "false", item=ordinal)
+        if not expectations_pass(checks):
+            diagnostic("preconditions", "fail", item=ordinal)
             raise api.ApiError("existing source precondition mismatch")
-        targets = [deceased_target(token, t) for t in item["targets"]]
+        diagnostic("preconditions", "pass", item=ordinal)
+        targets = []
+        for target_ordinal, target in enumerate(item["targets"], 1):
+            def progress(stage, ordinal=ordinal, target_ordinal=target_ordinal):
+                diagnostic(stage, item=ordinal, target=target_ordinal)
+            targets.append(deceased_target(token, target, progress=progress))
+            diagnostic("target_deceased", "pass", item=ordinal, target=target_ordinal)
         resolved_item = dict(item)
         resolved_item["object_id"] = obj["id"].split("-", 1)[1]
         desired = dict(item["set"])
@@ -130,6 +179,8 @@ def checked_plan(items, token):
             del desired["description_en"]
         resolved_item["set"] = desired
         plan.append((resolved_item, obj, targets))
+        diagnostic("item_checked", "pass", item=ordinal)
+    diagnostic("plan_checked", "pass")
     return plan
 
 
@@ -354,8 +405,14 @@ def main():
     parser.add_argument("--sync-state", action="store_true")
     args = parser.parse_args()
     stack = ExitStack()
+    summary = plan_report.report("details-plan")
     try:
+        diagnostic("schema")
         items = load_records(args.manifest)
+        diagnostic("schema", "pass")
+        summary["counts"] = plan_report.details_counts(items)
+        summary["checks"]["schema"] = "pass"
+        summary["checks"]["listing"] = "not_required"
         if args.mode == "validate":
             print("source-details schema valid")
             return 0
@@ -371,24 +428,52 @@ def main():
                 Path(args.state + ".lock").open("w", encoding="utf-8")  # noqa: SIM115
             )
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        diagnostic("token")
         token = api.get_token(args)
+        if args.mode == "plan" and not token:
+            raise api.ApiError("plan requires token for complete verification")
+        diagnostic("token", "pass")
         api.ALLOWLIST.update({("GET", "document"), ("GET", "photo"),
                               ("POST", "document_update"), ("POST", "photo_update")})
         if args.mode == "snapshot":
+            diagnostic("snapshot")
             snapshot(items, token, args.output)
+            diagnostic("snapshot", "pass")
         else:
+            summary["checks"]["identity"] = "fail"
+            summary["checks"]["preconditions"] = "fail"
             plan = checked_plan(items, token)
+            summary["checks"]["identity"] = "pass"
+            summary["checks"]["preconditions"] = "pass"
+            summary["complete"] = True
             if args.mode == "repair":
+                diagnostic("repair")
                 apply_plan(plan, token, args.state, args.sync_state)
+                diagnostic("repair", "pass")
             else:
                 print("source identity and target checks passed; no writes")
         return 0
-    except (api.ApiError, OSError, ValueError, TypeError, subprocess.SubprocessError):
-        # Fixed public-safe output; never print response payloads or identifiers.
-        print("source-details stopped; inspect private input and verification state")
+    except (api.ApiError, OSError, ValueError, TypeError, subprocess.SubprocessError) as error:
+        # Never stringify exceptions: they can include tokens, URLs and payloads.
+        category = "api"
+        if isinstance(error, api.ThrottledError):
+            category = "throttled"
+        elif isinstance(error, api.UncertainWrite):
+            category = "uncertain_write"
+        elif isinstance(error, api.VerificationError):
+            category = "verification"
+        elif isinstance(error, OSError):
+            category = "filesystem"
+        elif isinstance(error, subprocess.SubprocessError):
+            category = "subprocess"
+        elif isinstance(error, (ValueError, TypeError)):
+            category = "input"
+        print(f"source-details stopped category={category}; inspect last stage")
         return 1
     finally:
         stack.close()
+        if args.mode == "plan":
+            plan_report.save(summary)
 
 
 if __name__ == "__main__":

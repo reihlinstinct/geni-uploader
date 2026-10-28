@@ -1,0 +1,27 @@
+{
+  "request": {
+    "method": "POST",
+    "kind": "photo_update",
+    "path_template": "/photo-{object}/update",
+    "data": {
+      "title": "Test Source"
+    }
+  },
+  "responses": [
+    {
+      "status": 429,
+      "headers": {
+        "X-API-Rate-Limit": "1",
+        "X-API-Rate-Window": "10",
+        "X-API-Rate-Remaining": "0"
+      },
+      "body": {
+        "error": "rate limit"
+      }
+    }
+  ],
+  "expect": {
+    "outcome": "ThrottledError",
+    "requests": 1
+  }
+}

@@ -1,0 +1,63 @@
+name: Isolated secondary evidence (read-only, manual)
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type READ_ONLY; fixed GETs only, no refresh or tree writes'
+        required: true
+        type: string
+      recipient:
+        description: 'Reviewed age PUBLIC recipient only; never a private key'
+        required: true
+        type: string
+      merge_policy:
+        description: 'Explicit read-only policy; UNKNOWN never grants creation'
+        required: true
+        type: choice
+        options:
+          - STRICT
+          - ALLOW_UNKNOWN_READ_ONLY
+permissions:
+  contents: read
+concurrency:
+  group: isolated-secondary-readonly-evidence
+  cancel-in-progress: false
+jobs:
+  collect:
+    if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && github.actor == 'reihlinstinct' && github.triggering_actor == 'reihlinstinct' && github.run_attempt == 1 && inputs.confirm == 'READ_ONLY' }}
+    environment: secondary-readonly-evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      AGE_VERSION: v1.3.2
+      AGE_SHA256: cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Install reviewed age release
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/FiloSottile/age/releases/download/${AGE_VERSION}/age-${AGE_VERSION}-linux-amd64.tar.gz" -o "$RUNNER_TEMP/age.tgz"
+          echo "${AGE_SHA256}  $RUNNER_TEMP/age.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/age.tgz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/age" >> "$GITHUB_PATH"
+      - name: Fixed secondary-only collection
+        env:
+          SECONDARY_PROBE_TOKEN: ${{ secrets.GENI_SECONDARY_ACCESS_TOKEN }}
+          SECONDARY_PROBE_CONNECTION_JSON: ${{ secrets.SECONDARY_PROBE_CONNECTION_JSON }}
+          PROBE_RECIPIENT: ${{ inputs.recipient }}
+          PROBE_MERGE_POLICY: ${{ inputs.merge_policy }}
+          PROBE_CONFIRM: ${{ inputs.confirm }}
+          PROBE_RUN_ATTEMPT: ${{ github.run_attempt }}
+          PROBE_OUTPUT_DIR: ${{ runner.temp }}/secondary-evidence
+        run: python3 secondary_probe_action.py
+      - name: Upload ciphertext only
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: secondary-readonly-evidence
+          path: ${{ runner.temp }}/secondary-evidence/parent-evidence.age
+          if-no-files-found: error
+          retention-days: 1

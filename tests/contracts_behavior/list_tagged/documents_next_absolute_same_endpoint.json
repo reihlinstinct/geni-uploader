@@ -1,0 +1,53 @@
+{
+  "call": {
+    "function": "list_tagged",
+    "args": {
+      "pid": "1000001",
+      "kind": "documents"
+    }
+  },
+  "runs": [
+    {
+      "responses": [
+        {
+          "method": "GET",
+          "path": "/profile-1000001/documents",
+          "status": 200,
+          "body": {
+            "results": [
+              {
+                "id": "document-1000002",
+                "title": "Test Source",
+                "source_url": "https://example.invalid/source"
+              }
+            ],
+            "next": "{base}/profile-1000001/documents?page=2"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/profile-1000001/documents?page=2",
+          "status": 200,
+          "body": {
+            "results": []
+          }
+        }
+      ],
+      "expect": {
+        "outcome": "ok",
+        "requests": 2,
+        "result": [
+          [
+            "Test Source",
+            "https://example.invalid/source"
+          ],
+          [
+            "object-id",
+            "document",
+            "1000002"
+          ]
+        ]
+      }
+    }
+  ]
+}

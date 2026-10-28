@@ -1,0 +1,33 @@
+{
+  "request": {
+    "method": "GET",
+    "kind": "user_managed_profiles",
+    "path_template": "/user/managed-profiles"
+  },
+  "responses": [
+    {
+      "status": 200,
+      "headers": {},
+      "body": {
+        "results": [
+          {
+            "id": "profile-1000001",
+            "name": "Test Person"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "outcome": "ok",
+    "requests": 1,
+    "result": {
+      "results": [
+        {
+          "id": "profile-1000001",
+          "name": "Test Person"
+        }
+      ]
+    }
+  }
+}

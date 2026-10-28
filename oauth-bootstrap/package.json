@@ -1,0 +1,23 @@
+{
+  "name": "oauth-bootstrap",
+  "version": "1.0.0",
+  "description": "Offline-tested gated authorization-code bootstrap",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test test.mjs runtime.test.mjs browser.test.mjs transport.test.mjs"
+  },
+  "keywords": [],
+  "license": "ISC",
+  "dependencies": {
+    "jose": "6.1.0",
+    "tweetnacl": "1.0.3",
+    "tweetnacl-sealedbox-js": "1.2.0"
+  },
+  "private": true,
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "libsodium-wrappers": "0.7.15",
+    "miniflare": "5.20261023.1-beta",
+    "wrangler": "4.154.0"
+  }
+}

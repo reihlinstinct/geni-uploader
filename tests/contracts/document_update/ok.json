@@ -1,0 +1,28 @@
+{
+  "request": {
+    "method": "POST",
+    "kind": "document_update",
+    "path_template": "/document-{object}/update",
+    "data": {
+      "title": "Test Source"
+    }
+  },
+  "responses": [
+    {
+      "status": 200,
+      "headers": {},
+      "body": {
+        "id": "document-1000002",
+        "title": "Test Source"
+      }
+    }
+  ],
+  "expect": {
+    "outcome": "ok",
+    "requests": 1,
+    "result": {
+      "id": "document-1000002",
+      "title": "Test Source"
+    }
+  }
+}

@@ -15,6 +15,8 @@ RUN apt-get update \
 RUN pip install --no-cache-dir "PyYAML==6.0.3"
 COPY geni_upload.py /opt/geni_upload.py
 COPY source_details.py /opt/source_details.py
+COPY plan_report.py /opt/plan_report.py
+COPY visual_plan.py /opt/visual_plan.py
 COPY entrypoint.sh /usr/local/bin/geni-uploader-entrypoint
 RUN chmod 755 /usr/local/bin/geni-uploader-entrypoint
 ENTRYPOINT ["/usr/local/bin/geni-uploader-entrypoint"]

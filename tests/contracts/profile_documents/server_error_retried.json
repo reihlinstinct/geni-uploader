@@ -1,0 +1,38 @@
+{
+  "request": {
+    "method": "GET",
+    "kind": "profile_documents",
+    "path_template": "/profile-{profile}/documents"
+  },
+  "responses": [
+    {
+      "status": 503,
+      "headers": {},
+      "body": {
+        "error": "unavailable"
+      }
+    },
+    {
+      "status": 200,
+      "headers": {},
+      "body": {
+        "results": [
+          {
+            "id": "document-1000002"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "outcome": "ok",
+    "requests": 2,
+    "result": {
+      "results": [
+        {
+          "id": "document-1000002"
+        }
+      ]
+    }
+  }
+}

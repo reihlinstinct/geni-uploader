@@ -1,0 +1,25 @@
+{
+  "call": {
+    "function": "list_tagged",
+    "args": {
+      "pid": "1000001",
+      "kind": "photos"
+    }
+  },
+  "runs": [
+    {
+      "responses": [
+        {
+          "method": "GET",
+          "path": "/profile-1000001/photos",
+          "status": 429,
+          "body": {}
+        }
+      ],
+      "expect": {
+        "outcome": "ThrottledError",
+        "requests": 1
+      }
+    }
+  ]
+}

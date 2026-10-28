@@ -1,0 +1,28 @@
+name: Token context test (read-only, manual)
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type TEST to make one read-only token-context request; no owner verification'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: dedicated-token-context-test
+  cancel-in-progress: false
+jobs:
+  probe:
+    if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && github.actor == 'reihl' && github.triggering_actor == 'reihl' && inputs.confirm == 'TEST' }}
+    environment: token-probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # official v4.3.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: One read-only request; fixed output only
+        env:
+          TOKEN_PROBE_CREDENTIAL: ${{ secrets.TOKEN_PROBE_CREDENTIAL }}
+        run: python3 -I tools/token-probe/check.py

@@ -1,0 +1,31 @@
+{
+  "request": {
+    "method": "GET",
+    "kind": "profile_documents",
+    "path_template": "/profile-{profile}/documents"
+  },
+  "responses": [
+    {
+      "status": 200,
+      "headers": {},
+      "body": {
+        "results": [
+          {
+            "id": "document-1000002"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "outcome": "ok",
+    "requests": 1,
+    "result": {
+      "results": [
+        {
+          "id": "document-1000002"
+        }
+      ]
+    }
+  }
+}
