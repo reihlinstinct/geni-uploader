@@ -408,3 +408,138 @@ def test_descriptor_sha_shape_independent_of_response_matching(kind, sha):
     p, _, _ = fixture()
     with pytest.raises(Blocked):
         descriptor(p, kind, sha)
+
+
+@pytest.mark.parametrize('index', range(5))
+@pytest.mark.parametrize('field,value', [('method', 'POST'), ('origin', 'https://example.org'),
+                                       ('route', '/repos/ZZ-other/ZZ-repo/git/blobs/'+'a'*40),
+                                       ('redirects_allowed', True), ('retries_allowed', True)])
+def test_each_request_descriptor_field_bound_independently(index, field, value):
+    p, data, routes = fixture()
+    responses = envelopes(data, routes)
+    responses[index]['request'] = {**responses[index]['request'], field: value}
+    with pytest.raises(Blocked):
+        verify(p, responses)
+
+
+def test_float_size_equal_to_actual_bytes_is_not_integer():
+    p, data, routes = fixture()
+    data[4]['size'] = float(data[4]['size'])
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
+
+
+def test_github_lf_wrapped_base64_and_encoded_length_boundary():
+    p, data, routes = fixture()
+    set_blob(data, routes, p, b'ZZ-content '*15, update_pin=True)
+    encoded = data[4]['content']
+    data[4]['content'] = '\n'.join(encoded[i:i+60] for i in range(0, len(encoded), 60))+'\n'
+    assert verify(p, envelopes(data, routes))['production_enabled'] is False
+    data[4]['content'] = encoded+'\n'*(2*262144-len(encoded))
+    assert verify(p, envelopes(data, routes))['production_enabled'] is False
+    data[4]['content'] += '\n'
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
+
+
+def test_encoded_length_bound_is_independent_with_small_candidate_limit(monkeypatch):
+    import workflow_content_contract as contract
+    monkeypatch.setattr(contract, 'LIMIT', 64)
+    p, data, routes = fixture()
+    encoded = data[4]['content']
+    data[4]['content'] = encoded+'\n'*(128-len(encoded))
+    assert verify(p, envelopes(data, routes))['production_enabled'] is False
+    data[4]['content'] += '\n'
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
+
+
+def changed_last(value):
+    return value[:-1]+('0' if value[-1] != '0' else '1')
+
+
+@pytest.mark.parametrize('index', range(5))
+def test_full_sha_comparison_including_last_nibble(index):
+    p, data, routes = fixture()
+    data[index]['sha'] = changed_last(data[index]['sha'])
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
+
+
+def test_last_nibble_of_git_blob_digest_and_sha256_pin():
+    p, data, routes = fixture()
+    wrong = changed_last(data[4]['sha'])
+    data[3]['tree'][0]['sha'] = data[4]['sha'] = wrong
+    routes[4] = descriptor(p, 'blobs', wrong)
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
+    p, data, routes = fixture()
+    p['workflow_sha256'] = changed_last(p['workflow_sha256'])
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
+
+
+@pytest.mark.parametrize('field,value', [('owner', '_ZZ'), ('repo', '_ZZ'), ('owner', 'ZZ.name'),
+                                       ('repo', 'ZZ.name'), ('filename', 'ZZ.name.yml'),
+                                       ('filename', '.yml')])
+def test_disallowed_names_no_silent_regex_widening(field, value):
+    p, _, _ = fixture()
+    p[field] = value
+    with pytest.raises(Blocked):
+        descriptor(p, 'commits')
+
+
+def test_yaml_extension_supported_tags_descriptor_not_supported():
+    p, _, _ = fixture()
+    p['filename'] = 'ZZ-human.yaml'
+    assert descriptor(p, 'commits')['method'] == 'GET'
+    with pytest.raises(Blocked):
+        descriptor(p, 'tags', 'a'*40)
+
+
+def test_link_empty_string_and_utf8_bom_are_not_accepted():
+    p, data, routes = fixture()
+    responses = envelopes(data, routes)
+    responses[0]['link'] = ''
+    with pytest.raises(Blocked):
+        verify(p, responses)
+    responses = envelopes(data, routes)
+    responses[0]['raw'] = b'\xef\xbb\xbf'+responses[0]['raw']
+    with pytest.raises(Blocked):
+        verify(p, responses)
+
+
+@pytest.mark.parametrize('mode,kind', [('100755', 'blob'), ('120000', 'blob'), ('160000', 'commit')])
+def test_valid_unselected_sibling_modes_are_supported(mode, kind):
+    p, data, routes = fixture()
+    data[1]['tree'].append({'path': 'ZZ-other', 'mode': mode, 'type': kind, 'sha': 'e'*40})
+    assert verify(p, envelopes(data, routes))['production_enabled'] is False
+
+
+@pytest.mark.parametrize('mode,kind', [('160000', 'tree'), ('100755', 'tree'),
+                                     ('120000', 'tree'), ('040000', 'commit')])
+def test_unselected_sibling_cross_pairs_rejected(mode, kind):
+    p, data, routes = fixture()
+    data[1]['tree'].append({'path': 'ZZ-other', 'mode': mode, 'type': kind, 'sha': 'e'*40})
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
+
+
+@pytest.mark.parametrize('index', [1, 2, 3])
+def test_selected_names_are_case_sensitive(index):
+    p, data, routes = fixture()
+    data[index]['tree'][0]['path'] = data[index]['tree'][0]['path'].upper()
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
+
+
+def test_case_distinct_sibling_git_paths_are_not_duplicates():
+    p, data, routes = fixture()
+    data[1]['tree'].append({'path': '.GITHUB', 'mode': '040000', 'type': 'tree', 'sha': 'e'*40})
+    assert verify(p, envelopes(data, routes))['production_enabled'] is False
+
+
+def test_del_character_not_below_control_boundary():
+    p, data, routes = fixture()
+    data[1]['tree'].append({'path': 'ZZ\x7f', 'mode': '100644', 'type': 'blob', 'sha': 'e'*40})
+    assert verify(p, envelopes(data, routes))['production_enabled'] is False
