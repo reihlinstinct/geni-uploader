@@ -466,3 +466,165 @@ test("only query-free form pages use strict-origin; callbacks and rejects retain
   assert.equal(redirect.status, 303);
   assert.equal(redirect.headers.get("referrer-policy"), "no-referrer");
 });
+
+test("fixed stage diagnostics contain no request or provider values", async () => {
+  const seen = new Set();
+  const check = async (r, stage) => {
+    assert.equal(r.status, 400);
+    const body = await r.text();
+    assert.equal(
+      body,
+      "Stopped. No credentials displayed. Check setup; do not share the address or retry blindly. Stage: " +
+        stage +
+        ".",
+    );
+    assert.equal(r.headers.get("referrer-policy"), "no-referrer");
+    assert.equal(r.headers.get("cache-control"), "no-store");
+    assert.doesNotMatch(body, /ZZ|https:|Cookie|secret=|code=/);
+    seen.add(stage);
+  };
+  await check(await handle(request("/"), {}), "setup");
+  await check(
+    await handle(
+      request("/login", { method: "POST", headers: { Origin: "null" } }),
+      setup(),
+    ),
+    "github-origin",
+  );
+  const broken = setup();
+  broken.OAUTH_STATES.get = () => ({
+    fetch: () => {
+      throw Error("ZZSENSITIVE");
+    },
+  });
+  await check(
+    await handle(
+      request("/login", { method: "POST", headers: { Origin: origin } }),
+      broken,
+    ),
+    "github-state-issue",
+  );
+  await check(
+    await handle(
+      request("/login/callback?code=ZZSENSITIVE&state=" + "a".repeat(64)),
+      setup(),
+    ),
+    "github-cookie",
+  );
+  for (const stage of [
+    "github-parameters",
+    "github-state",
+    "github-exchange",
+    "github-token-shape",
+    "github-user",
+    "github-revoke",
+    "github-identity",
+  ]) {
+    const e = setup(),
+      b = await loginBegin(e);
+    let path = "/login/callback?code=ZZSENSITIVE&state=" + b.state;
+    if (stage === "github-parameters") path += "&code=ZZEXTRA";
+    if (stage === "github-state") e.OAUTH_STATES.entries.clear();
+    const base = loginFetcher(
+      [],
+      stage === "github-identity" ? { id: 9999 } : {},
+    );
+    const fetcher = async (u, o) => {
+      if (stage === "github-exchange" && u.includes("access_token"))
+        throw Error("ZZSENSITIVE");
+      if (stage === "github-token-shape" && u.includes("access_token"))
+        return Response.json({
+          access_token: "ZZTOKEN",
+          scope: "repo",
+          token_type: "bearer",
+        });
+      if (stage === "github-user" && u.endsWith("/user"))
+        throw Error("ZZSENSITIVE");
+      if (stage === "github-revoke" && o.method === "DELETE")
+        return new Response("ZZSENSITIVE", { status: 500 });
+      return base(u, o);
+    };
+    await check(
+      await handle(request(path, { headers: { Cookie: b.cookie } }), e, {
+        fetcher,
+      }),
+      stage,
+    );
+  }
+  await check(
+    await handle(request("/callback?code=ZZSENSITIVE"), setup()),
+    "geni-session",
+  );
+  await check(
+    await handle(
+      request("/start", {
+        method: "POST",
+        headers: { Origin: "null", Cookie: await session() },
+      }),
+      setup(),
+    ),
+    "geni-origin",
+  );
+  await check(
+    await handle(
+      request("/start", {
+        method: "POST",
+        headers: { Origin: origin, Cookie: await session() },
+      }),
+      broken,
+    ),
+    "geni-state-issue",
+  );
+  await sodium.ready;
+  const key = sodium.crypto_box_keypair();
+  for (const stage of [
+    "geni-parameters",
+    "geni-state",
+    "geni-exchange",
+    "geni-token-shape",
+    "writer-key",
+    "writer-bundle",
+    "writer-access",
+    "writer-finalize",
+  ]) {
+    const e = setup(),
+      b = await begin(e);
+    let path = "/callback?code=ZZSENSITIVE&state=" + b.state;
+    let writes = 0;
+    if (stage === "geni-parameters") path += "&code=ZZEXTRA";
+    if (stage === "geni-state") e.OAUTH_STATES.entries.clear();
+    const fetcher = async (u, o) => {
+      if (u.endsWith("request_token")) {
+        if (stage === "geni-exchange") throw Error("ZZSENSITIVE");
+        return Response.json({
+          access_token: "ZZACCESS",
+          refresh_token: stage === "geni-token-shape" ? "" : "ZZREFRESH",
+          expires_in: 300,
+        });
+      }
+      if (u.endsWith("/public-key")) {
+        if (stage === "writer-key") throw Error("ZZSENSITIVE");
+        return Response.json({
+          key: sodium.to_base64(key.publicKey, sodium.base64_variants.ORIGINAL),
+          key_id: "ZZKEY",
+        });
+      }
+      writes++;
+      const failed = {
+        "writer-bundle": 1,
+        "writer-access": 2,
+        "writer-finalize": 3,
+      }[stage];
+      return new Response(writes === failed ? "ZZSENSITIVE" : null, {
+        status: writes === failed ? 500 : 204,
+      });
+    };
+    await check(
+      await handle(request(path, { headers: { Cookie: b.cookie } }), e, {
+        fetcher,
+      }),
+      stage,
+    );
+  }
+  assert.equal(seen.size, 22);
+});

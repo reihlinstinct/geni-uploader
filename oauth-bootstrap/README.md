@@ -134,3 +134,12 @@ The real Chrome regression runs against loopback HTTPS with synthetic credential
 captures the authorization redirect without following it, and makes no live OAuth call.
 
 Source: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Referrer-Policy
+
+## Safe failure stages
+
+The stop page shows one fixed allowlisted stage label, never dynamic exception
+text or provider response data. Labels distinguish setup, GitHub cookie/state,
+exchange/shape/user/revocation/identity, Geni session/state/exchange/shape and
+secret-writer key/bundle/access/finalization failures. They describe where the
+flow stopped, not a proven root cause. They add no persistent logging. Share only
+the stage, never the callback address. Do not replay codes or retry blindly.

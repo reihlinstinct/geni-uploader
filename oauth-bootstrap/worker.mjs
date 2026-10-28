@@ -15,6 +15,31 @@ const secureHeaders = {
   "content-type": "text/html; charset=utf-8",
   "x-content-type-options": "nosniff",
 };
+const STAGES = new Set([
+  "setup",
+  "github-origin",
+  "github-state-issue",
+  "github-cookie",
+  "github-parameters",
+  "github-state",
+  "github-exchange",
+  "github-token-shape",
+  "github-user",
+  "github-revoke",
+  "github-identity",
+  "github-session",
+  "geni-session",
+  "geni-origin",
+  "geni-state-issue",
+  "geni-parameters",
+  "geni-state",
+  "geni-exchange",
+  "geni-token-shape",
+  "writer-key",
+  "writer-bundle",
+  "writer-access",
+  "writer-finalize",
+]);
 const fail = () => {
   throw new Error("rejected");
 };
@@ -97,10 +122,13 @@ async function identity(request, env, cfg) {
     fail();
   return payload.sub + ":" + payload.jti;
 }
-async function loginCallback(request, env, cfg, url, fetcher) {
+async function loginCallback(request, env, cfg, url, fetcher, diagnostic) {
+  diagnostic.stage = "github-cookie";
   const cookie = cookieValue(request, LOGIN_COOKIE);
   if (!/^[a-f0-9]{64}$/.test(cookie)) fail();
+  diagnostic.stage = "github-parameters";
   const code = callbackCode(url);
+  diagnostic.stage = "github-state";
   const stored = await stateRequest(
     env,
     url.searchParams.get("state"),
@@ -110,6 +138,7 @@ async function loginCallback(request, env, cfg, url, fetcher) {
   );
   const verifier = stored.verifier;
   if (!/^[a-f0-9]{64}$/.test(verifier)) fail();
+  diagnostic.stage = "github-exchange";
   const token = await responseJson(
     await fetcher("https://github.com/login/oauth/access_token", {
       method: "POST",
@@ -127,6 +156,7 @@ async function loginCallback(request, env, cfg, url, fetcher) {
       }),
     }),
   );
+  diagnostic.stage = "github-token-shape";
   credential(token.access_token);
   // This dedicated app requests no scopes. Refuse inherited or unexpected grants.
   let user;
@@ -137,6 +167,7 @@ async function loginCallback(request, env, cfg, url, fetcher) {
       token.refresh_token
     )
       fail();
+    diagnostic.stage = "github-user";
     user = await responseJson(
       await fetcher("https://api.github.com/user", {
         redirect: "error",
@@ -149,6 +180,8 @@ async function loginCallback(request, env, cfg, url, fetcher) {
     );
   } finally {
     // Revoke the transient identity token. Never persist it or refresh it.
+    const previousStage = diagnostic.stage;
+    diagnostic.stage = "github-revoke";
     const revoked = await fetcher(
       "https://api.github.com/applications/" +
         env.GITHUB_LOGIN_CLIENT_ID +
@@ -170,13 +203,16 @@ async function loginCallback(request, env, cfg, url, fetcher) {
       },
     );
     if (revoked.status !== 204) fail();
+    diagnostic.stage = previousStage;
   }
+  diagnostic.stage = "github-identity";
   if (
     !Number.isSafeInteger(user.id) ||
     String(user.id) !== env.ALLOWED_GITHUB_ID ||
     user.type !== "User"
   )
     fail();
+  diagnostic.stage = "github-session";
   const session = await new SignJWT({})
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
     .setIssuer(cfg.origin)
@@ -212,7 +248,8 @@ async function responseJson(response) {
   return data;
 }
 
-async function writeSecret(name, value, env, fetcher) {
+async function writeSecret(name, value, env, fetcher, diagnostic, writeStage) {
+  diagnostic.stage = "writer-key";
   if (!["GENI_OAUTH_REFRESH_BUNDLE", "GENI_ACCESS_TOKEN"].includes(name))
     fail();
   const headers = {
@@ -228,6 +265,7 @@ async function writeSecret(name, value, env, fetcher) {
   if (rawKey.length !== 32) fail();
   const cipher = sealedbox.seal(new TextEncoder().encode(value), rawKey);
   const encrypted = btoa(String.fromCharCode(...cipher));
+  diagnostic.stage = writeStage;
   const response = await fetcher(GH + "/" + name, {
     method: "PUT",
     headers,
@@ -311,17 +349,27 @@ async function stateRequest(
 
 // Dependency injection is for offline tests; exported handler always uses real verification.
 export async function handle(request, env, deps = { fetcher: fetch }) {
+  const diagnostic = { stage: "setup" };
   try {
     const cfg = config(env);
     const url = new URL(request.url);
     if (url.origin !== cfg.origin) fail();
     if (request.method === "GET" && url.pathname === "/login/callback")
-      return await loginCallback(request, env, cfg, url, deps.fetcher);
+      return await loginCallback(
+        request,
+        env,
+        cfg,
+        url,
+        deps.fetcher,
+        diagnostic,
+      );
     if (request.method === "POST" && url.pathname === "/login") {
+      diagnostic.stage = "github-origin";
       if (request.headers.get("Origin") !== cfg.origin) fail();
       const nonce = random(),
         binding = random(),
         verifier = random();
+      diagnostic.stage = "github-state-issue";
       await stateRequest(
         env,
         nonce,
@@ -354,6 +402,7 @@ export async function handle(request, env, deps = { fetcher: fetch }) {
         "set-cookie": cookieHeader(LOGIN_COOKIE, binding),
       });
     }
+    diagnostic.stage = "geni-session";
     let subject;
     try {
       subject = await identity(request, env, cfg);
@@ -377,9 +426,11 @@ export async function handle(request, env, deps = { fetcher: fetch }) {
       );
     }
     if (request.method === "POST" && url.pathname === "/start") {
+      diagnostic.stage = "geni-origin";
       if (request.headers.get("Origin") !== cfg.origin) fail();
       const nonce = random();
       const cookie = random();
+      diagnostic.stage = "geni-state-issue";
       await stateRequest(env, nonce, "issue", subject, await digest(cookie));
       const target = new URL(GENI + "authorize");
       target.search = new URLSearchParams({
@@ -398,6 +449,7 @@ export async function handle(request, env, deps = { fetcher: fetch }) {
       });
     }
     if (request.method === "GET" && url.pathname === "/callback") {
+      diagnostic.stage = "geni-parameters";
       const cookies = (request.headers.get("Cookie") || "")
         .split(";")
         .map((x) => x.trim())
@@ -413,6 +465,7 @@ export async function handle(request, env, deps = { fetcher: fetch }) {
       const cookie = cookies[0].slice(COOKIE.length + 1);
       if (!/^[a-f0-9]{64}$/.test(cookie)) fail();
       const code = credential(url.searchParams.get("code"));
+      diagnostic.stage = "geni-state";
       await stateRequest(
         env,
         url.searchParams.get("state"),
@@ -420,6 +473,7 @@ export async function handle(request, env, deps = { fetcher: fetch }) {
         subject,
         await digest(cookie),
       );
+      diagnostic.stage = "geni-exchange";
       const token = await responseJson(
         await deps.fetcher(GENI + "request_token", {
           method: "POST",
@@ -437,6 +491,7 @@ export async function handle(request, env, deps = { fetcher: fetch }) {
           }),
         }),
       );
+      diagnostic.stage = "geni-token-shape";
       credential(token.access_token);
       credential(token.refresh_token);
       if (!Number.isSafeInteger(token.expires_in) || token.expires_in <= 0)
@@ -455,12 +510,16 @@ export async function handle(request, env, deps = { fetcher: fetch }) {
         JSON.stringify(bundle),
         env,
         deps.fetcher,
+        diagnostic,
+        "writer-bundle",
       );
       await writeSecret(
         "GENI_ACCESS_TOKEN",
         token.access_token,
         env,
         deps.fetcher,
+        diagnostic,
+        "writer-access",
       );
       delete bundle.pending_access_token;
       delete bundle.pending_expires_at;
@@ -469,6 +528,8 @@ export async function handle(request, env, deps = { fetcher: fetch }) {
         JSON.stringify(bundle),
         env,
         deps.fetcher,
+        diagnostic,
+        "writer-finalize",
       );
       return page("", 303, {
         location: cfg.origin + "/complete",
@@ -483,7 +544,9 @@ export async function handle(request, env, deps = { fetcher: fetch }) {
     return page("Not found", 404);
   } catch {
     return page(
-      "Stopped. No credentials displayed. Check setup; do not share the address or retry blindly.",
+      "Stopped. No credentials displayed. Check setup; do not share the address or retry blindly. Stage: " +
+        (STAGES.has(diagnostic.stage) ? diagnostic.stage : "setup") +
+        ".",
       400,
     );
   }

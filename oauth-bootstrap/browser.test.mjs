@@ -170,6 +170,28 @@ test(
       assert.equal(observed.status, 303);
       assert.equal(new URL(observed.location).origin, "https://github.com");
       assert.equal(entries.size, 1);
+      const stopped = new Promise((r) => {
+        const listener = (e) => {
+          if (JSON.parse(e.data).method === "Page.loadEventFired") {
+            ws.removeEventListener("message", listener);
+            r();
+          }
+        };
+        ws.addEventListener("message", listener);
+      });
+      await cdp("Page.navigate", {
+        url:
+          origin + "/login/callback?code=ZZSENSITIVE&state=" + "a".repeat(64),
+      });
+      await stopped;
+      const rendered = await cdp("Runtime.evaluate", {
+        expression: "document.body.innerText",
+      });
+      assert.match(
+        rendered.result.value,
+        /Stage: github-cookie\./,
+      );
+      assert.doesNotMatch(rendered.result.value, /ZZSENSITIVE|state=|https:/);
     } finally {
       ws?.close();
       if (chrome && chrome.exitCode === null) {
