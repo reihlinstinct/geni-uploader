@@ -99,6 +99,7 @@ def verify(pins, envelopes):
                 and type(blob['content']) is str)
         encoded = blob['content']
         # GitHub wraps base64 with newlines; accept LF only, no arbitrary whitespace.
+        # Encoded cap is also bounded by exact decoded size and the content cap.
         require(len(encoded) <= 2*LIMIT and '\r' not in encoded)
         encoded = encoded.replace('\n', '')
         raw = base64.b64decode(encoded, validate=True)

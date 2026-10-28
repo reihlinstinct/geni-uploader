@@ -262,3 +262,134 @@ def test_base64_ignored_characters_never_permitted(suffix):
 def test_candidate_byte_caps_are_fixed_not_self_referential():
     assert LIMIT == 262144
     assert RESPONSE_LIMIT == 1048576
+
+
+@pytest.mark.parametrize('mode,kind', [('100664', 'blob'), ('040000', 'blob'),
+                                       ('100644', 'tree'), ('ZZ', 'tree')])
+def test_invalid_sibling_mode_type_pair(mode, kind):
+    p, data, routes = fixture()
+    data[1]['tree'].append({'path': 'ZZ-other', 'mode': mode, 'type': kind, 'sha': 'e'*40})
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
+
+
+@pytest.mark.parametrize('index', range(5))
+def test_duplicate_sha_in_otherwise_valid_json(index):
+    p, data, routes = fixture()
+    responses = envelopes(data, routes)
+    raw = responses[index]['raw']
+    responses[index]['raw'] = b'{"sha":"'+data[index]['sha'].encode()+b'",'+raw[1:]
+    with pytest.raises(Blocked):
+        verify(p, responses)
+
+
+def test_extra_envelope_and_pin_keys_are_not_ignored():
+    p, data, routes = fixture()
+    responses = envelopes(data, routes)
+    responses[0]['extra'] = 'ZZ'
+    with pytest.raises(Blocked):
+        verify(p, responses)
+    p['extra'] = 'ZZ'
+    with pytest.raises(Blocked):
+        descriptor(p, 'commits')
+
+
+def test_noncanonical_padding_bits_for_exact_correct_bytes():
+    p, data, routes = fixture()
+    set_blob(data, routes, p, b'f', update_pin=True)
+    assert data[4]['content'] == 'Zg=='
+    data[4]['content'] = 'Zh=='
+    assert base64.b64decode('Zh==') == b'f'
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
+
+
+@pytest.mark.parametrize('field,bad', [('status', 200.0), ('status', 201),
+                                     ('redirected', 0), ('redirected', None),
+                                     ('redirected', 'false')])
+def test_transport_metadata_strict_types(field, bad):
+    p, data, routes = fixture()
+    responses = envelopes(data, routes)
+    responses[0][field] = bad
+    with pytest.raises(Blocked):
+        verify(p, responses)
+
+
+@pytest.mark.parametrize('bad', [True, False, 26.0, '26', None])
+def test_blob_size_integer_only(bad):
+    p, data, routes = fixture()
+    data[4]['size'] = bad
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
+
+
+def test_envelopes_tuple_and_empty_blob_block_even_with_correct_hash():
+    p, data, routes = fixture()
+    with pytest.raises(Blocked):
+        verify(p, tuple(envelopes(data, routes)))
+    set_blob(data, routes, p, b'', update_pin=True)
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
+
+
+@pytest.mark.parametrize('path,allowed', [('Z'*254, True), ('Z'*255, True), ('Z'*256, False),
+                                         ('', False), ('ZZ\x1f', False), ('ZZ ', True)])
+def test_sibling_path_length_and_control_boundaries(path, allowed):
+    p, data, routes = fixture()
+    data[1]['tree'].append({'path': path, 'mode': '100644', 'type': 'blob', 'sha': 'e'*40})
+    if allowed:
+        assert verify(p, envelopes(data, routes))['production_enabled'] is False
+    else:
+        with pytest.raises(Blocked):
+            verify(p, envelopes(data, routes))
+
+
+@pytest.mark.parametrize('field,bad', [('commit', 'a'*40+'ZZ'), ('workflow_sha256', 'a'*64+'ZZ'),
+                                     ('filename', 'ZZ.yml.extra'), ('owner', 'Z'*101),
+                                     ('repo', 'Z'*101)])
+def test_pin_regex_fullmatch_and_max_lengths(field, bad):
+    p, _, _ = fixture()
+    p[field] = bad
+    with pytest.raises(Blocked):
+        descriptor(p, 'commits')
+
+
+def test_owner_name_100_boundary_and_descriptor_literal_contract():
+    p, _, _ = fixture()
+    p['owner'] = 'Z'*100
+    assert descriptor(p, 'commits') == {
+        'method': 'GET', 'origin': 'https://api.github.com',
+        'route': '/repos/'+'Z'*100+'/ZZ-repo/git/commits/'+'a'*40,
+        'redirects_allowed': False, 'retries_allowed': False}
+    assert descriptor(p, 'trees', 'b'*40)['route'] == '/repos/'+'Z'*100+'/ZZ-repo/git/trees/'+'b'*40
+    assert descriptor(p, 'blobs', 'c'*40)['route'] == '/repos/'+'Z'*100+'/ZZ-repo/git/blobs/'+'c'*40
+    with pytest.raises(Blocked):
+        descriptor(p, 'commits', 'a'*40)
+    for kind in ['ZZ', 'GET', None]:
+        with pytest.raises(Blocked):
+            descriptor(p, kind)
+
+
+def test_invalid_utf8_in_ignored_field_must_not_be_replaced():
+    p, data, routes = fixture()
+    responses = envelopes(data, routes)
+    responses[0]['raw'] = responses[0]['raw'][:-1]+b',"ignored":"\xff"}'
+    with pytest.raises(Blocked):
+        verify(p, responses)
+
+
+@pytest.mark.parametrize('constant', ['NaN', 'Infinity', '-Infinity'])
+def test_non_json_constants_in_ignored_field_must_block(constant):
+    p, data, routes = fixture()
+    responses = envelopes(data, routes)
+    responses[0]['raw'] = responses[0]['raw'][:-1]+b',"ignored":'+constant.encode()+b'}'
+    with pytest.raises(Blocked):
+        verify(p, responses)
+
+
+def test_deep_json_returns_fixed_blocked_not_recursion_error():
+    p, data, routes = fixture()
+    responses = envelopes(data, routes)
+    responses[0]['raw'] = b'{"ZZ":'+b'['*2000+b'0'+b']'*2000+b'}'
+    with pytest.raises(Blocked, match='^workflow content blocked; review protected inputs$'):
+        verify(p, responses)
