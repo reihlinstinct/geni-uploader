@@ -110,8 +110,9 @@ The source-upload service workflow (`geni-upload.yml`) remains manual dispatch
 only, with actor and triggering actor restricted to the personal account
 (`reihl`). Agents do not invoke or schedule that write workflow. This is not a
 blanket description of every workflow: a separate read-only evidence
-workflow uses an assistant actor and a protected human environment review; it
-cannot create profiles or upload sources. See
+workflow has an assistant actor condition and is intended to require protected
+human environment review; verify effective settings before each authorized run.
+It cannot create profiles or upload sources. See
 [workflow authority](docs/workflow-authority.md) for the distinction between
 current code, deployment settings and the unreleased profile-creation design,
 and [privacy](docs/privacy.md) for data handling. No exact-run approval is implied.
