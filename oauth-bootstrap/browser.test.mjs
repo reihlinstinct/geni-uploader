@@ -126,15 +126,16 @@ test(
       const ready = await waitForChrome({
         readPort: () => readFile(join(dir, "DevToolsActivePort"), "utf8"),
         exited: () => chrome.exitCode !== null || chromeError.includes("ENOENT"),
-        probe: async (port) => {
+        probe: async (port, budget) => {
           const response = await fetch("http://127.0.0.1:" + port + "/json/list", {
-            signal: AbortSignal.timeout(1000),
+            signal: AbortSignal.timeout(Math.max(1, Math.floor(budget))),
           });
           assert.equal(response.status, 200);
           return response.json();
         },
         sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
         now: () => performance.now(),
+        diagnostics: () => "exit=" + chrome.exitCode + "; stderr=" + chromeError,
       });
       ws = new WebSocket(ready.page.webSocketDebuggerUrl);
       await new Promise((r) => ws.addEventListener("open", r, { once: true }));

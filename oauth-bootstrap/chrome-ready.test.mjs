@@ -47,3 +47,44 @@ test("process exit and untrusted websocket endpoints are rejected", async () => 
     await assert.rejects(waitForChrome(g), /readiness timeout/);
   }
 });
+
+test("late probe readiness is rejected and remaining budget is clamped", async () => {
+  let clock = 0;
+  const f = fixture();
+  f.now = () => clock;
+  f.readPort = async () => { clock = 59900; return "9911\nZZ"; };
+  f.probe = async (_, budget) => {
+    assert.equal(budget, 100);
+    clock += 900;
+    return [{ type: "page", webSocketDebuggerUrl: "ws://127.0.0.1:9911/ZZ" }];
+  };
+  await assert.rejects(waitForChrome(f), /readiness timeout/);
+});
+
+test("truncated numeric port does not probe and final sleep is clamped", async () => {
+  let clock = 0;
+  const f = fixture();
+  f.now = () => clock;
+  f.timeoutMs = 150;
+  f.readPort = async () => "9911";
+  f.probe = async () => assert.fail("incomplete port must not be probed");
+  const sleeps = [];
+  f.sleep = async (ms) => { sleeps.push(ms); clock += ms; };
+  await assert.rejects(waitForChrome(f), /port-file-incomplete/);
+  assert.deepEqual(sleeps, [100, 50]);
+});
+
+test("timeout and exit retain capped synthetic diagnostics", async () => {
+  for (const exit of [false, true]) {
+    const f = fixture();
+    f.timeoutMs = 100;
+    f.exited = () => exit;
+    f.readPort = async () => "";
+    f.diagnostics = () => "x".repeat(5000) + "ZZsynthetic-stderr\x01";
+    await assert.rejects(waitForChrome(f), (e) => {
+      assert.match(e.message, /ZZsynthetic-stderr\?/);
+      assert.ok(e.message.length < 4300);
+      return true;
+    });
+  }
+});
