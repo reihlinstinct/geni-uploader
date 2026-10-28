@@ -393,3 +393,18 @@ def test_deep_json_returns_fixed_blocked_not_recursion_error():
     responses[0]['raw'] = b'{"ZZ":'+b'['*2000+b'0'+b']'*2000+b'}'
     with pytest.raises(Blocked, match='^workflow content blocked; review protected inputs$'):
         verify(p, responses)
+
+
+@pytest.mark.parametrize('kind', ['ZZ', 'GET', None, 1])
+def test_descriptor_invalid_kind_with_otherwise_valid_sha(kind):
+    p, _, _ = fixture()
+    with pytest.raises(Blocked):
+        descriptor(p, kind, 'a'*40)
+
+
+@pytest.mark.parametrize('kind', ['trees', 'blobs'])
+@pytest.mark.parametrize('sha', ['a'*40+'ZZ', 'A'*40, '../ZZ', None, True])
+def test_descriptor_sha_shape_independent_of_response_matching(kind, sha):
+    p, _, _ = fixture()
+    with pytest.raises(Blocked):
+        descriptor(p, kind, sha)
