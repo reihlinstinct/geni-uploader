@@ -135,7 +135,7 @@ class Tests(unittest.TestCase):
         self.assertIn("github.repository == 'reihlinstinct/geni-uploader'", workflow)
         self.assertIn("github.event_name == 'workflow_dispatch'", workflow)
         self.assertIn('  workflow_dispatch:', workflow)
-        self.assertIn('34e114876b0b11c390a56381ad16ebd13914f8d5', workflow)
+        self.assertIn('3d3c42e5aac5ba805825da76410c181273ba90b1', workflow)
         self.assertIn('environment: token-probe', workflow)
         self.assertIn('run: python3 -I tools/token-probe/check.py', workflow)
         self.assertEqual(workflow.count('secrets.TOKEN_PROBE_CREDENTIAL'), 1)
