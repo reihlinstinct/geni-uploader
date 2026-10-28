@@ -11,7 +11,7 @@ import { handle, OneTimeState } from "./worker.mjs";
 
 test(
   "Chrome form POST preserves exact Origin on query-free landing",
-  { timeout: 45000 },
+  { timeout: 60000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), "zz-oauth-browser-"));
     let chrome, ws, server;
@@ -109,13 +109,22 @@ test(
           "--disable-background-networking",
           "--ignore-certificate-errors",
           "--remote-debugging-port=0",
+          "--remote-debugging-address=127.0.0.1",
           "--user-data-dir=" + dir,
           "about:blank",
         ],
-        { stdio: "ignore" },
+        { stdio: ["ignore", "ignore", "pipe"] },
       );
+      let chromeError = "";
+      chrome.on("error", (e) => {
+        chromeError += e.message;
+      });
+      chrome.stderr.on("data", (x) => {
+        chromeError = (chromeError + x).slice(-4096);
+      });
       let port;
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < 300; i++) {
+        if (chrome.exitCode !== null || chromeError.includes("ENOENT")) break;
         try {
           port = (
             await readFile(join(dir, "DevToolsActivePort"), "utf8")
@@ -124,7 +133,7 @@ test(
         } catch {}
         await new Promise((r) => setTimeout(r, 100));
       }
-      assert.ok(port, "Chrome did not start");
+      assert.ok(port, "Synthetic Chrome did not start: " + chromeError);
       const tabs = await (
         await fetch("http://127.0.0.1:" + port + "/json/list")
       ).json();
@@ -187,10 +196,7 @@ test(
       const rendered = await cdp("Runtime.evaluate", {
         expression: "document.body.innerText",
       });
-      assert.match(
-        rendered.result.value,
-        /Stage: github-cookie\./,
-      );
+      assert.match(rendered.result.value, /Stage: github-cookie\./);
       assert.doesNotMatch(rendered.result.value, /ZZSENSITIVE|state=|https:/);
     } finally {
       ws?.close();
