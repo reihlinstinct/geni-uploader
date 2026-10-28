@@ -548,7 +548,7 @@ test("fixed stage diagnostics contain no request or provider values", async () =
       await handle(request(path, { headers: { Cookie: b.cookie } }), e, {
         fetcher,
       }),
-      stage,
+      stage === "github-exchange" ? "github-exchange-transport" : stage,
     );
   }
   await check(
@@ -627,4 +627,88 @@ test("fixed stage diagnostics contain no request or provider values", async () =
     );
   }
   assert.equal(seen.size, 22);
+});
+
+test("GitHub exchange maps only fixed outcomes and sets server User-Agent", async () => {
+  const cases = [
+    [
+      "transport",
+      () => {
+        throw Error("ZZSENSITIVE");
+      },
+    ],
+    ["http", () => new Response("ZZSENSITIVE", { status: 403 })],
+    ["format", () => new Response("ZZSENSITIVE")],
+    ["format", () => new Response("x".repeat(65537))],
+    ["format", () => Response.json([])],
+    ["format", () => Response.json(null)],
+    [
+      "credentials",
+      () =>
+        Response.json({
+          error: "incorrect_client_credentials",
+          error_description: "ZZSENSITIVE",
+        }),
+    ],
+    [
+      "redirect",
+      () =>
+        Response.json(
+          { error: "redirect_uri_mismatch", error_description: "ZZSENSITIVE" },
+          { status: 400 },
+        ),
+    ],
+    [
+      "code",
+      () =>
+        Response.json({
+          error: "bad_verification_code",
+          error_description: "ZZSENSITIVE",
+        }),
+    ],
+    [
+      "provider",
+      () =>
+        Response.json({
+          error: "ZZSENSITIVE",
+          error_description: "ZZSENSITIVE",
+        }),
+    ],
+    ["provider", () => Response.json({ error: { unexpected: "ZZSENSITIVE" } })],
+  ];
+  for (const [label, respond] of cases) {
+    const e = setup(),
+      b = await loginBegin(e);
+    let calls = 0;
+    const r = await handle(
+      request("/login/callback?code=ZZSENSITIVE&state=" + b.state, {
+        headers: { Cookie: b.cookie },
+      }),
+      e,
+      {
+        fetcher: async (u, o) => {
+          calls++;
+          assert.equal(u, "https://github.com/login/oauth/access_token");
+          assert.equal(o.method, "POST");
+          assert.equal(o.redirect, "error");
+          assert.equal(o.headers["User-Agent"], "oauth-bootstrap");
+          assert.equal(o.headers.Accept, "application/json");
+          assert.equal(o.body.get("redirect_uri"), origin + "/login/callback");
+          assert.match(o.body.get("code_verifier"), /^[a-f0-9]{64}$/);
+          return respond();
+        },
+      },
+    );
+    assert.equal(calls, 1);
+    assert.equal(r.status, 400);
+    assert.equal(
+      await r.text(),
+      "Stopped. No credentials displayed. Check setup; do not share the address or retry blindly. Stage: github-exchange-" +
+        label +
+        ".",
+    );
+    assert.equal(r.headers.get("cache-control"), "no-store");
+    assert.equal(r.headers.get("referrer-policy"), "no-referrer");
+    assert.equal(e.OAUTH_STATES.entries.size, 0);
+  }
 });

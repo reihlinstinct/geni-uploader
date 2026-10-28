@@ -23,6 +23,13 @@ const STAGES = new Set([
   "github-parameters",
   "github-state",
   "github-exchange",
+  "github-exchange-transport",
+  "github-exchange-http",
+  "github-exchange-format",
+  "github-exchange-credentials",
+  "github-exchange-redirect",
+  "github-exchange-code",
+  "github-exchange-provider",
   "github-token-shape",
   "github-user",
   "github-revoke",
@@ -139,23 +146,22 @@ async function loginCallback(request, env, cfg, url, fetcher, diagnostic) {
   const verifier = stored.verifier;
   if (!/^[a-f0-9]{64}$/.test(verifier)) fail();
   diagnostic.stage = "github-exchange";
-  const token = await responseJson(
-    await fetcher("https://github.com/login/oauth/access_token", {
-      method: "POST",
-      redirect: "error",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-      body: new URLSearchParams({
-        client_id: env.GITHUB_LOGIN_CLIENT_ID,
-        client_secret: env.GITHUB_LOGIN_CLIENT_SECRET,
-        code,
-        redirect_uri: cfg.loginRedirect,
-        code_verifier: verifier,
-      }),
+  const token = await githubExchange(fetcher, diagnostic, {
+    method: "POST",
+    redirect: "error",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+      "User-Agent": "oauth-bootstrap",
+    },
+    body: new URLSearchParams({
+      client_id: env.GITHUB_LOGIN_CLIENT_ID,
+      client_secret: env.GITHUB_LOGIN_CLIENT_SECRET,
+      code,
+      redirect_uri: cfg.loginRedirect,
+      code_verifier: verifier,
     }),
-  );
+  });
   diagnostic.stage = "github-token-shape";
   credential(token.access_token);
   // This dedicated app requests no scopes. Refuse inherited or unexpected grants.
@@ -236,6 +242,38 @@ function callbackCode(url) {
   )
     fail();
   return credential(url.searchParams.get("code"));
+}
+
+async function githubExchange(fetcher, diagnostic, options) {
+  diagnostic.stage = "github-exchange-transport";
+  const response = await fetcher(
+    "https://github.com/login/oauth/access_token",
+    options,
+  );
+  diagnostic.stage = response.ok
+    ? "github-exchange-format"
+    : "github-exchange-http";
+  const raw = await response.text();
+  if (raw.length > 65536) fail();
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    fail();
+  }
+  if (!data || typeof data !== "object" || Array.isArray(data)) fail();
+  if (data.error) {
+    // Map exact known provider codes to our own fixed labels. Never reflect data.
+    const known = new Map([
+      ["incorrect_client_credentials", "github-exchange-credentials"],
+      ["redirect_uri_mismatch", "github-exchange-redirect"],
+      ["bad_verification_code", "github-exchange-code"],
+    ]);
+    diagnostic.stage = known.get(data.error) || "github-exchange-provider";
+    fail();
+  }
+  if (!response.ok) fail();
+  return data;
 }
 
 async function responseJson(response) {
