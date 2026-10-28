@@ -10,8 +10,12 @@ rejects obviously plaintext-shaped data. Caps are candidate values pending
 reviewed real-schema/encryption-overhead validation (docs/intent-storage-decisions.md).
 
 check_bytes and verify_readback do not compare stage, operation, run or
-recipient with any expected value; the caller pins those. The prefix screen
-falsely rejects about 1.17 % of uniformly random objects (docs/ciphertext-evidence.md).
+recipient with any expected value; the caller pins those. Under a uniform
+random-bytes model the single-byte prefixes alone reject about 1.17 % of
+objects; the other prefixes and the valid-UTF-8 branch add a further,
+negligible share for objects of 32 bytes or more (docs/ciphertext-evidence.md).
+Scalars are exact types: production_enabled must be the bool False (0, None
+and other falsy values are rejected) and integer fields reject bool.
 """
 import hashlib
 import re

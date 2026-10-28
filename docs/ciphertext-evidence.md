@@ -45,7 +45,17 @@ synthetic bytes only.
   prefixes are negligible (BOM 2^-24, `%PDF` and the ZIP header 2^-32 each,
   `-----BEGIN` 2^-80). The mostly-printable branch is bounded by the chance
   that strict UTF-8 decoding succeeds: 9.4e-5 at 16 bytes, 1.0e-8 at 32 bytes
-  and 1.1e-16 at 64 bytes. Passing the screen is never proof of encryption.
+  and 1.1e-16 at 64 bytes. So the whole false-rejection rate is the 1.17 %
+  prefix contribution plus these terms, which are negligible from about 32
+  bytes up and large for very small objects. Passing the screen is never
+  proof of encryption.
+- **Scalar contract.** Scalars are checked by exact type, never by
+  truthiness or equality alone: `production_enabled` must be the bool
+  `False` (0, 0.0, None, empty values and `True` are rejected);
+  `schema_version`, `run_attempt`, `byte_length` and the ledger's
+  `total_bytes` must be `int` and never `bool` (`False == 0` and
+  `True == 1` are still rejected). LF, CR and TAB count as printable in the
+  plaintext screen.
 - **Object dedup.** The ledger counts unique stored objects per operation, so
   the same bytes cannot be accounted twice under different stages. That is
   intended. Readback verification does not go through the ledger, so an
