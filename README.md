@@ -106,7 +106,16 @@ See [docs/usage.md](docs/usage.md) for detailed usage, exit codes, verification,
 
 ## Usage: GitHub Action
 
-The service workflow is manual dispatch only, triggered only by the personal account (`reihl`). Agents develop and test offline only and never dispatch or schedule it. See [docs/privacy.md](docs/privacy.md) for the access policy and workflow execution rules.
+The source-upload service workflow (`geni-upload.yml`) remains manual dispatch
+only, with actor and triggering actor restricted to the personal account
+(`reihl`). Agents do not invoke or schedule that write workflow. This is not a
+blanket description of every workflow: a separate read-only evidence
+workflow has an assistant actor condition and is intended to require protected
+human environment review; verify effective settings before each authorized run.
+It cannot create profiles or upload sources. See
+[workflow authority](docs/workflow-authority.md) for the distinction between
+current code, deployment settings and the unreleased profile-creation design,
+and [privacy](docs/privacy.md) for data handling. No exact-run approval is implied.
 
 ## Expected private repository structure
 

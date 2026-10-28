@@ -1,6 +1,6 @@
 # Privacy Policy - geni-uploader
 
-Last updated: 27 October 2026
+Last updated: 28 October 2026
 
 This policy describes the public geni-uploader project. It does not grant access
 to anyone's accounts or say that a person has agreed to token custody or a
@@ -13,7 +13,15 @@ particular operating mode. Choose the mode and approve access separately.
   Geni for the requested genealogy work and GitHub for the repository the user
   selects. The project author does not automatically receive local data.
 - **Hosted GitHub Actions mode:** a user-triggered workflow runs the container
-  on a GitHub-hosted runner. GitHub processes the workflow inputs, secrets,
+  on a GitHub-hosted runner. The source-upload workflow remains personal-account
+  only. A separate read-only evidence workflow has an assistant actor condition.
+  When its environment is configured with required reviewers, as intended, it
+  waits on human review before reading its scoped token. Effective settings must
+  be checked before each authorized run.
+  That exception does not authorize writes or OAuth, and a reviewed design is
+  not a released creation executor. See
+  the repository document `docs/workflow-authority.md` for the current/target split.
+  GitHub processes the workflow inputs, secrets,
   temporary files and logs under its own policies. Account and repository
   administrators may have access according to their permissions. Do not use
   this mode without permission from the account and data owners.

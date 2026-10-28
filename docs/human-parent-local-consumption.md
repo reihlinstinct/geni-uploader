@@ -31,4 +31,5 @@ deeper than 32 levels, cyclic structures and unsupported JSON values with a
 fixed Blocked error. Canonical bytes for valid string-key JSON inputs remain
 unchanged. Proposal CLI catches malformed overdeep JSON. Regression guards deny
 socket, HTTP, urllib, subprocess and os process helpers during proposal, render
-and envelope review. These are test guards, not an operating-system sandbox.
+and envelope review, including fork and POSIX spawn helpers where present.
+These are regression test guards, not complete operating-system isolation.
