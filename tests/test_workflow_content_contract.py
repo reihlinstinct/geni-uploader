@@ -137,4 +137,123 @@ def test_base64_not_canonical_or_wrong_bytes(bad):
 
 def test_doc_pin():
     text = (Path(__file__).resolve().parents[1]/'docs/workflow-content-contract.md').read_text()
-    assert hashlib.sha256(' '.join(text.split()).encode()).hexdigest() == '1e5442746448762ea66136e2d2314cdc728e649a9dc7a854c49e50ac890a437f'
+    assert hashlib.sha256(' '.join(text.split()).encode()).hexdigest() == '5e7dc389b6916024f2f718fbcc67d2166bb0b47f780f8c885e25488ff894baf5'
+
+
+def set_blob(data, routes, pins, raw, *, update_pin=False):
+    sha = hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()
+    data[3]['tree'][0]['sha'] = data[4]['sha'] = sha
+    data[4]['size'], data[4]['content'] = len(raw), base64.b64encode(raw).decode()
+    routes[4] = descriptor(pins, 'blobs', sha)
+    if update_pin:
+        pins['workflow_sha256'] = hashlib.sha256(raw).hexdigest()
+
+
+def test_only_independently_pinned_sha256_rejects_changed_valid_blob():
+    p, data, routes = fixture()
+    set_blob(data, routes, p, b'ZZ-different exact workflow bytes')
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
+    p['workflow_sha256'] = hashlib.sha256(b'ZZ-different exact workflow bytes').hexdigest()
+    assert verify(p, envelopes(data, routes))['production_enabled'] is False
+
+
+def test_only_git_blob_header_and_content_hash_blocks_wrong_object_id():
+    p, data, routes = fixture()
+    raw = b'ZZ-replaced-content'
+    p['workflow_sha256'] = hashlib.sha256(raw).hexdigest()
+    data[4]['content'], data[4]['size'] = base64.b64encode(raw).decode(), len(raw)
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
+
+
+def test_only_reported_size_blocks_consistent_hashes():
+    p, data, routes = fixture()
+    data[4]['size'] += 1
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
+
+
+@pytest.mark.parametrize('path', ['ZZ/nested', 'ZZ\\nested', '..', '.', 'ZZ\x00'])
+def test_invalid_sibling_path_is_not_ignored(path):
+    p, data, routes = fixture()
+    data[1]['tree'].append({'path': path, 'mode': '100644', 'type': 'blob', 'sha': 'e'*40})
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
+
+
+def test_sibling_sha_shape_must_be_valid():
+    p, data, routes = fixture()
+    data[1]['tree'].append({'path': 'ZZ-other', 'mode': '100644', 'type': 'blob', 'sha': 'bad'})
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
+
+
+def test_tree_entry_cap_boundary():
+    p, data, routes = fixture()
+    data[1]['tree'] += [{'path': f'ZZ-{i}', 'mode': '100644', 'type': 'blob', 'sha': 'e'*40}
+                        for i in range(4095)]
+    assert verify(p, envelopes(data, routes))['production_enabled'] is False
+    data[1]['tree'].append({'path': 'ZZ-over', 'mode': '100644', 'type': 'blob', 'sha': 'e'*40})
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
+
+
+def test_content_cap_with_valid_sha_and_size_boundary():
+    p, data, routes = fixture()
+    set_blob(data, routes, p, b'Z'*LIMIT, update_pin=True)
+    assert verify(p, envelopes(data, routes))['production_enabled'] is False
+    set_blob(data, routes, p, b'Z'*(LIMIT+1), update_pin=True)
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
+
+
+def test_response_cap_valid_json_with_padding():
+    p, data, routes = fixture()
+    responses = envelopes(data, routes)
+    raw = responses[0]['raw']
+    responses[0]['raw'] = raw+b' '*(RESPONSE_LIMIT-len(raw))
+    assert verify(p, responses)['production_enabled'] is False
+    responses[0]['raw'] += b' '
+    with pytest.raises(Blocked):
+        verify(p, responses)
+
+
+@pytest.mark.parametrize('count', [0, 1, 4, 6])
+def test_exact_response_count(count):
+    p, data, routes = fixture()
+    responses = envelopes(data, routes)
+    if count == 6:
+        responses += [copy.deepcopy(responses[0])]
+    else:
+        responses = responses[:count]
+    with pytest.raises(Blocked):
+        verify(p, responses)
+
+
+@pytest.mark.parametrize('index', range(5))
+@pytest.mark.parametrize('bad', ['text', bytearray(b'{}')])
+def test_raw_must_be_bytes_even_when_parseable(index, bad):
+    p, data, routes = fixture()
+    responses = envelopes(data, routes)
+    responses[index]['raw'] = responses[index]['raw'].decode() if bad == 'text' else bytearray(responses[index]['raw'])
+    with pytest.raises(Blocked):
+        verify(p, responses)
+
+
+@pytest.mark.parametrize('index', range(5))
+@pytest.mark.parametrize('raw', [b'[]', b'null', b'1', b'"ZZ"', b'true'])
+def test_non_dict_json_top_level(index, raw):
+    p, data, routes = fixture()
+    responses = envelopes(data, routes)
+    responses[index]['raw'] = raw
+    with pytest.raises(Blocked):
+        verify(p, responses)
+
+
+@pytest.mark.parametrize('suffix', ['\r', ' ', '!', '\t'])
+def test_base64_ignored_characters_never_permitted(suffix):
+    p, data, routes = fixture()
+    data[4]['content'] += suffix
+    with pytest.raises(Blocked):
+        verify(p, envelopes(data, routes))
