@@ -89,7 +89,7 @@ def test_recovery_never_calls_oauth():
     calls = []
     def call(args, value=None):
         calls.append((args, value))
-    b = B | {'pending_access_token': 'ZZPENDING'}
+    b = B | {'pending_access_token': 'ZZPENDING', 'pending_expires_at': 9999999999}
     assert m.run(json.dumps(b), REPO, call,
                  lambda *a, **k: pytest.fail('OAuth called')) == 'recovered_previous_rotation'
     assert calls[1][1] == 'ZZPENDING'
@@ -118,3 +118,15 @@ def test_workflow_is_human_only():
         assert check in gate
     assert d['jobs']['renew']['environment'] == 'oauth-refresh'
     assert 'schedule:' not in text
+
+
+@pytest.mark.parametrize('expiry', [None, 0, 100, True, '9999999999'])
+def test_stale_pending_refreshes_instead_of_restoring(expiry):
+    calls = []
+    def call(args, value=None):
+        calls.append((args, value))
+    b = B | {'pending_access_token': 'ZZSTALE', 'pending_expires_at': expiry}
+    assert m.run(json.dumps(b), REPO, call, transport, clock=lambda: 200) == 'renewal_saved'
+    assert calls[2][1] == 'ZZACCESS'
+    assert json.loads(calls[1][1])['pending_expires_at'] == 86600
+    assert 'pending_expires_at' not in json.loads(calls[3][1])

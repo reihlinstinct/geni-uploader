@@ -16,11 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - name: Refresh and save encrypted secrets
         env:
           OAUTH_BUNDLE: ${{ secrets.GENI_OAUTH_REFRESH_BUNDLE }}
           GH_TOKEN: ${{ secrets.OAUTH_SECRET_WRITER }}
-        run: python3 oauth_refresh.py
+        run: python3 -I oauth_refresh.py

@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -91,7 +92,7 @@ def gh(args, value=None):
     return result.stdout
 
 
-def run(raw, repo, call=gh, transport=None):
+def run(raw, repo, call=gh, transport=None, clock=time.time):
     # Fixed destination from workflow context, never from Geni response or dispatch input.
     if repo != 'reihlinstinct/geni-uploader':
         raise RenewalError('repository_refused')
@@ -100,7 +101,9 @@ def run(raw, repo, call=gh, transport=None):
     # A prior rotation may have saved a new bundle but failed the compatibility
     # secret update. Recover that access token BEFORE using another refresh token.
     original = json.loads(raw)
-    if 'pending_access_token' in original:
+    pending_expiry = original.get('pending_expires_at')
+    pending_fresh = (type(pending_expiry) is int and pending_expiry > int(clock()) + 60)
+    if 'pending_access_token' in original and pending_fresh:
         pending = credential(original['pending_access_token'])
         call(['secret', 'set', ACCESS_SECRET, '--repo', repo], pending)
         call(['secret', 'set', BUNDLE_SECRET, '--repo', repo], json.dumps(bundle))
@@ -109,6 +112,7 @@ def run(raw, repo, call=gh, transport=None):
     bundle['refresh_token'] = rotated
     bundle['pending_access_token'] = token
     bundle['expires_in'] = expiry
+    bundle['pending_expires_at'] = int(clock()) + expiry
     # Persist the rotated credential first, as one encrypted JSON secret.
     # Never silently continue after any failure and never retry refresh blindly.
     try:
@@ -117,6 +121,7 @@ def run(raw, repo, call=gh, transport=None):
         raise RenewalError('rotation_persist_failed_reconsent_may_be_needed') from None
     call(['secret', 'set', ACCESS_SECRET, '--repo', repo], token)
     bundle.pop('pending_access_token')
+    bundle.pop('pending_expires_at')
     call(['secret', 'set', BUNDLE_SECRET, '--repo', repo], json.dumps(bundle))
     return 'renewal_saved'
 

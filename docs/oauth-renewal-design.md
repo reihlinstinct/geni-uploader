@@ -45,7 +45,7 @@ is never disclosed to the browser or Geni.
 
 Rotation order: persist new refresh + pending access token in one encrypted bundle;
 update the compatibility access-token secret; clear the pending field. A rerun
-with a pending token repairs secret synchronization WITHOUT another OAuth request.
+with a pending token whose stored absolute expiry is more than sixty seconds away repairs secret synchronization WITHOUT another OAuth request. Missing, malformed or stale expiry causes a new refresh using the saved rotated refresh token instead of restoring a stale access token.
 If the first persistence fails after Geni rotates, stop and warn re-consent may be
 needed. No claim of atomic cross-service rotation or rollback. A process killed
 between remote token rotation and local persistence can still lose the new refresh
@@ -93,7 +93,7 @@ promise, not something this patch silently automates.
 ## Release gates
 
 - Independent exact-head review, signed commits, green CI and human approval.
-- Environment configured as default-branch-only, permitted human reviewer, no
+- Before any first run: environment configured as default-branch-only, permitted human reviewer, no
   admin bypass; workflow does not create or weaken its own protections.
 - App server-side compatibility, redirect/domain and POST exchange support checked
   by the human. No secrets copied through public logs or agent messages.
