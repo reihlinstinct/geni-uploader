@@ -247,3 +247,24 @@ def test_nested_collection_and_leaf_bounds(field, bad):
     family['nodes']['profile-99123'][field] = bad
     client.responses[C['owner_node']+'/immediate-family'] = family
     with pytest.raises(Blocked): p.collect(C, client)
+
+
+@pytest.mark.parametrize('opt_in', [False, True])
+def test_unknown_merge_requires_explicit_readonly_choice(opt_in):
+    client = Client()
+    for route in ('profile', C['owner_node']):
+        client.responses[route].pop('merge_pending', None)
+    client.responses[C['owner_node']+'/immediate-family']['focus'].pop('merge_pending', None)
+    if not opt_in:
+        with pytest.raises(Blocked): p.collect(C, client)
+    else:
+        result = p.collect(C, client, allow_unknown_merge=True)
+        assert result['create_enabled'] is False
+        assert 'merge_pending' not in result['self']
+
+
+@pytest.mark.parametrize('flag', [True, None, 'false', 0])
+def test_readonly_unknown_optin_never_allows_invalid_explicit_flags(flag):
+    client = Client()
+    client.responses['profile'] = {**PROFILE, 'merge_pending': flag}
+    with pytest.raises(Blocked): p.collect(C, client, allow_unknown_merge=True)

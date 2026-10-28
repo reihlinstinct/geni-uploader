@@ -50,11 +50,14 @@ def connection(data):
     return data
 
 
-def profile(value, owner, expected):
+def profile(value, owner, expected, *, allow_unknown_merge=False):
     require(type(value) is dict and value.get('id') == owner
             and 'error' not in value and 'results' not in value
             and not any(k in value for k in ('next_page', 'paging', 'pagination')))
-    require(value.get('merged_into') is None and value.get('merge_pending') is False)
+    require(type(allow_unknown_merge) is bool)
+    unknown = ('merge_pending' not in value and 'merged_into' not in value)
+    require((allow_unknown_merge and unknown) or
+            (value.get('merged_into') is None and value.get('merge_pending') is False))
     # Exact expected root-name tokens, not names from relatives or a broad graph.
     names = [value.get(k, '') for k in ('first_name', 'middle_name', 'last_name', 'maiden_name')]
     require(all(type(n) is str for n in names))
@@ -96,16 +99,18 @@ class ReadOnly:
             raise Blocked('probe stopped; request or response unavailable') from exc
 
 
-def collect(config, client):
+def collect(config, client, *, allow_unknown_merge=False):
     """Minimal protected observations. No parent-completeness/readiness claim."""
+    require(type(allow_unknown_merge) is bool)
     config = connection(config)
     owner, name = config['owner_node'], config['expect_name']
-    self_profile = profile(client.get('profile'), owner, name)
-    owner_profile = profile(client.get(owner), owner, name)
+    self_profile = profile(client.get('profile'), owner, name, allow_unknown_merge=allow_unknown_merge)
+    owner_profile = profile(client.get(owner), owner, name, allow_unknown_merge=allow_unknown_merge)
     family = client.get(owner + '/immediate-family')
     require(type(family.get('focus')) is dict and family['focus'].get('id') == owner
             and type(family.get('nodes')) is dict and len(family['nodes']) <= 100
             and set(family) <= {'focus', 'nodes'})
+    profile(family['focus'], owner, name, allow_unknown_merge=allow_unknown_merge)
     # Extract bounded typed leaves, never copy nested provider objects.
     def edges(value):
         require(type(value) is list and len(value) <= 100)

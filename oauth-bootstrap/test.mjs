@@ -962,3 +962,9 @@ test('secondary-only rollout hides and rejects primary and tertiary including in
  const old=custodyEnv(),b=await begin(old);const r=await handle(request('/callback?code=ZZCODE&state='+b.state,{headers:{Cookie:b.cookie}}),{...old,SECONDARY_ONLY:'true'},{fetcher:nofetch});assert.equal(r.status,400);
  const result=await custodyCallback(e,{id:'profile-99123'});assert.equal(result.r.status,303);assert.ok(result.writes.every(w=>w.name.startsWith('GENI_SECONDARY_')));
 });
+
+// Storage-only candidate tests, no Worker route or binding.
+import "./create-intent-candidate.test.mjs";
+
+// Offline workload JWT validation with synthetic keys only.
+import "./intent-workload-verifier.test.mjs";
