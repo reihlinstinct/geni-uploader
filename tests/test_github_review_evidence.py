@@ -39,7 +39,10 @@ def test_consistent_snapshot_is_never_authority():
     assert result == {'phase': 'synthetic_review_snapshot_consistent', 'production_enabled': False,
                          'provenance_verified': False, 'owner_approval_verified': False,
                          'payload_approval_verified': False, 'job_review_correlation_verified': False,
-                         'retry_allowed': False}
+                         'retry_allowed': False, 'release_gaps': [
+                              'trusted_https_provenance_and_freshness', 'immutable_workflow_content',
+                              'exact_owner_payload_approval', 'job_attempt_review_correlation',
+                              'historical_rule_protection_and_toctou']}
     data[2][0]['comment'] = 'ZZ arbitrary approval-looking content ignored'
     assert inspect(p, envelopes(p, data)) == result
 
@@ -128,4 +131,33 @@ def test_attempt_replay_self_review_unknown_pins_and_route_injection():
 
 def test_document_contract_pin():
     text = (Path(__file__).resolve().parents[1]/'docs/github-review-evidence.md').read_text()
-    assert hashlib.sha256(' '.join(text.split()).encode()).hexdigest() == '52979dea5783a8556d4b05f998424ea984be2573d888625c36875068da560862'
+    assert hashlib.sha256(' '.join(text.split()).encode()).hexdigest() == 'ea800cda08b25f268dcf8912f58155ce53ce279b72ba6403ee8823d8bbab84b1'
+
+
+@pytest.mark.parametrize('index', range(4))
+@pytest.mark.parametrize('kind', ['str', 'bytearray', 'dict'])
+def test_raw_non_bytes_cannot_be_a_trusted_response(index, kind):
+    p, data = fixture()
+    responses = envelopes(p, data)
+    raw = responses[index]['raw']
+    responses[index]['raw'] = {'str': raw.decode(), 'bytearray': bytearray(raw), 'dict': data[index]}[kind]
+    with pytest.raises(Blocked):
+        inspect(p, responses)
+
+
+def test_workload_human_owner_are_independent_never_substitutes():
+    p, data = fixture()
+    data[2][0]['comment'] = 'ZZ owner approved and workload identity verified'
+    result = inspect(p, envelopes(p, data))
+    assert result['phase'] == 'synthetic_review_snapshot_consistent'
+    assert result['owner_approval_verified'] is False
+    assert result['payload_approval_verified'] is False
+    assert result['provenance_verified'] is False
+    assert result['job_review_correlation_verified'] is False
+    assert result['production_enabled'] is False
+    assert 'exact_owner_payload_approval' in result['release_gaps']
+    result['release_gaps'].clear()
+    assert len(inspect(p, envelopes(p, data))['release_gaps']) == 5
+    p['workload_identity'] = 'ZZ-claimed'
+    with pytest.raises(Blocked):
+        inspect(p, envelopes(fixture()[0], data))

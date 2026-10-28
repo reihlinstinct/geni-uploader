@@ -5,6 +5,9 @@ import re
 from people_core import Blocked, exact, require
 
 LIMIT = 1024 * 1024
+RELEASE_GAPS = ('trusted_https_provenance_and_freshness', 'immutable_workflow_content',
+                'exact_owner_payload_approval', 'job_attempt_review_correlation',
+                'historical_rule_protection_and_toctou')
 
 
 def _id(value):
@@ -115,4 +118,4 @@ def inspect(pins, responses):
     return {'phase': 'synthetic_review_snapshot_consistent', 'production_enabled': False,
             'provenance_verified': False, 'owner_approval_verified': False,
             'payload_approval_verified': False, 'job_review_correlation_verified': False,
-            'retry_allowed': False}
+            'retry_allowed': False, 'release_gaps': list(RELEASE_GAPS)}

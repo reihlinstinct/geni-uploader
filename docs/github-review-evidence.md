@@ -37,3 +37,15 @@ Sources read 2026-10-28:
 - https://docs.github.com/en/rest/actions/workflow-runs#get-the-review-history-for-a-workflow-run
 - https://docs.github.com/en/rest/deployments/environments#get-an-environment
 - https://docs.github.com/en/rest/deployments/branch-policies#list-deployment-branch-policies
+
+
+## Output release gaps (#262)
+
+The phase remains synthetic_review_snapshot_consistent, not
+reviewed_not_authorized: this candidate has not authenticated a real review.
+The release_gaps list explicitly names trusted HTTPS provenance/freshness,
+immutable workflow content, exact owner/payload approval, job/attempt review
+correlation, and historical protection/rule-change TOCTOU. It is a fresh copy on
+each result, not a mutable shared grant. Workload identity, human environment
+review and owner/payload approval are independent; none substitutes for another.
+Approval-looking comment text is ignored. Non-bytes raw response values block.
