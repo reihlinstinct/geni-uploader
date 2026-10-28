@@ -22,7 +22,7 @@ jobs:
         working-directory: oauth-bootstrap
         env:
           CLOUDFLARE_SEND_METRICS: "false"
-      - run: node --test chrome-ready.test.mjs browser.test.mjs
+      - run: node --test chrome-ready.test.mjs cdp-load.test.mjs browser.test.mjs
         working-directory: oauth-bootstrap
       - run: node --test transport.test.mjs
         working-directory: oauth-bootstrap

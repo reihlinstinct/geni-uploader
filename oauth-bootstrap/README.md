@@ -140,6 +140,8 @@ POSTs to retain their exact Origin without sending a path or query as Referer.
 Callbacks, redirects and errors keep `no-referrer`; null Origin stays rejected.
 The real Chrome regression runs against loopback HTTPS with synthetic credentials,
 captures the authorization redirect without following it, and makes no live OAuth call.
+Each navigation waits for the lifecycle `load` event of its own frame and loader
+(`cdp-load.mjs`), so a late load from the previous page cannot end the wait early.
 
 Source: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Referrer-Policy
 
