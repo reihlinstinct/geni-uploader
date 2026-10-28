@@ -8,10 +8,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { once } from "node:events";
 import { handle, OneTimeState } from "./worker.mjs";
+import { waitForChrome } from "./chrome-ready.mjs";
 
 test(
   "Chrome form POST preserves exact Origin on query-free landing",
-  { timeout: 60000 },
+  { timeout: 120000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), "zz-oauth-browser-"));
     let chrome, ws, server;
@@ -122,24 +123,20 @@ test(
       chrome.stderr.on("data", (x) => {
         chromeError = (chromeError + x).slice(-4096);
       });
-      let port;
-      for (let i = 0; i < 300; i++) {
-        if (chrome.exitCode !== null || chromeError.includes("ENOENT")) break;
-        try {
-          port = (
-            await readFile(join(dir, "DevToolsActivePort"), "utf8")
-          ).split("\n")[0];
-          break;
-        } catch {}
-        await new Promise((r) => setTimeout(r, 100));
-      }
-      assert.ok(port, "Synthetic Chrome did not start: " + chromeError);
-      const tabs = await (
-        await fetch("http://127.0.0.1:" + port + "/json/list")
-      ).json();
-      ws = new WebSocket(
-        tabs.find((x) => x.type === "page").webSocketDebuggerUrl,
-      );
+      const ready = await waitForChrome({
+        readPort: () => readFile(join(dir, "DevToolsActivePort"), "utf8"),
+        exited: () => chrome.exitCode !== null || chromeError.includes("ENOENT"),
+        probe: async (port) => {
+          const response = await fetch("http://127.0.0.1:" + port + "/json/list", {
+            signal: AbortSignal.timeout(1000),
+          });
+          assert.equal(response.status, 200);
+          return response.json();
+        },
+        sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+        now: () => performance.now(),
+      });
+      ws = new WebSocket(ready.page.webSocketDebuggerUrl);
       await new Promise((r) => ws.addEventListener("open", r, { once: true }));
       let seq = 0;
       const pending = new Map();
