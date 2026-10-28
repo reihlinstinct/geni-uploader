@@ -60,10 +60,17 @@ def harness(tmp_path):
     stub.write_text(f'#!/bin/sh\nprintf "%s\\n" "$@" > "{marker}"\n')
     stub.chmod(0o755)
 
+    git_calls = tmp_path / 'git-calls'
+    real_git = shutil.which('git')
+    git_stub = bin_dir / 'git'
+    git_stub.write_text(f'#!/bin/sh\nprintf "%s\\n" "$@" >> "{git_calls}"\nexec "{real_git}" "$@"\n')
+    git_stub.chmod(0o755)
+
     def run(expect_sha=None, ref=None, args=("plan",)):
         if dest.exists():
             shutil.rmtree(dest)
         marker.unlink(missing_ok=True)
+        git_calls.unlink(missing_ok=True)
         env = {
             "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
             "HOME": str(tmp_path),
@@ -79,6 +86,7 @@ def harness(tmp_path):
             env["GENI_UPLOAD_REF"] = ref
         result = subprocess.run(["sh", str(script), *args], env=env,
                                 capture_output=True, text=True, timeout=30, check=False)
+        assert 'ls-remote' not in git_calls.read_text().splitlines(), 'unset pin must not silently derive remote HEAD'
         ran = marker.read_text().split() if marker.exists() else None
         return result, ran
 
@@ -101,7 +109,7 @@ def test_matching_sha_with_ref_routes_details_mode(harness):
 
 
 @pytest.mark.parametrize("kind", ["older_commit", "short_prefix", "uppercase",
-                                  "not_hex", "trailing_space"])
+                                  "not_hex", "trailing_space", "last_nibble"])
 def test_any_non_exact_expected_sha_refuses_before_python(harness, kind):
     run, head, parent = harness
     expected = {
@@ -110,9 +118,10 @@ def test_any_non_exact_expected_sha_refuses_before_python(harness, kind):
         "uppercase": head.upper(),        # exact lower-case hex match only
         "not_hex": "zz" * 20,
         "trailing_space": head + " ",
+        "last_nibble": head[:-1] + ("0" if head[-1] != "0" else "1"),
     }[kind]
     result, ran = run(expect_sha=expected)
-    assert result.returncode != 0
+    assert result.returncode == 1
     assert ran is None, "the uploader must not start after a SHA mismatch"
     assert "!= GENI_UPLOAD_EXPECT_SHA" in result.stderr
     assert "running the pinned uploader" not in result.stdout
@@ -127,3 +136,15 @@ def test_unset_or_empty_expected_sha_is_no_pin(harness):
         result, ran = run(expect_sha=value)
         assert result.returncode == 0, result.stderr
         assert ran is not None
+
+
+@pytest.mark.parametrize('mode', ['plan', 'run', 'details-plan', 'details-repair',
+                                  'details-validate', 'details-snapshot'])
+@pytest.mark.parametrize('ref', [None, 'main'])
+def test_mismatch_blocks_every_mode_even_when_ref_set(harness, mode, ref):
+    run, _, parent = harness
+    result, ran = run(expect_sha=parent, ref=ref, args=(mode, '--manifest', 'ZZ.yaml'))
+    assert result.returncode == 1
+    assert ran is None
+    assert '!= GENI_UPLOAD_EXPECT_SHA' in result.stderr
+    assert 'running the pinned uploader' not in result.stdout
