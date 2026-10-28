@@ -1,0 +1,26 @@
+name: Renew OAuth token (human only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: oauth-refresh
+  cancel-in-progress: false
+jobs:
+  renew:
+    if: >-
+      github.repository == 'reihlinstinct/geni-uploader' &&
+      github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' &&
+      github.actor == 'reihl' && github.triggering_actor == 'reihl'
+    environment: oauth-refresh
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Refresh and save encrypted secrets
+        env:
+          OAUTH_BUNDLE: ${{ secrets.GENI_OAUTH_REFRESH_BUNDLE }}
+          GH_TOKEN: ${{ secrets.OAUTH_SECRET_WRITER }}
+        run: python3 oauth_refresh.py
