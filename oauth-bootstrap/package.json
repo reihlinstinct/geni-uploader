@@ -1,0 +1,16 @@
+{
+  "name": "oauth-bootstrap",
+  "version": "1.0.0",
+  "description": "Offline-tested gated authorization-code bootstrap",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test test.mjs"
+  },
+  "keywords": [],
+  "license": "ISC",
+  "dependencies": {
+    "jose": "6.1.0",
+    "libsodium-wrappers": "0.7.15"
+  },
+  "private": true
+}
