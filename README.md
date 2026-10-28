@@ -236,3 +236,10 @@ An upload `plan` without a token can return exit code 0 for a local preview,
 but its report remains incomplete and says `Safe to run: no`. Exit code 0
 alone does not prove readiness or authorize a write. This differs from the
 metadata `details-plan` above, which exits nonzero when no token is available.
+
+### Bilingual profile-name requirement (planned)
+
+New-profile planning must preserve a supplied Hebrew name in the Hebrew locale
+and prepare an English main/default name, with ambiguity reviewed before upload.
+See [bilingual names](docs/bilingual-names.md). This is a design requirement for
+#190, not a released profile-creation capability.
