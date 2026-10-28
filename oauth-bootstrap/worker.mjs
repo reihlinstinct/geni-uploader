@@ -1,5 +1,5 @@
+import sealedbox from "tweetnacl-sealedbox-js";
 import { jwtVerify, SignJWT } from "jose";
-import sodium from "libsodium-wrappers";
 
 const GENI = "https://www.geni.com/platform/oauth/";
 const GH =
@@ -224,14 +224,10 @@ async function writeSecret(name, value, env, fetcher) {
   const key = await responseJson(
     await fetcher(GH + "/public-key", { headers, redirect: "error" }),
   );
-  await sodium.ready;
-  const encrypted = sodium.to_base64(
-    sodium.crypto_box_seal(
-      new TextEncoder().encode(value),
-      sodium.from_base64(key.key, sodium.base64_variants.ORIGINAL),
-    ),
-    sodium.base64_variants.ORIGINAL,
-  );
+  const rawKey = Uint8Array.from(atob(key.key), (c) => c.charCodeAt(0));
+  if (rawKey.length !== 32) fail();
+  const cipher = sealedbox.seal(new TextEncoder().encode(value), rawKey);
+  const encrypted = btoa(String.fromCharCode(...cipher));
   const response = await fetcher(GH + "/" + name, {
     method: "PUT",
     headers,

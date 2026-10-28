@@ -17,3 +17,7 @@ jobs:
         working-directory: oauth-bootstrap
       - run: node --test test.mjs
         working-directory: oauth-bootstrap
+      - run: node --test runtime.test.mjs
+        working-directory: oauth-bootstrap
+        env:
+          CLOUDFLARE_SEND_METRICS: "false"

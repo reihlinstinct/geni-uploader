@@ -34,7 +34,7 @@ No paid Access/Zero Trust subscription or payment method is required or allowed.
 
 The server exchanges a code by POST to the fixed documented Geni endpoint; POST
 support still needs a human test. Passwords and 2FA stay in the human's Geni browser.
-Only fixed GitHub secret names can be written. libsodium seals each value with
+Only fixed GitHub secret names can be written. A pinned TweetNaCl sealed-box library seals each value with
 GitHub's public key, using a narrow secret-writer credential, never browser JS.
 The refresh bundle is saved before compatibility access token and pending marker
 is cleared last. Partial failure may need manual refresh recovery or re-consent;
@@ -105,3 +105,15 @@ by offline success. CI executes tests without secrets. No e2e Geni activity.
 Documentation contains outdated/inconsistent example endpoints; use parameter
 contracts, not copied PHP examples. Free-tier availability is documented, current
 account billing and deployed logging must still be verified independently.
+
+## Runtime regression
+
+The initial libsodium dependency probes randomness at module import and its WASM
+fallback expects browser facilities unavailable in Workers. Node-only tests and a
+bundle dry-run do not establish runtime support. Production uses the pinned
+TweetNaCl sealed-box library; libsodium remains a test-only independent decryption
+oracle. The local workerd regression boots the real Worker, checks fail-closed
+unconfigured behavior, then seals synthetic bytes inside Workers and decrypts the
+ciphertext with libsodium in Node. CI runs both tests without credentials or remote
+resources. `runtime-fixture.mjs` is synthetic-only and is never the deployed entry.
+Run `node --test runtime.test.mjs` after `npm ci --ignore-scripts`.

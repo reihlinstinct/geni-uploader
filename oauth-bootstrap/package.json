@@ -10,7 +10,12 @@
   "license": "ISC",
   "dependencies": {
     "jose": "6.1.0",
-    "libsodium-wrappers": "0.7.15"
+    "tweetnacl": "1.0.3",
+    "tweetnacl-sealedbox-js": "1.2.0"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "libsodium-wrappers": "0.7.15",
+    "wrangler": "4.154.0"
+  }
 }
