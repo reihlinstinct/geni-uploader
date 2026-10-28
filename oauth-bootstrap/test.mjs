@@ -1,20 +1,38 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import sodium from "libsodium-wrappers";
-import { generateKeyPair, SignJWT, createLocalJWKSet, exportJWK } from "jose";
-import { handle, OneTimeState, verifyIdentityToken } from "./worker.mjs";
+import { SignJWT } from "jose";
+import { handle, OneTimeState } from "./worker.mjs";
 const origin = "https://example.invalid";
 const env = {
   CALLBACK_ORIGIN: origin,
-  ACCESS_TEAM: "https://zzteam.cloudflareaccess.com",
-  ACCESS_AUD: "ZZAUD",
-  ALLOWED_EMAIL: "zz@example.invalid",
+  ALLOWED_GITHUB_ID: "12345",
+  GITHUB_LOGIN_CLIENT_ID: "ZZLOGINCLIENT",
+  GITHUB_LOGIN_CLIENT_SECRET: "ZZLOGINSECRET",
+  SESSION_SIGNING_KEY: "a".repeat(64),
   GENI_CLIENT_ID: "ZZCLIENT",
   GENI_APP_SECRET: "ZZSECRET",
   GITHUB_WRITER: "ZZWRITER",
 };
 const request = (path, init) => new Request(origin + path, init);
-const verify = async () => "ZZSUB";
+async function session(
+  sub = env.ALLOWED_GITHUB_ID,
+  exp = "5m",
+  key = env.SESSION_SIGNING_KEY,
+  jti = "a".repeat(64),
+) {
+  const token = await new SignJWT({})
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(sub)
+    .setIssuer(origin)
+    .setAudience("bootstrap-session")
+    .setJti(jti)
+    .setIssuedAt()
+    .setExpirationTime(exp)
+    .sign(new TextEncoder().encode(key));
+  return "__Host-bootstrap-session=" + token;
+}
+const verify = undefined;
 function states() {
   const entries = new Map();
   const storage = {
@@ -37,10 +55,15 @@ function setup() {
   return { ...env, OAUTH_STATES: states() };
 }
 const nofetch = () => assert.fail("unexpected fetch");
-test("missing identity JWT fails closed", async () => {
+test("public landing page has only GitHub login, protected start fails closed", async () => {
   const r = await handle(request("/"), setup());
-  assert.equal(r.status, 400);
-  assert.doesNotMatch(await r.text(), /ZZSECRET/);
+  assert.equal(r.status, 200);
+  assert.match(await r.text(), /Sign in with GitHub/);
+  const start = await handle(
+    request("/start", { method: "POST", headers: { Origin: origin } }),
+    setup(),
+  );
+  assert.equal(start.status, 400);
 });
 test("config rejects wrong origin before authorization", async () => {
   const r = await handle(
@@ -63,7 +86,10 @@ test("start requires same-origin POST", async () => {
 });
 async function begin(e) {
   const r = await handle(
-    request("/start", { method: "POST", headers: { Origin: origin } }),
+    request("/start", {
+      method: "POST",
+      headers: { Origin: origin, Cookie: await session() },
+    }),
     e,
     { verify, fetcher: nofetch },
   );
@@ -71,7 +97,8 @@ async function begin(e) {
   const target = new URL(r.headers.get("location"));
   assert.equal(target.origin, "https://www.geni.com");
   assert.equal(target.searchParams.get("response_type"), "code");
-  const cookie = r.headers.get("set-cookie").split(";")[0];
+  const cookie =
+    r.headers.get("set-cookie").split(";")[0] + "; " + (await session());
   assert.match(r.headers.get("set-cookie"), /Secure; HttpOnly; SameSite=Lax/);
   return { state: target.searchParams.get("state"), cookie };
 }
@@ -80,7 +107,9 @@ test("wrong browser binding does not consume state", async () => {
   const { state } = await begin(e);
   const r = await handle(
     request("/callback?code=ZZCODE&state=" + state, {
-      headers: { Cookie: "__Host-oauth-bind=" + "a".repeat(64) },
+      headers: {
+        Cookie: (await session()) + "; __Host-oauth-bind=" + "a".repeat(64),
+      },
     }),
     e,
     { verify, fetcher: nofetch },
@@ -93,10 +122,15 @@ test("subject mismatch and expired state refuse", async () => {
   const { state, cookie } = await begin(e);
   let r = await handle(
     request("/callback?code=ZZCODE&state=" + state, {
-      headers: { Cookie: cookie },
+      headers: {
+        Cookie: cookie.replace(
+          /__Host-bootstrap-session=.*/,
+          await session("99999"),
+        ),
+      },
     }),
     e,
-    { verify: async () => "ZZOTHER", fetcher: nofetch },
+    { fetcher: nofetch },
   );
   assert.equal(r.status, 400);
   e.OAUTH_STATES.entries.get("entry").expires = 0;
@@ -196,47 +230,150 @@ test("transport errors and secret writer failures never leak", async () => {
   assert.doesNotMatch(await r.text(), /ZZSECRET|ZZCODE/);
 });
 
-test("real signed JWT verifies issuer audience identity algorithm and expiry", async () => {
-  const { publicKey, privateKey } = await generateKeyPair("RS256");
-  const jwk = await exportJWK(publicKey);
-  jwk.kid = "ZZKEY";
-  const keys = createLocalJWKSet({ keys: [jwk] });
-  const cfg = { team: env.ACCESS_TEAM };
-  async function signed(
-    overrides = {},
-    issuer = env.ACCESS_TEAM,
-    audience = env.ACCESS_AUD,
-    expiry = "5m",
-  ) {
-    return new SignJWT({ email: env.ALLOWED_EMAIL, ...overrides })
-      .setProtectedHeader({ alg: "RS256", kid: "ZZKEY" })
-      .setSubject("ZZSUB")
-      .setIssuer(issuer)
-      .setAudience(audience)
-      .setIssuedAt()
-      .setExpirationTime(expiry)
-      .sign(privateKey);
-  }
-  assert.equal(
-    await verifyIdentityToken(await signed(), env, cfg, keys),
-    "ZZSUB",
-  );
-  for (const token of [
-    await signed({ email: "wrong@example.invalid" }),
-    await signed({}, "https://wrong.invalid"),
-    await signed({}, env.ACCESS_TEAM, "ZZWRONG"),
-    await signed({}, env.ACCESS_TEAM, env.ACCESS_AUD, "-1m"),
-    "bad.jwt.data",
+test("session signature expiry subject and binding id are verified", async () => {
+  for (const cookie of [
+    await session("9999"),
+    await session(env.ALLOWED_GITHUB_ID, "-1m"),
+    await session(env.ALLOWED_GITHUB_ID, "5m", "b".repeat(64)),
+    await session(
+      env.ALLOWED_GITHUB_ID,
+      "5m",
+      env.SESSION_SIGNING_KEY,
+      "invalid",
+    ),
+    "__Host-bootstrap-session=bad.jwt.value",
   ]) {
-    await assert.rejects(() => verifyIdentityToken(token, env, cfg, keys));
+    const r = await handle(
+      request("/start", {
+        method: "POST",
+        headers: { Origin: origin, Cookie: cookie },
+      }),
+      setup(),
+      { fetcher: nofetch },
+    );
+    assert.equal(r.status, 400);
   }
-  const { privateKey: other } = await generateKeyPair("RS256");
-  const forged = await new SignJWT({ email: env.ALLOWED_EMAIL })
-    .setProtectedHeader({ alg: "RS256", kid: "ZZKEY" })
-    .setSubject("ZZSUB")
-    .setIssuer(env.ACCESS_TEAM)
-    .setAudience(env.ACCESS_AUD)
-    .setExpirationTime("5m")
-    .sign(other);
-  await assert.rejects(() => verifyIdentityToken(forged, env, cfg, keys));
+});
+async function loginBegin(e) {
+  const r = await handle(
+    request("/login", { method: "POST", headers: { Origin: origin } }),
+    e,
+    { fetcher: nofetch },
+  );
+  assert.equal(r.status, 303);
+  const u = new URL(r.headers.get("location"));
+  assert.equal(u.origin, "https://github.com");
+  assert.equal(u.searchParams.get("code_challenge_method"), "S256");
+  assert.match(u.searchParams.get("code_challenge"), /^[A-Za-z0-9_-]{43}$/);
+  assert.equal(u.searchParams.get("scope"), "");
+  return {
+    state: u.searchParams.get("state"),
+    cookie: r.headers.get("set-cookie").split(";")[0],
+    challenge: u.searchParams.get("code_challenge"),
+  };
+}
+function loginFetcher(calls, options = {}) {
+  return async (u, o) => {
+    calls.push(u);
+    assert.equal(o.redirect, "error");
+    if (u === "https://github.com/login/oauth/access_token") {
+      assert.equal(o.body.get("redirect_uri"), origin + "/login/callback");
+      assert.match(o.body.get("code_verifier"), /^[a-f0-9]{64}$/);
+      return Response.json({
+        access_token: "ZZLOGINTOKEN",
+        scope: options.scope || "",
+        token_type: "bearer",
+      });
+    }
+    if (u === "https://api.github.com/user")
+      return Response.json({ id: options.id || 12345, type: "User" });
+    assert.equal(u, "https://api.github.com/applications/ZZLOGINCLIENT/token");
+    assert.equal(o.method, "DELETE");
+    return new Response(null, { status: options.revokeStatus || 204 });
+  };
+}
+test("GitHub PKCE identity check creates short signed session and revokes transient token", async () => {
+  const e = setup(),
+    b = await loginBegin(e),
+    calls = [];
+  const r = await handle(
+    request("/login/callback?code=ZZCODE&state=" + b.state, {
+      headers: { Cookie: b.cookie },
+    }),
+    e,
+    { fetcher: loginFetcher(calls) },
+  );
+  assert.equal(r.status, 303);
+  assert.equal(calls.length, 3);
+  const cookies = r.headers.get("set-cookie");
+  assert.match(cookies, /__Host-bootstrap-session=/);
+  assert.match(cookies, /HttpOnly/);
+  assert.doesNotMatch(cookies, /ZZLOGINTOKEN/);
+  const replay = await handle(
+    request("/login/callback?code=ZZCODE&state=" + b.state, {
+      headers: { Cookie: b.cookie },
+    }),
+    e,
+    { fetcher: nofetch },
+  );
+  assert.equal(replay.status, 400);
+});
+test("wrong GitHub account or unrevoked token cannot create a session", async () => {
+  for (const options of [
+    { id: 9999 },
+    { revokeStatus: 500 },
+    { scope: "repo" },
+  ]) {
+    const e = setup(),
+      b = await loginBegin(e),
+      calls = [];
+    const r = await handle(
+      request("/login/callback?code=ZZCODE&state=" + b.state, {
+        headers: { Cookie: b.cookie },
+      }),
+      e,
+      { fetcher: loginFetcher(calls, options) },
+    );
+    assert.equal(r.status, 400);
+    assert.equal(r.headers.get("set-cookie"), null);
+  }
+});
+test("login CSRF wrong cookie duplicates cancellation and expiry never reach network", async () => {
+  const e = setup(),
+    b = await loginBegin(e);
+  for (const path of [
+    "/login/callback?code=A&code=B&state=" + b.state,
+    "/login/callback?error=denied&state=" + b.state,
+  ]) {
+    assert.equal(
+      (
+        await handle(request(path, { headers: { Cookie: b.cookie } }), e, {
+          fetcher: nofetch,
+        })
+      ).status,
+      400,
+    );
+  }
+  const wrong = await handle(
+    request("/login/callback?code=A&state=" + b.state, {
+      headers: { Cookie: "__Host-login-bind=" + "f".repeat(64) },
+    }),
+    e,
+    { fetcher: nofetch },
+  );
+  assert.equal(wrong.status, 400);
+  assert.ok(e.OAUTH_STATES.entries.get("entry"));
+  e.OAUTH_STATES.entries.get("entry").expires = 0;
+  assert.equal(
+    (
+      await handle(
+        request("/login/callback?code=A&state=" + b.state, {
+          headers: { Cookie: b.cookie },
+        }),
+        e,
+        { fetcher: nofetch },
+      )
+    ).status,
+    400,
+  );
 });

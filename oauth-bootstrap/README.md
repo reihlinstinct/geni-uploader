@@ -9,14 +9,25 @@ approval, then verified identity-gate/logging/secrets setup.
 
 ## Shape
 
-Cloudflare Access signed identity JWT is verified by jose against a fixed team,
-audience, RS256 algorithm and exact configured email. Missing JWT fails closed,
-even if someone reaches workers.dev directly. All pages, including callback,
-require the same allowed identity. Start uses same-origin POST, then sets a Secure,
-HttpOnly, SameSite=Lax five-minute browser-binding cookie. Cryptographic nonce state
-is scoped to subject+binding hash, stored in a free SQLite Durable Object and
-consumed atomically before code exchange. Invalid bindings do not consume another
-session's state. Replays, duplicate fields and cancellations are rejected.
+GitHub OAuth login is the identity gate, with no requested scopes and S256 PKCE.
+A dedicated login app is separate from the repository secret writer. A same-origin
+POST starts login and sets a Secure, HttpOnly, SameSite=Lax browser-binding cookie.
+A one-time Durable Object state stores the verifier, binding hash and expiry for
+five minutes. Callback atomically consumes the state, exchanges the GitHub code
+at the fixed endpoint and checks the numeric GitHub user ID against private
+configuration. Login names and email addresses do not grant access. Unexpected
+scopes, refresh tokens, wrong identities and failed revocation stop the flow.
+The transient GitHub identity token is revoked immediately after identity lookup,
+including wrong-account responses. No GitHub user token is persisted or refreshed.
+GitHub owns the user's password and 2FA; neither is collected here.
+
+The Worker issues a five-minute HS256 signed session with fixed issuer/audience,
+expiry, subject and random session ID. The cookie is Secure, HttpOnly, SameSite=Lax.
+Geni start requires that session and a separate same-origin POST. Geni state is
+scoped to the authenticated numeric ID plus session ID and a second browser-binding
+cookie. Invalid bindings do not consume another session's state. Replays, duplicate
+fields and cancellations are rejected. Expired data is removed by DO alarms.
+No paid Access/Zero Trust subscription or payment method is required or allowed.
 
 The server exchanges a code by POST to the fixed documented Geni endpoint; POST
 support still needs a human test. Passwords and 2FA stay in the human's Geni browser.
@@ -30,17 +41,22 @@ log output, external analytics or token display exists here.
 ## Required setup after review
 
 - Existing Cloudflare account, Workers Free only, no paid subscriptions/domain.
-  Confirm current free plan before deployment. Access Free approval and allowed
-  identity are private configuration, not committed. A new provider term requiring
-  more than approved free Access is a stop.
-- Configure Access application for this Worker's actual deployed hostname, allow
-  only the approved email. Verify JWT rejection directly on workers.dev and that
-  Access protects callback navigation as well as start. No fabricated URL is a setup
-  instruction. Allowed email/identity should never become a public repo example.
-- Vars CALLBACK_ORIGIN (HTTPS origin only), ACCESS_TEAM (HTTPS cloudflareaccess.com
-  team origin), ACCESS_AUD, ALLOWED_EMAIL, GENI_CLIENT_ID. Secrets GENI_APP_SECRET and
-  GITHUB_WRITER. Server holds no account password/2FA. Session store holds identity
-  subject+hash+expiry only, five minutes. Alarm deletes expired data.
+  Confirm current free plan before deployment. A payment-method requirement or
+  potential usage-charge commitment is a stop, even if the base fee is zero.
+- No Cloudflare Access subscription. Its Free activation checkout can require a
+  payment method and contingent monthly usage charges, which are outside this
+  project's no-money constraint. Do not activate it.
+- A new dedicated free GitHub OAuth app for identity only, with exact deployed
+  origin + /login/callback, wildcard callbacks disabled, device flow disabled,
+  no requested scopes. Keep this distinct from repository-writer credentials.
+- Vars CALLBACK_ORIGIN (HTTPS origin only), ALLOWED_GITHUB_ID (verified numeric
+  account ID), GITHUB_LOGIN_CLIENT_ID, GENI_CLIENT_ID. Secrets SESSION_SIGNING_KEY
+  (independent random 256-bit hex), GITHUB_LOGIN_CLIENT_SECRET, GENI_APP_SECRET and
+  GITHUB_WRITER. Real identities and credentials are private deployment settings.
+- Verify unauthenticated /start and /callback fail, wrong GitHub identity cannot
+  establish a session, correct identity succeeds, code/query logs are disabled,
+  and browser cookies have required flags. Do not start real Geni authorization
+  before these checks and fresh security review + exact-head human approval.
 - GITHUB_WRITER: separate credential scoped Actions-secrets write on this code repo
   only, no contents/issues/other repositories. The built-in workflow token is not
   sufficient. Repository secret-writer permission can affect all repository secrets,
@@ -74,8 +90,8 @@ by offline success. CI executes tests without secrets. No e2e Geni activity.
 
 - https://www.geni.com/platform/developer/help/oauth_server_side
 - https://docs.github.com/en/rest/actions/secrets
-- https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/
-- https://www.cloudflare.com/plans/zero-trust-services/
+- https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps
+- https://docs.github.com/en/rest/apps/oauth-applications#delete-an-app-token
 - https://developers.cloudflare.com/durable-objects/platform/pricing/
 - https://developers.cloudflare.com/workers/platform/pricing/
 

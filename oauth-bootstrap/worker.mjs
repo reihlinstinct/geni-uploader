@@ -1,10 +1,12 @@
-import { jwtVerify, createRemoteJWKSet } from "jose";
+import { jwtVerify, SignJWT } from "jose";
 import sodium from "libsodium-wrappers";
 
 const GENI = "https://www.geni.com/platform/oauth/";
 const GH =
   "https://api.github.com/repos/reihlinstinct/geni-uploader/actions/secrets";
 const COOKIE = "__Host-oauth-bind";
+const LOGIN_COOKIE = "__Host-login-bind";
+const SESSION_COOKIE = "__Host-bootstrap-session";
 const secureHeaders = {
   "cache-control": "no-store",
   "referrer-policy": "no-referrer",
@@ -39,47 +41,165 @@ const page = (body, status = 200, extra = {}) =>
 
 function config(env) {
   const origin = new URL(env.CALLBACK_ORIGIN);
-  const team = new URL(env.ACCESS_TEAM);
   if (
     origin.protocol !== "https:" ||
     origin.origin !== env.CALLBACK_ORIGIN ||
-    team.protocol !== "https:" ||
-    !team.hostname.endsWith(".cloudflareaccess.com") ||
-    team.origin !== env.ACCESS_TEAM ||
-    !env.ACCESS_AUD ||
-    !env.ALLOWED_EMAIL
+    !/^[1-9][0-9]{0,19}$/.test(env.ALLOWED_GITHUB_ID) ||
+    !/^[a-f0-9]{64}$/.test(env.SESSION_SIGNING_KEY)
   )
     fail();
-  credential(env.GENI_CLIENT_ID);
-  credential(env.GENI_APP_SECRET);
-  credential(env.GITHUB_WRITER);
+  for (const name of [
+    "GENI_CLIENT_ID",
+    "GENI_APP_SECRET",
+    "GITHUB_WRITER",
+    "GITHUB_LOGIN_CLIENT_ID",
+    "GITHUB_LOGIN_CLIENT_SECRET",
+  ])
+    credential(env[name]);
   return {
     origin: origin.origin,
     redirect: origin.origin + "/callback",
-    team: team.origin,
+    loginRedirect: origin.origin + "/login/callback",
   };
 }
 
-async function identity(request, env, cfg) {
-  const token = request.headers.get("Cf-Access-Jwt-Assertion");
-  if (!token) fail();
-  const keys = createRemoteJWKSet(new URL(cfg.team + "/cdn-cgi/access/certs"));
-  return verifyIdentityToken(token, env, cfg, keys);
+function cookieValue(request, name) {
+  const items = (request.headers.get("Cookie") || "")
+    .split(";")
+    .map((x) => x.trim())
+    .filter((x) => x.startsWith(name + "="));
+  if (items.length !== 1) fail();
+  return credential(items[0].slice(name.length + 1));
 }
-
-export async function verifyIdentityToken(token, env, cfg, keys) {
-  const { payload } = await jwtVerify(token, keys, {
-    issuer: cfg.team,
-    audience: env.ACCESS_AUD,
-    algorithms: ["RS256"],
-  });
+const cookieHeader = (name, value, age = 300) =>
+  name +
+  "=" +
+  value +
+  "; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=" +
+  age;
+const sessionKey = (env) => new TextEncoder().encode(env.SESSION_SIGNING_KEY);
+async function identity(request, env, cfg) {
+  const { payload } = await jwtVerify(
+    cookieValue(request, SESSION_COOKIE),
+    sessionKey(env),
+    {
+      algorithms: ["HS256"],
+      issuer: cfg.origin,
+      audience: "bootstrap-session",
+      maxTokenAge: "5m",
+      requiredClaims: ["exp", "iat", "sub", "jti"],
+    },
+  );
   if (
-    payload.email !== env.ALLOWED_EMAIL ||
-    typeof payload.sub !== "string" ||
-    !payload.sub
+    payload.sub !== env.ALLOWED_GITHUB_ID ||
+    !/^[a-f0-9]{64}$/.test(payload.jti)
   )
     fail();
-  return payload.sub;
+  return payload.sub + ":" + payload.jti;
+}
+async function loginCallback(request, env, cfg, url, fetcher) {
+  const cookie = cookieValue(request, LOGIN_COOKIE);
+  if (!/^[a-f0-9]{64}$/.test(cookie)) fail();
+  const code = callbackCode(url);
+  const stored = await stateRequest(
+    env,
+    url.searchParams.get("state"),
+    "consume",
+    "github-login",
+    await digest(cookie),
+  );
+  const verifier = stored.verifier;
+  if (!/^[a-f0-9]{64}$/.test(verifier)) fail();
+  const token = await responseJson(
+    await fetcher("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      redirect: "error",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      },
+      body: new URLSearchParams({
+        client_id: env.GITHUB_LOGIN_CLIENT_ID,
+        client_secret: env.GITHUB_LOGIN_CLIENT_SECRET,
+        code,
+        redirect_uri: cfg.loginRedirect,
+        code_verifier: verifier,
+      }),
+    }),
+  );
+  credential(token.access_token);
+  // This dedicated app requests no scopes. Refuse inherited or unexpected grants.
+  let user;
+  try {
+    if (
+      token.scope !== "" ||
+      token.token_type !== "bearer" ||
+      token.refresh_token
+    )
+      fail();
+    user = await responseJson(
+      await fetcher("https://api.github.com/user", {
+        redirect: "error",
+        headers: {
+          Authorization: "Bearer " + token.access_token,
+          Accept: "application/vnd.github+json",
+          "User-Agent": "oauth-bootstrap",
+        },
+      }),
+    );
+  } finally {
+    // Revoke the transient identity token. Never persist it or refresh it.
+    const revoked = await fetcher(
+      "https://api.github.com/applications/" +
+        env.GITHUB_LOGIN_CLIENT_ID +
+        "/token",
+      {
+        method: "DELETE",
+        redirect: "error",
+        headers: {
+          Authorization:
+            "Basic " +
+            btoa(
+              env.GITHUB_LOGIN_CLIENT_ID + ":" + env.GITHUB_LOGIN_CLIENT_SECRET,
+            ),
+          Accept: "application/vnd.github+json",
+          "Content-Type": "application/json",
+          "User-Agent": "oauth-bootstrap",
+        },
+        body: JSON.stringify({ access_token: token.access_token }),
+      },
+    );
+    if (revoked.status !== 204) fail();
+  }
+  if (
+    !Number.isSafeInteger(user.id) ||
+    String(user.id) !== env.ALLOWED_GITHUB_ID ||
+    user.type !== "User"
+  )
+    fail();
+  const session = await new SignJWT({})
+    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+    .setIssuer(cfg.origin)
+    .setAudience("bootstrap-session")
+    .setSubject(String(user.id))
+    .setJti(random())
+    .setIssuedAt()
+    .setExpirationTime("5m")
+    .sign(sessionKey(env));
+  const response = page("", 303, { location: cfg.origin + "/" });
+  response.headers.append("set-cookie", cookieHeader(SESSION_COOKIE, session));
+  response.headers.append("set-cookie", cookieHeader(LOGIN_COOKIE, "", 0));
+  return response;
+}
+function callbackCode(url) {
+  if (
+    url.searchParams.getAll("state").length !== 1 ||
+    url.searchParams.getAll("code").length !== 1 ||
+    url.searchParams.has("error") ||
+    url.searchParams.has("status")
+  )
+    fail();
+  return credential(url.searchParams.get("code"));
 }
 
 async function responseJson(response) {
@@ -131,6 +251,10 @@ export class OneTimeState {
     if (new URL(request.url).pathname === "/issue") {
       if (
         typeof data.subject !== "string" ||
+        !data.subject ||
+        data.subject.length > 128 ||
+        (data.payload?.verifier !== undefined &&
+          !/^[a-f0-9]{64}$/.test(data.payload.verifier)) ||
         !/^[a-f0-9]{64}$/.test(data.binding)
       )
         fail();
@@ -140,6 +264,7 @@ export class OneTimeState {
           subject: data.subject,
           binding: data.binding,
           expires: now + 300000,
+          payload: data.payload || {},
         });
         return true;
       });
@@ -157,9 +282,11 @@ export class OneTimeState {
         )
           return false;
         await txn.delete("entry");
-        return true;
+        return item.payload;
       });
-      return new Response(null, { status: accepted ? 204 : 403 });
+      return accepted
+        ? Response.json(accepted)
+        : new Response(null, { status: 403 });
     }
     return new Response("", { status: 404 });
   }
@@ -168,27 +295,78 @@ export class OneTimeState {
   }
 }
 
-async function stateRequest(env, nonce, action, subject, binding) {
+async function stateRequest(
+  env,
+  nonce,
+  action,
+  subject,
+  binding,
+  payload = {},
+) {
   if (!/^[a-f0-9]{64}$/.test(nonce)) fail();
   const stub = env.OAUTH_STATES.get(env.OAUTH_STATES.idFromName(nonce));
   const r = await stub.fetch("https://state.invalid/" + action, {
     method: "POST",
-    body: JSON.stringify({ subject, binding }),
+    body: JSON.stringify({ subject, binding, payload }),
   });
   if (!r.ok) fail();
+  return action === "consume" ? await r.json() : undefined;
 }
 
 // Dependency injection is for offline tests; exported handler always uses real verification.
-export async function handle(
-  request,
-  env,
-  deps = { verify: identity, fetcher: fetch },
-) {
+export async function handle(request, env, deps = { fetcher: fetch }) {
   try {
     const cfg = config(env);
     const url = new URL(request.url);
     if (url.origin !== cfg.origin) fail();
-    const subject = await deps.verify(request, env, cfg);
+    if (request.method === "GET" && url.pathname === "/login/callback")
+      return await loginCallback(request, env, cfg, url, deps.fetcher);
+    if (request.method === "POST" && url.pathname === "/login") {
+      if (request.headers.get("Origin") !== cfg.origin) fail();
+      const nonce = random(),
+        binding = random(),
+        verifier = random();
+      await stateRequest(
+        env,
+        nonce,
+        "issue",
+        "github-login",
+        await digest(binding),
+        { verifier },
+      );
+      const hash = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(verifier),
+      );
+      const challenge = btoa(String.fromCharCode(...new Uint8Array(hash)))
+        .replaceAll("+", "-")
+        .replaceAll("/", "_")
+        .replace(/=+$/, "");
+      const target = new URL("https://github.com/login/oauth/authorize");
+      target.search = new URLSearchParams({
+        client_id: env.GITHUB_LOGIN_CLIENT_ID,
+        redirect_uri: cfg.loginRedirect,
+        scope: "",
+        state: nonce,
+        code_challenge: challenge,
+        code_challenge_method: "S256",
+        allow_signup: "false",
+        prompt: "select_account",
+      });
+      return page("", 303, {
+        location: target.href,
+        "set-cookie": cookieHeader(LOGIN_COOKIE, binding),
+      });
+    }
+    if (
+      request.method === "GET" &&
+      url.pathname === "/" &&
+      !(request.headers.get("Cookie") || "").includes(SESSION_COOKIE + "=")
+    )
+      return page(
+        '<h1>Identity check</h1><p>Sign in at GitHub using the approved account. No password or 2FA is collected here.</p><form method="post" action="/login"><button>Sign in with GitHub</button></form>',
+      );
+    const subject = await identity(request, env, cfg);
     if (request.method === "GET" && url.pathname === "/") {
       return page(
         '<h1>Connect OAuth</h1><p>Confirm the correct Geni account in your own browser. Login and 2FA stay with Geni. No family data is read here.</p><form method="post" action="/start"><button>Connect to Geni</button></form>',
