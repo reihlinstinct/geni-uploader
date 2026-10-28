@@ -55,12 +55,12 @@ def workflow_modes():
     return on["workflow_dispatch"]["inputs"]["mode"]["options"]
 
 
-def workflow_args(mode, tmp_path):
+def workflow_args(mode, tmp_path, confirm="YES", manifest="ZZ-manifest.yaml"):
     start = WORKFLOW.index('            if [ "$MODE" = "selftest" ]; then\n              # Inert:')
     end = WORKFLOW.index('            if [[ "$MODE" == details-* ]]', start)
     shell = textwrap.dedent(WORKFLOW[start:end]) + '\nprintf "%s\\n" "${ARGS[@]}"\n'
-    env = {**os.environ, "MODE": mode, "CONFIRM": "YES",
-           "MANIFEST_PATH": "ZZ-manifest.yaml", "RUNNER_TEMP": str(tmp_path)}
+    env = {**os.environ, "MODE": mode, "CONFIRM": confirm,
+           "MANIFEST_PATH": manifest, "RUNNER_TEMP": str(tmp_path)}
     result = subprocess.run(["bash", "-c", shell], env=env, check=True,
                             capture_output=True, text=True)
     return result.stdout.splitlines()
@@ -223,3 +223,51 @@ def test_unknown_details_mode_is_routed_to_details_cli_only_if_listed(tmp_path):
     for mode in ("details-validate", "details-snapshot"):
         script, args = entrypoint_route([mode, "--manifest", "m"], tmp_path)
         assert script == "/opt/source_details.py" and args[0] == mode.split("-", 1)[1]
+
+
+@pytest.mark.parametrize('mode', ['run', 'details-repair'])
+@pytest.mark.parametrize('confirm', ['NO', 'ZZ confirm with spaces', ''])
+def test_confirmation_forwarded_verbatim_not_hardcoded(mode, confirm, tmp_path):
+    args = workflow_args(mode, tmp_path, confirm=confirm, manifest='ZZ manifest with spaces.yaml')
+    script, routed = entrypoint_route(args, tmp_path)
+    ns = parse_details(routed) if script.endswith('source_details.py') else parse_geni(routed)[1]
+    assert ns.confirm == confirm
+    assert ns.manifest == 'ZZ manifest with spaces.yaml'
+
+
+def test_run_missing_confirmation_never_defaults_to_yes():
+    cmd, ns = parse_geni(['run', '--manifest', 'ZZ.yaml'])
+    assert cmd == 'run' and ns.confirm == ''
+    assert ns.token_file is None
+
+
+@pytest.mark.parametrize('mode', ['validate', 'snapshot', 'plan', 'repair'])
+def test_details_all_parser_choices_and_defaults(mode):
+    ns = parse_details([mode, '--manifest', 'ZZ.yaml'])
+    assert ns.mode == mode and ns.manifest == 'ZZ.yaml'
+    assert ns.token_file is None and ns.confirm == ''
+
+
+@pytest.mark.parametrize('argv', [[], ['--token-file', 'ZZ-token']])
+def test_geni_subcommand_required(argv, capsys):
+    with patch.object(sys, 'argv', ['geni_upload.py', *argv]), pytest.raises(SystemExit) as error:
+        g.main()
+    assert error.value.code == 2
+    assert 'usage:' in capsys.readouterr().err
+
+
+def test_entrypoint_preserves_argument_boundaries(tmp_path):
+    for args in [['run', '--manifest', 'ZZ file.yaml', '--confirm', 'ZZ approval text'],
+                 ['details-repair', '--manifest', 'ZZ file.yaml', '--confirm', 'ZZ approval text']]:
+        script, routed = entrypoint_route(args, tmp_path)
+        expected = args[:] if script.endswith('geni_upload.py') else ['repair', *args[1:]]
+        assert routed == expected
+
+
+@pytest.mark.parametrize('mode', ['plan', 'contrast', 'guidmap', 'pguid', 'listing-shape'])
+def test_confirm_flag_is_not_added_to_read_only_modes(mode, capsys):
+    with patch.object(sys, 'argv', ['geni_upload.py', mode, '--manifest', 'ZZ.yaml',
+                                   '--confirm', 'YES']), pytest.raises(SystemExit) as error:
+        g.main()
+    assert error.value.code == 2
+    assert 'usage:' in capsys.readouterr().err
