@@ -88,3 +88,75 @@ test("timeout and exit retain capped synthetic diagnostics", async () => {
     });
   }
 });
+
+
+// Review follow-ups (#228): one test per surviving mutant.
+
+test("never-resolving readPort, probe and sleep hit the real deadline", async () => {
+  const never = () => new Promise(() => {});
+  for (const stage of ["readPort", "probe", "sleep"]) {
+    const f = fixture();
+    f.now = () => Date.now();
+    f.timeoutMs = 50;
+    if (stage === "readPort") f.readPort = never;
+    if (stage === "probe") f.probe = never;
+    if (stage === "sleep") { f.readPort = async () => ""; f.sleep = never; }
+    let guard;
+    const hung = new Promise((resolve) => { guard = setTimeout(() => resolve("hung"), 2000); });
+    const outcome = await Promise.race([
+      waitForChrome(f).then(() => "ready", (e) => e.message), hung]);
+    clearTimeout(guard);
+    assert.match(outcome, /readiness timeout/, stage + " must hit the deadline, not hang");
+  }
+});
+
+test("default timeout is 60000 when none is passed", async () => {
+  const late = fixture();
+  delete late.timeoutMs;
+  const original = late.readPort;
+  late.readPort = async () => late.now() < 45000 ? "" : original();
+  assert.equal((await waitForChrome(late)).port, "9911");
+  assert.equal(late.now(), 45000);
+  const never = fixture();
+  delete never.timeoutMs;
+  never.readPort = async () => "";
+  await assert.rejects(waitForChrome(never), /readiness timeout: port-file-incomplete/);
+  assert.equal(never.now(), 60000);
+});
+
+test("out-of-range ports are never probed; 65535 is accepted", async () => {
+  for (const raw of ["65536\nZZ", "99999\nZZ"]) {
+    const f = fixture();
+    f.timeoutMs = 200;
+    f.readPort = async () => raw;
+    f.probe = async () => assert.fail("out-of-range port must not be probed");
+    await assert.rejects(waitForChrome(f), /readiness timeout: port-file-incomplete/);
+  }
+  const ok = fixture();
+  ok.readPort = async () => "65535\nZZ";
+  ok.probe = async () => [{ type: "page", webSocketDebuggerUrl: "ws://127.0.0.1:65535/ZZ" }];
+  assert.equal((await waitForChrome(ok)).port, "65535");
+});
+
+test("credential-bearing websocket URLs are rejected", async () => {
+  for (const url of ["ws://ZZuser@127.0.0.1:9911/x", "ws://:ZZpass@127.0.0.1:9911/x",
+    "ws://ZZuser:ZZpass@127.0.0.1:9911/x"]) {
+    const f = fixture();
+    f.timeoutMs = 200;
+    f.probe = async () => [{ type: "page", webSocketDebuggerUrl: url }];
+    await assert.rejects(waitForChrome(f), /readiness timeout: page-target-unavailable/);
+  }
+});
+
+test("exit during readiness is not reported as ready", async () => {
+  for (const stage of ["readPort", "probe"]) {
+    const f = fixture();
+    let gone = false;
+    f.exited = () => gone;
+    const read = f.readPort;
+    const probe = f.probe;
+    if (stage === "readPort") f.readPort = async () => { gone = true; return read(); };
+    else f.probe = async (...args) => { gone = true; return probe(...args); };
+    await assert.rejects(waitForChrome(f), /exited before readiness/);
+  }
+});
