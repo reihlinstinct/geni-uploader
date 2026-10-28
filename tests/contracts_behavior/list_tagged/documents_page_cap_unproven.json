@@ -1,0 +1,110 @@
+{
+  "call": {
+    "function": "list_tagged",
+    "args": {
+      "pid": "1000001",
+      "kind": "documents"
+    }
+  },
+  "runs": [
+    {
+      "responses": [
+        {
+          "method": "GET",
+          "path": "/profile-1000001/documents",
+          "status": 200,
+          "body": {
+            "results": [],
+            "next_page": "/profile-1000001/documents?page=2"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/profile-1000001/documents?page=2",
+          "status": 200,
+          "body": {
+            "results": [],
+            "next_page": "/profile-1000001/documents?page=3"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/profile-1000001/documents?page=3",
+          "status": 200,
+          "body": {
+            "results": [],
+            "next_page": "/profile-1000001/documents?page=4"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/profile-1000001/documents?page=4",
+          "status": 200,
+          "body": {
+            "results": [],
+            "next_page": "/profile-1000001/documents?page=5"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/profile-1000001/documents?page=5",
+          "status": 200,
+          "body": {
+            "results": [],
+            "next_page": "/profile-1000001/documents?page=6"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/profile-1000001/documents?page=6",
+          "status": 200,
+          "body": {
+            "results": [],
+            "next_page": "/profile-1000001/documents?page=7"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/profile-1000001/documents?page=7",
+          "status": 200,
+          "body": {
+            "results": [],
+            "next_page": "/profile-1000001/documents?page=8"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/profile-1000001/documents?page=8",
+          "status": 200,
+          "body": {
+            "results": [],
+            "next_page": "/profile-1000001/documents?page=9"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/profile-1000001/documents?page=9",
+          "status": 200,
+          "body": {
+            "results": [],
+            "next_page": "/profile-1000001/documents?page=10"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/profile-1000001/documents?page=10",
+          "status": 200,
+          "body": {
+            "results": [],
+            "next_page": "/profile-1000001/documents?page=11"
+          }
+        }
+      ],
+      "expect": {
+        "outcome": "ok",
+        "requests": 10,
+        "result": null
+      }
+    }
+  ]
+}

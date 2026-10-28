@@ -1,0 +1,28 @@
+{
+  "call": {
+    "function": "verify_profile",
+    "args": {
+      "pid": "1000001",
+      "expect_name": "Test Person"
+    }
+  },
+  "runs": [
+    {
+      "responses": [
+        {
+          "method": "GET",
+          "path": "/profile-1000001",
+          "status": 200,
+          "body": {
+            "id": "profile-1000001",
+            "display_name": "Other Person"
+          }
+        }
+      ],
+      "expect": {
+        "outcome": "ApiError",
+        "requests": 1
+      }
+    }
+  ]
+}

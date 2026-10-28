@@ -20,6 +20,11 @@ on:
         required: true
         type: choice
         options: [plan, run, details-plan, details-repair, selftest, whoami, contrast, guidmap, pguid, listing-shape]
+      visual_review:
+        description: "retain a masked, encrypted source-plan payload for private visual review (plan only)"
+        type: boolean
+        default: false
+        required: false
       confirm:
         description: "type YES to allow uploads in run mode"
         default: ""
@@ -41,8 +46,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
-      IMAGE: ghcr.io/reihlinstinct/geni-uploader@sha256:6b249a935690e3deb35586aff87a67fdcfd12fa322d85b2ee98a3741a2a57d7f
+      IMAGE: ghcr.io/reihlinstinct/geni-uploader@sha256:2fa466f87e549d03a0a3e406047e3c733d1efdb582956c066b9530576c96c254
       SOURCE_DETAILS_IMAGE_READY: "yes"
+      PLAN_SUMMARY_IMAGE_READY: "yes"
+      VISUAL_PLAN_IMAGE_READY: "no"
       AGE_VERSION: v1.3.2
       AGE_SHA256: cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10
     steps:
@@ -63,6 +70,7 @@ jobs:
           PRIVATE_EXPECT_SHA: ${{ secrets.PRIVATE_EXPECT_SHA }}
           MANIFEST_PATH: ${{ secrets.MANIFEST_PATH }}
           MODE: ${{ inputs.mode }}
+          VISUAL_REVIEW: ${{ inputs.visual_review }}
           CONFIRM: ${{ inputs.confirm }}
         run: |
           set +x
@@ -70,6 +78,7 @@ jobs:
           RAW="$RUNNER_TEMP/raw.log"
           : > "$RAW"
           EXIT=0
+          mkdir -p "$RUNNER_TEMP/plan-report"
           (
             printf '%s' "$FAMILY_TREE_PAT" > "$RUNNER_TEMP/gh-token" || exit 21
             if [ "$MODE" = "selftest" ]; then
@@ -86,7 +95,15 @@ jobs:
               -e GENI_UPLOAD_REPO="$PRIVATE_REPO_URL"
               -e GENI_UPLOAD_REF="$PRIVATE_REF"
               -e GENI_UPLOAD_EXPECT_SHA="$PRIVATE_EXPECT_SHA")
+            if [ "$MODE" = "plan" ] || [ "$MODE" = "details-plan" ]; then
+              DOCKER_ARGS+=(-v "$RUNNER_TEMP/plan-report:/run/plan-report"
+                -e GENI_PLAN_REPORT=/run/plan-report/report.json)
+            fi
 
+            if [ "$VISUAL_REVIEW" = "true" ]; then
+              [ "$MODE" = "plan" ] && [ "$VISUAL_PLAN_IMAGE_READY" = "yes" ] || exit 48
+              DOCKER_ARGS+=(-e GENI_VISUAL_PLAN=/run/plan-report/visual.json)
+            fi
             if [ "$MODE" = "selftest" ]; then
               # Inert: synthetic sentinel manifest + fake asset, loopback-only
               # API base (the loader refuses non-loopback overrides with
@@ -132,11 +149,36 @@ jobs:
             fi
             docker run "${DOCKER_ARGS[@]}" "$IMAGE" "${ARGS[@]}"
           ) >> "$RAW" 2>&1 || EXIT=$?
+          # Persist only a bounded numeric result, never raw output.
+          if ! [[ "$EXIT" =~ ^[0-9]+$ ]] || [ "$EXIT" -gt 255 ]; then EXIT=1; fi
+          printf '%s\n' "$EXIT" > "$RUNNER_TEMP/container-exit-code"
+          if [ "$VISUAL_REVIEW" = "true" ] && [ ! -s "$RUNNER_TEMP/plan-report/visual.json" ]; then
+            EXIT=49
+            printf '%s\n' "$EXIT" > "$RUNNER_TEMP/container-exit-code"
+          fi
           echo "container exit code: $EXIT"
           echo "raw output bytes captured: $(wc -c < "$RAW")"
           if [ "$MODE" = "selftest" ] && [ "$EXIT" -eq 0 ]; then
             echo "selftest FAILED closed-loop check: dead-loopback run exited 0"
             exit 1
+          fi
+          if { [ "$MODE" = "plan" ] || [ "$MODE" = "details-plan" ]; } &&
+             [ "${PLAN_SUMMARY_IMAGE_READY:-no}" = "yes" ]; then
+            # Render only a bounded fixed-schema report with the SAME pinned code.
+            # Never copy raw logs, manifest values or exception strings here.
+            docker run --rm --network none --entrypoint python \
+              -v "$RUNNER_TEMP/plan-report:/run/plan-report:ro" \
+              -v "$GITHUB_STEP_SUMMARY:/run/job-summary" \
+              -e GITHUB_STEP_SUMMARY=/run/job-summary \
+              "$IMAGE" /opt/plan_report.py /run/plan-report/report.json || {
+              printf '%s\n' '## Read-only plan summary' '' 'Safe to run: no' \
+                'Summary renderer failed; inspect the protected log.' >> "$GITHUB_STEP_SUMMARY" || true
+            }
+          fi
+          if { [ "$MODE" = "plan" ] || [ "$MODE" = "details-plan" ]; } &&
+             [ "${PLAN_SUMMARY_IMAGE_READY:-no}" != "yes" ]; then
+            printf '%s\n' '## Read-only plan summary' '' 'Safe to run: no' \
+              'Summary image not released; inspect the protected log.' >> "$GITHUB_STEP_SUMMARY" || true
           fi
           echo "container step done"
 
@@ -156,6 +198,12 @@ jobs:
             # Fail closed: every fallible command exits the subshell
             # explicitly; no reliance on set -e, which || lists suppress.
             age -r "$RECIPIENT" -o "$CT" "$RAW" || exit 31
+            # Optional payload is encrypted separately; no plaintext is committed.
+            if [ -f "$RUNNER_TEMP/plan-report/visual.json" ]; then
+              age -r "$RECIPIENT" -o "$RUNNER_TEMP/visual-plan.age" \
+                "$RUNNER_TEMP/plan-report/visual.json" || exit 31
+              [ -s "$RUNNER_TEMP/visual-plan.age" ] || exit 32
+            fi
             # Require nonempty ciphertext before anything is committed.
             [ -s "$CT" ] || exit 32
 
@@ -170,6 +218,10 @@ jobs:
             git checkout -q FETCH_HEAD || exit 41
             mkdir -p logs || exit 42
             cp "$CT" "logs/upload-log-run${GITHUB_RUN_NUMBER}-attempt${GITHUB_RUN_ATTEMPT}.age" || exit 43
+            if [ -s "$RUNNER_TEMP/visual-plan.age" ]; then
+              cp "$RUNNER_TEMP/visual-plan.age" \
+                "logs/visual-plan-run${GITHUB_RUN_NUMBER}-attempt${GITHUB_RUN_ATTEMPT}.age" || exit 43
+            fi
             git add logs/ || exit 44
             git -c user.name="geni-uploader-action" -c user.email="geni-uploader-action@users.noreply.github.com" \
               commit -qm "geni upload log (age-encrypted), run ${GITHUB_RUN_NUMBER} attempt ${GITHUB_RUN_ATTEMPT}" || exit 45
@@ -182,3 +234,21 @@ jobs:
             exit 1
           fi
           echo "ciphertext committed: yes"
+
+      - name: Report protected container outcome after ciphertext retention
+        env:
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+          # selftest deliberately gets a nonzero container result.
+          if [ "$MODE" = "selftest" ]; then exit 0; fi
+          RESULT="$(cat "$RUNNER_TEMP/container-exit-code")"
+          if ! [[ "$RESULT" =~ ^[0-9]+$ ]] || [ "$RESULT" -gt 255 ]; then
+            echo "protected container outcome unavailable; failing closed"
+            exit 1
+          fi
+          if [ "$RESULT" -ne 0 ]; then
+            echo "protected container did not complete successfully; inspect the encrypted log"
+            exit 1
+          fi
+          echo "protected container outcome: success"

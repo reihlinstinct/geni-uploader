@@ -1,0 +1,34 @@
+{
+  "request": {
+    "method": "GET",
+    "kind": "document",
+    "path_template": "/document-{object}"
+  },
+  "responses": [
+    {
+      "status": 502,
+      "headers": {},
+      "body": {
+        "error": "bad gateway"
+      }
+    },
+    {
+      "status": 502,
+      "headers": {},
+      "body": {
+        "error": "bad gateway"
+      }
+    },
+    {
+      "status": 502,
+      "headers": {},
+      "body": {
+        "error": "bad gateway"
+      }
+    }
+  ],
+  "expect": {
+    "outcome": "ApiError",
+    "requests": 3
+  }
+}

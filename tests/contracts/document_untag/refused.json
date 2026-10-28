@@ -1,0 +1,12 @@
+{
+  "request": {
+    "method": "POST",
+    "kind": "document_untag",
+    "path_template": "/document-{object}/untag/profile-{profile}"
+  },
+  "responses": [],
+  "expect": {
+    "outcome": "refused",
+    "requests": 0
+  }
+}

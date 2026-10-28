@@ -36,3 +36,26 @@ jobs:
           name: junit-${{ matrix.python-version }}
           path: junit.xml
           retention-days: 7
+
+  coverage:
+    # Production-only statement coverage (#98). Measure-only by default; the
+    # per-file floor in .github/coverage-floor.txt blocks only when the repo
+    # variable COVERAGE_GATE is "on".
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Measure production coverage
+        run: |
+          python -m coverage run --include=geni_upload.py,source_details.py -m pytest tests/ -q
+          python -m coverage json -o coverage.json
+          python -m coverage report -m
+      - name: Coverage summary
+        run: python .github/coverage_report.py coverage.json --floor "$(cat .github/coverage-floor.txt)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Per-file floor gate (enabled when repo variable COVERAGE_GATE=on)
+        if: vars.COVERAGE_GATE == 'on'
+        run: python .github/coverage_report.py coverage.json --floor "$(cat .github/coverage-floor.txt)" --fail-under

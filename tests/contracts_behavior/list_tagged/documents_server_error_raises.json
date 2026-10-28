@@ -1,0 +1,37 @@
+{
+  "call": {
+    "function": "list_tagged",
+    "args": {
+      "pid": "1000001",
+      "kind": "documents"
+    }
+  },
+  "runs": [
+    {
+      "responses": [
+        {
+          "method": "GET",
+          "path": "/profile-1000001/documents",
+          "status": 503,
+          "body": {}
+        },
+        {
+          "method": "GET",
+          "path": "/profile-1000001/documents",
+          "status": 503,
+          "body": {}
+        },
+        {
+          "method": "GET",
+          "path": "/profile-1000001/documents",
+          "status": 503,
+          "body": {}
+        }
+      ],
+      "expect": {
+        "outcome": "ApiError",
+        "requests": 3
+      }
+    }
+  ]
+}

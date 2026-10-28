@@ -140,6 +140,8 @@ See [docs/privacy.md](docs/privacy.md) and [PRIVACY.md](PRIVACY.md).
 
 **Profile creation** (design phase, no implementation yet): Design for creating new Geni profiles from a manifest is at [docs/profile-creation-design.md](docs/profile-creation-design.md). See issue #68 for design review.
 
+**Offline companion** (design phase, #93): `geni_offline/` is an empty package reserved for offline-only helpers and a future read-only MCP server. It is not in the container image and never imports `geni_upload` or `source_details`. `tests/test_offline_zero_network.py` enforces that it stays offline: an AST scan forbids network, subprocess and dynamic-import modules, and a child-process audit hook blocks socket, urllib, subprocess and exec/spawn events while every module is imported.
+
 ## Testing and Deployment
 
 **Tests:** Install dev dependencies and run the test suite:

@@ -1,0 +1,45 @@
+{
+  "call": {
+    "function": "durable_upload",
+    "args": {
+      "kind": "documents"
+    }
+  },
+  "runs": [
+    {
+      "responses": [
+        {
+          "method": "POST",
+          "path": "/document/add",
+          "status": 503,
+          "body": {}
+        }
+      ],
+      "expect": {
+        "outcome": "UncertainWrite",
+        "requests": 1,
+        "journal": {
+          "status": "uncertain",
+          "create_intent": true,
+          "object_id": null,
+          "tag_phase": null,
+          "blocked": false
+        }
+      }
+    },
+    {
+      "responses": [],
+      "expect": {
+        "outcome": "UncertainWrite",
+        "requests": 0,
+        "journal": {
+          "status": "uncertain",
+          "create_intent": true,
+          "object_id": null,
+          "tag_phase": null,
+          "blocked": false
+        }
+      }
+    }
+  ]
+}

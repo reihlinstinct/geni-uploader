@@ -1,0 +1,32 @@
+{
+  "request": {
+    "method": "GET",
+    "kind": "document",
+    "path_template": "/document-{object}"
+  },
+  "responses": [
+    {
+      "status": 503,
+      "headers": {},
+      "body": {
+        "error": "unavailable"
+      }
+    },
+    {
+      "status": 200,
+      "headers": {},
+      "body": {
+        "id": "document-1000002",
+        "title": "Test Source"
+      }
+    }
+  ],
+  "expect": {
+    "outcome": "ok",
+    "requests": 2,
+    "result": {
+      "id": "document-1000002",
+      "title": "Test Source"
+    }
+  }
+}

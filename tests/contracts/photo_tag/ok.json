@@ -1,0 +1,32 @@
+{
+  "request": {
+    "method": "POST",
+    "kind": "photo_tag",
+    "path_template": "/photo-{object}/tag/profile-{profile}",
+    "data": {
+      "title": "Test Source"
+    }
+  },
+  "responses": [
+    {
+      "status": 200,
+      "headers": {},
+      "body": {
+        "id": "photo-1000002",
+        "tags": [
+          "profile-1000001"
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "outcome": "ok",
+    "requests": 1,
+    "result": {
+      "id": "photo-1000002",
+      "tags": [
+        "profile-1000001"
+      ]
+    }
+  }
+}
