@@ -13,7 +13,7 @@ is not consent, a run request, OAuth authorization or exact payload approval.
   schedule this write workflow. The private data manifest is data, not authority.
 - `token-probe.yml`: personal actor and triggering actor, master only, protected
   token-probe environment and explicit TEST input. It is not a creation path.
-- `secondary-readonly-evidence.yml`: a narrow, separately approved exception.
+- `secondary-readonly-evidence.yml`: a narrow read-only path.
   Manual workflow_dispatch, master only, assistant actor and triggering actor,
   attempt one, explicit READ_ONLY input and secondary-readonly-evidence
   environment. Its implementation bounds GET-only requests and encrypted output,

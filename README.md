@@ -109,7 +109,7 @@ See [docs/usage.md](docs/usage.md) for detailed usage, exit codes, verification,
 The source-upload service workflow (`geni-upload.yml`) remains manual dispatch
 only, with actor and triggering actor restricted to the personal account
 (`reihl`). Agents do not invoke or schedule that write workflow. This is not a
-blanket description of every workflow: a separately approved read-only evidence
+blanket description of every workflow: a separate read-only evidence
 workflow uses an assistant actor and a protected human environment review; it
 cannot create profiles or upload sources. See
 [workflow authority](docs/workflow-authority.md) for the distinction between

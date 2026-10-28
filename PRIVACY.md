@@ -14,8 +14,10 @@ particular operating mode. Choose the mode and approve access separately.
   selects. The project author does not automatically receive local data.
 - **Hosted GitHub Actions mode:** a user-triggered workflow runs the container
   on a GitHub-hosted runner. The source-upload workflow remains personal-account
-  only. A separately approved read-only evidence workflow can be initiated by an
-  assistant and waits on protected human review before reading its scoped token.
+  only. A separate read-only evidence workflow has an assistant actor condition.
+  When its environment is configured with required reviewers, as intended, it
+  waits on human review before reading its scoped token. Effective settings must
+  be checked before each authorized run.
   That exception does not authorize writes or OAuth, and a reviewed design is
   not a released creation executor. See
   the repository document `docs/workflow-authority.md` for the current/target split.
