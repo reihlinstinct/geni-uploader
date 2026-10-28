@@ -130,3 +130,39 @@ def test_stale_pending_refreshes_instead_of_restoring(expiry):
     assert calls[2][1] == 'ZZACCESS'
     assert json.loads(calls[1][1])['pending_expires_at'] == 86600
     assert 'pending_expires_at' not in json.loads(calls[3][1])
+
+
+def test_same_job_sink_gets_new_token_only_after_saves():
+    calls = []
+    def call(args, value=None):
+        calls.append(args)
+    def sink(token):
+        assert len(calls) == 4 and token == 'ZZACCESS'
+    assert m.run(json.dumps(B), REPO, call, transport, token_sink=sink) == 'renewal_saved'
+
+
+def test_job_token_is_exclusive_private_file(tmp_path):
+    with patch.dict('os.environ', {'RUNNER_TEMP': str(tmp_path)}):
+        m.save_job_token('ZZTOKEN')
+        f = tmp_path / 'geni-token'
+        assert f.read_text() == 'ZZTOKEN' and f.stat().st_mode & 0o777 == 0o600
+        with pytest.raises(FileExistsError):
+            m.save_job_token('ZZOTHER')
+
+
+def test_source_job_renews_same_job_without_secret_snapshot():
+    from pathlib import Path
+
+    import yaml
+    text = Path('.github/workflows/geni-upload.yml').read_text()
+    d = yaml.safe_load(text)
+    assert d['jobs']['upload']['environment'] == 'oauth-refresh'
+    assert 'GENI_ACCESS_TOKEN' not in text
+    steps = d['jobs']['upload']['steps']
+    renew = next(i for i, v in enumerate(steps) if v.get('name', '').startswith('Renew token'))
+    run = next(i for i, v in enumerate(steps) if v.get('name', '').startswith('Run the pinned'))
+    assert renew < run
+    assert steps[renew]['if'] == "inputs.mode != 'selftest'"
+    assert steps[renew]['env']['FRESH_JOB_TOKEN'] == 'yes'
+    assert steps[-1]['if'] == 'always()'
+    assert 'GITHUB_OUTPUT' not in text

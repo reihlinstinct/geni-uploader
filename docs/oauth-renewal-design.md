@@ -124,3 +124,17 @@ promise, not something this patch silently automates.
 Vendor docs contain inconsistent legacy example URLs (including an unrelated
 provider in the PHP example). Use the documented HTTPS Geni endpoint, not copied
 example code. Sources establish documented capability, not tested app behavior.
+
+
+## Same-job integration
+
+The human-triggered source-upload workflow now requires the protected oauth-refresh
+approval before its job starts. Every real mode (including plan and upload)
+renews first and uses the new token via an exclusive mode0600 runner-temp file.
+It does not reread the stale Actions secret snapshot, emit a token step output,
+or fall back to an invalid older token. The file is removed in an always cleanup.
+Selftest never contacts OAuth. Standalone renewal and source upload share one
+concurrency group. A future second account must have a separate refresh bundle;
+its probe/profile workflows are not silently redirected to this default account.
+Existing source workflow deployment is blocked until bootstrap and environment
+protection exist. This is a breaking prerequisite, not optional fallback behavior.

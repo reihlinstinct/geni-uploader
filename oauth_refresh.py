@@ -92,7 +92,7 @@ def gh(args, value=None):
     return result.stdout
 
 
-def run(raw, repo, call=gh, transport=None, clock=time.time):
+def run(raw, repo, call=gh, transport=None, clock=time.time, token_sink=None):
     # Fixed destination from workflow context, never from Geni response or dispatch input.
     if repo != 'reihlinstinct/geni-uploader':
         raise RenewalError('repository_refused')
@@ -107,6 +107,8 @@ def run(raw, repo, call=gh, transport=None, clock=time.time):
         pending = credential(original['pending_access_token'])
         call(['secret', 'set', ACCESS_SECRET, '--repo', repo], pending)
         call(['secret', 'set', BUNDLE_SECRET, '--repo', repo], json.dumps(bundle))
+        if token_sink:
+            token_sink(pending)
         return 'recovered_previous_rotation'
     token, rotated, expiry = refresh(bundle, transport)
     bundle['refresh_token'] = rotated
@@ -123,13 +125,27 @@ def run(raw, repo, call=gh, transport=None, clock=time.time):
     bundle.pop('pending_access_token')
     bundle.pop('pending_expires_at')
     call(['secret', 'set', BUNDLE_SECRET, '--repo', repo], json.dumps(bundle))
+    if token_sink:
+        token_sink(token)
     return 'renewal_saved'
+
+
+def save_job_token(token):
+    # This file never enters stdout, an artifact, step output or git.
+    from pathlib import Path
+    root = Path(os.environ['RUNNER_TEMP']).resolve()
+    destination = root / 'geni-token'
+    descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, 'w') as output:
+        output.write(token)
 
 
 def main():
     try:
         result = run(os.environ.pop('OAUTH_BUNDLE', ''),
-                     os.environ.get('GITHUB_REPOSITORY', ''))
+                     os.environ.get('GITHUB_REPOSITORY', ''),
+                     token_sink=save_job_token if os.environ.get('FRESH_JOB_TOKEN') == 'yes'
+                     else None)
         print(result)
         return 0
     except Exception as error:  # noqa: BLE001 - fixed public output boundary

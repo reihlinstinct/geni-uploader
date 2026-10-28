@@ -38,6 +38,7 @@ jobs:
     # Explicit personal account, not the automation repository owner.
     # No cron, push, pull_request or repository_dispatch trigger is permitted.
     if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.event_name == 'workflow_dispatch' && github.actor == 'reihl' && github.triggering_actor == 'reihl' }}
+    environment: oauth-refresh
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -47,6 +48,16 @@ jobs:
       AGE_VERSION: v1.3.2
       AGE_SHA256: cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Renew token for this human-approved job
+        if: inputs.mode != 'selftest'
+        env:
+          OAUTH_BUNDLE: ${{ secrets.GENI_OAUTH_REFRESH_BUNDLE }}
+          GH_TOKEN: ${{ secrets.OAUTH_SECRET_WRITER }}
+          FRESH_JOB_TOKEN: 'yes'
+        run: python3 -I oauth_refresh.py
       - name: Install age (pinned release, checksum-verified)
         run: |
           set -euo pipefail
@@ -57,7 +68,6 @@ jobs:
 
       - name: Run the pinned container (output fully captured)
         env:
-          GENI_ACCESS_TOKEN: ${{ secrets.GENI_ACCESS_TOKEN }}
           FAMILY_TREE_PAT: ${{ secrets.FAMILY_TREE_PAT }}
           PRIVATE_REPO_URL: ${{ secrets.PRIVATE_REPO_URL }}
           PRIVATE_REF: ${{ secrets.PRIVATE_REF }}
@@ -77,7 +87,9 @@ jobs:
             if [ "$MODE" = "selftest" ]; then
               printf 'selftest-dummy-token' > "$RUNNER_TEMP/geni-token" || exit 22
             else
-              printf '%s' "$GENI_ACCESS_TOKEN" > "$RUNNER_TEMP/geni-token" || exit 22
+              # Renewal wrote the fresh token in this SAME job, not a stale
+              # Actions-secret snapshot. Never fall back to an old token.
+              [ -s "$RUNNER_TEMP/geni-token" ] || exit 22
             fi
             chmod 600 "$RUNNER_TEMP/gh-token" "$RUNNER_TEMP/geni-token" || exit 23
 
@@ -206,3 +218,7 @@ jobs:
             exit 1
           fi
           echo "ciphertext committed: yes"
+
+      - name: Remove ephemeral token file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/geni-token"
