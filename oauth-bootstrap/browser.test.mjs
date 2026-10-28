@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { once } from "node:events";
 import { handle, OneTimeState } from "./worker.mjs";
 import { waitForChrome } from "./chrome-ready.mjs";
+import { navigateAndWaitForLoad } from "./cdp-load.mjs";
 
 test(
   "Chrome form POST preserves exact Origin on query-free landing",
@@ -156,17 +157,8 @@ test(
           ws.send(JSON.stringify({ id, method, params }));
         });
       await cdp("Page.enable");
-      const loaded = new Promise((r) => {
-        const listener = (e) => {
-          if (JSON.parse(e.data).method === "Page.loadEventFired") {
-            ws.removeEventListener("message", listener);
-            r();
-          }
-        };
-        ws.addEventListener("message", listener);
-      });
-      await cdp("Page.navigate", { url: origin + "/" });
-      await loaded;
+      await cdp("Page.setLifecycleEventsEnabled", { enabled: true });
+      await navigateAndWaitForLoad(ws, cdp, origin + "/");
       await cdp("Runtime.evaluate", {
         expression: 'document.querySelector("form").requestSubmit()',
         userGesture: true,
@@ -177,20 +169,11 @@ test(
       assert.equal(observed.status, 303);
       assert.equal(new URL(observed.location).origin, "https://github.com");
       assert.equal(entries.size, 1);
-      const stopped = new Promise((r) => {
-        const listener = (e) => {
-          if (JSON.parse(e.data).method === "Page.loadEventFired") {
-            ws.removeEventListener("message", listener);
-            r();
-          }
-        };
-        ws.addEventListener("message", listener);
-      });
-      await cdp("Page.navigate", {
-        url:
-          origin + "/login/callback?code=ZZSENSITIVE&state=" + "a".repeat(64),
-      });
-      await stopped;
+      await navigateAndWaitForLoad(
+        ws,
+        cdp,
+        origin + "/login/callback?code=ZZSENSITIVE&state=" + "a".repeat(64),
+      );
       const rendered = await cdp("Runtime.evaluate", {
         expression: "document.body.innerText",
       });
