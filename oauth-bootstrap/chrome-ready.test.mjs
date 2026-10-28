@@ -166,3 +166,29 @@ test("exit during readiness is not reported as ready", async () => {
     await assert.rejects(waitForChrome(f), /exited before readiness/);
   }
 });
+
+
+// #276: each guard isolated so neighbouring validation cannot mask its removal.
+
+test("a non-page target listed first is skipped for the page target", async () => {
+  const f = fixture();
+  const page = { type: "page", webSocketDebuggerUrl: "ws://127.0.0.1:9911/devtools/page/ZZpage" };
+  f.probe = async () => [
+    { type: "service_worker", webSocketDebuggerUrl: "ws://127.0.0.1:9911/devtools/page/ZZsw" },
+    page,
+  ];
+  const result = await waitForChrome(f);
+  assert.equal(result.page, page);
+});
+
+test("the probe budget is clamped to 1000 ms and to the remaining time", async () => {
+  for (const [timeoutMs, expected] of [[60000, 1000], [500, 500]]) {
+    const f = fixture();
+    f.timeoutMs = timeoutMs;
+    const budgets = [];
+    const probe = f.probe;
+    f.probe = async (port, budget) => { budgets.push(budget); return probe(port, budget); };
+    await waitForChrome(f);
+    assert.deepEqual(budgets, [expected]);
+  }
+});
