@@ -41,6 +41,9 @@ export default {async fetch(request,env){
   await verifyTrustedWorkload(body.workload_token,c.workload_pins);
   need(Math.floor(Date.now()/1000)<c.expires_at);
   const approvedBinding={...binding(c),run_id:c.approved_run};
+  // Receipt-only: never authorizes a vendor operation. Re-running owner graph
+  // preflight after a create would reject the now-existing parent. Original
+  // consumed intent plus same JWT/run/binding and immutable bytes govern this.
   if(route==='/complete'){
    const verified=await verifyUploadedPostwrite(env,approvedBinding,body.descriptor);need(Math.floor(Date.now()/1000)<c.expires_at);
    need(env.FATHER_OWNER_INTENTS&&typeof env.FATHER_OWNER_INTENTS.idFromName==='function');
@@ -68,7 +71,10 @@ export class FatherOwnerIntent {
    const route=new URL(request.url).pathname;need(request.method==='POST'&&['/consume','/execute','/complete'].includes(route));
    const text=await request.text();need(text.length<=4096);const body=JSON.parse(text);exact(body,route==='/complete'?['binding','descriptor','source']:route==='/execute'?['binding','prewrite']:['binding']);
    need(JSON.stringify(body.binding)===JSON.stringify(binding(c)));
-   if(route==='/complete'){
+   // Receipt-only: never authorizes a vendor operation. Re-running owner graph
+  // preflight after a create would reject the now-existing parent. Original
+  // consumed intent plus same JWT/run/binding and immutable bytes govern this.
+  if(route==='/complete'){
     const d=body.descriptor;need(d&&d.run_id===c.approved_run);
     return Response.json(await admitPostwriteReceipt(this.ctx.storage,binding(c),{sha256:d.sha256,byte_length:d.byte_length,stage:d.stage,operation_binding:d.operation_binding,run_id:d.run_id,recipient:d.recipient},{source:body.source,descriptor:d}));
    }
@@ -77,7 +83,7 @@ export class FatherOwnerIntent {
     need(typeof this.env.FATHER_EXECUTOR_PAYLOAD_JSON==='string'&&this.env.FATHER_EXECUTOR_PAYLOAD_JSON.length<=65536);
     const payload=JSON.parse(this.env.FATHER_EXECUTOR_PAYLOAD_JSON);need(JSON.stringify(payload)===this.env.FATHER_EXECUTOR_PAYLOAD_JSON);
     const d=body.prewrite;need(d&&d.stage==='pre_write');
-    return Response.json(await executeDurableFather(this.ctx.storage,binding(c),payload,this.env.GENI_SECONDARY_ACCESS_TOKEN,{sha256:d.sha256,byte_length:d.byte_length,stage:d.stage,operation_binding:d.operation_binding,run_id:d.run_id,recipient:d.recipient},{source:body.source,descriptor:d}));
+    return Response.json(await executeDurableFather(this.ctx.storage,binding(c),payload,this.env.GENI_SECONDARY_ACCESS_TOKEN,{sha256:d.sha256,byte_length:d.byte_length,stage:d.stage,operation_binding:d.operation_binding,run_id:d.run_id,recipient:d.recipient}));
    }
    const store=new OfflineCreateIntentCandidate(this.ctx.storage,c.owner);
    const value=await store.consume(binding(c),0);

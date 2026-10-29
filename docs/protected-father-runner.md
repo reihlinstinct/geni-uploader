@@ -39,3 +39,13 @@ lost-response reconciliation. Full joined test using the actual authenticated
 Worker and SQLite object rather than mocked service responses is still required.
 Cumulative accounting is per operation; cross-operation budget reservation before
 remote writes remains a release requirement. No operational release is claimed.
+
+## Receipt-only route boundary
+
+The `/complete` service route intentionally does not repeat private approval
+capture or owner graph preflight. It authenticates the same fixed workload/run
+and reads immutable postwrite bytes, then requires the existing same-binding
+uncertain intent. It cannot invoke the executor or advance to VERIFIED. Repeating
+pre-create graph checks after creation would reject the new parent by design.
+This is not a second execution authorization or a way around the create gate.
+The unused sixth executor argument noticed during the receipt review is removed.
