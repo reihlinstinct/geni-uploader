@@ -70,3 +70,32 @@ the stream bound stops immediately, independently of the parser byte bound.
 
 The existing runtime.test.mjs CI entry point imports this synthetic test suite;
 no workflow trigger, permission, environment or job-step edit is needed.
+
+## Chosen human assurance (design only)
+
+The chosen ceremony has ONE human, not two: the owner approves the exact private
+payload fingerprint through their trusted conversation, the agent dispatches a
+protected workflow, the owner personally approves its required-reviewer gate,
+and an independent agent reviews code. The protected reviewer action must be
+bound to that job/run/attempt; a comment, GitHub User-type identity, actor string,
+or app-authored action is not evidence of a human click. Some apps use the same
+GitHub identity as the owner, so identity alone cannot distinguish them.
+
+This is weaker than two independent human approvals. The future authenticated
+record must explicitly identify assurance as single-human-owner approval plus
+independent agent code review and agent dispatch, never two-human approval.
+The current offline record's owner/human_reviewer distinct references describe
+content fields only, not proof of two natural people; do not fabricate distinct
+references for one person. A separately reviewed versioned record schema update
+must encode the chosen assurance and source-role distinction before production.
+No environment, record writer, dispatch, release or live run is authorized by
+this document. Existing candidate results remain false for owner/review approval.
+
+Review follow-up (#303) adds7executed/killed mutants: deadline5000->5001,
+clock-skew bypass on a fresh receipt, operation policy with matching expectations,
+role-slot check with matching hashes, UTF8fatal decoding using real0xff bytes,
+and intermediate directory type/mode independently. Deadline value is asserted
+outside the rejection catcher, so a thrown mock assertion cannot mimic success.
+CI entrypoint runs admission tests in an isolated bounded subprocess: direct
+imports let global mocked fetch/clock interfere with concurrent Workers startup.
+The isolated entrypoint preserves original runtime checks without retry/sleep.

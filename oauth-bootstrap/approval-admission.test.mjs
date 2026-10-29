@@ -96,3 +96,26 @@ test('stream cap stops reading immediately before a subsequent stalled read',asy
  t.mock.method(globalThis,'fetch',async()=>({status:200,redirected:false,headers:new Headers(),body:{getReader:()=>({read:async()=>{reads++;if(reads===1)return{done:false,value:new Uint8Array(131073)};return new Promise(()=>{});},cancel:async()=>{cancelled=true;},releaseLock:()=>{}})}}));
  const real=setTimeout;t.mock.method(globalThis,'setTimeout',(fn,ms)=>real(fn,10));await assert.rejects(get(f));assert.equal(reads,1);assert.equal(cancelled,true);
 });
+
+test('deadline duration is inspected outside rejection assertion',async t=>{
+ const durations=[],real=setTimeout;t.mock.method(globalThis,'setTimeout',(fn,ms)=>{durations.push(ms);return real(fn,5);});t.mock.method(globalThis,'fetch',()=>new Promise(()=>{}));
+ await assert.rejects(get(fixture()));assert.deepEqual(durations,[5000]);
+});
+test('caller clock skew alone rejects a fresh valid receipt',async t=>{
+ const f=fixture();mock(t,f);const r=await get(f);assert.throws(()=>admit(f,r,{nowUnix:now()+6}));
+});
+test('operation policy rejects even with matching expected pins',async t=>{
+ const f=fixture(r=>r.pins.operation='ZZ_other_operation');mock(t,f);const r=await get(f);assert.throws(()=>admit(f,r));
+});
+test('role must match semantic slot even with matching hashes',async t=>{
+ const f=fixture(r=>r.approvals[0].role='ZZ_not_owner');mock(t,f);const r=await get(f);assert.throws(()=>admit(f,r));
+});
+test('actual invalid UTF8 bytes reject before replacement-character parsing',async t=>{
+ const f=fixture();const text=f.bytes.toString().replace('offline_approval_record','offline_approval_recorX');
+ const bytes=Buffer.from(text);bytes[bytes.indexOf('recorX')+5]=0xff;
+ const sha=hash(Buffer.concat([Buffer.from('blob '+bytes.length+'\0'),bytes]),'sha1');f.bytes=bytes;f.source.blob_sha=sha;f.source.content_sha256=hash(bytes);f.paths[3]='/repos/ZZ-owner/ZZ-private/git/blobs/'+sha;f.bodies[2].tree[0].sha=sha;f.bodies[3]={sha,size:bytes.length,encoding:'base64',content:bytes.toString('base64')};mock(t,f);await assert.rejects(get(f));
+});
+for(const [field,value]of [['type','blob'],['mode','100644']])test('intermediate directory '+field+' rejects independently',async t=>{
+ const f=fixture();f.source.path='ZZ-dir/'+f.source.path;f.paths.splice(3,0,'/repos/ZZ-owner/ZZ-private/git/trees/'+'b'.repeat(40));
+ f.bodies.splice(2,0,{sha:'a'.repeat(40),truncated:false,tree:[{path:'ZZ-dir',type:'tree',mode:'040000',sha:'b'.repeat(40)}]});f.bodies[3].sha='b'.repeat(40);f.bodies[2].tree[0][field]=value;mock(t,f);await assert.rejects(get(f));
+});
