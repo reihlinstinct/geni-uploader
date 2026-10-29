@@ -158,3 +158,10 @@ def test_equal_expected_and_supplied_malformed_pins_rejected(key, bad):
     value['pins'][key] = bad
     with pytest.raises(Blocked):
         validate(value, deepcopy(value['pins']))
+
+
+def test_path_prefix_guard_isolated_from_segment_count(monkeypatch):
+    value = fixture()
+    value['profile_url'] = 'https://www.geni.com/abcdefgZZ/1'
+    with pytest.raises(Blocked):
+        validate(value, value['pins'])
