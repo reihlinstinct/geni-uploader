@@ -44,4 +44,4 @@ Six further individual guard mutants executed/killed: revocation epoch upper
 bound, leading-zero principal IDs while role relations still agree, unknown
 fields inside each source, None-as-false production flag, uppercase SHA/hash
 pins with matching expected/review head, and float now inside the valid window.
-60focused tests pass. Test/docs only; v1/v2 semantics unchanged.
+59focused tests pass. Test/docs only; v1/v2 semantics unchanged.
