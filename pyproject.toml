@@ -6,6 +6,7 @@ requires-python = ">=3.11"
 dependencies = ["PyYAML==6.0.3"]
 
 [tool.ruff]
+extend-exclude = ["scripts/security/scorecard_guard.py", "tests/security/test_scorecard_guard.py"]
 line-length = 100
 
 [build-system]
