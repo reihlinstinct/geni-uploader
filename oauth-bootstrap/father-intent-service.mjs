@@ -1,6 +1,6 @@
 // Unreleased authenticated service composition. No Geni endpoint or deployment.
 import {verifyUploadedPostwrite} from './postwrite-ledger-admission.mjs';
-import {executeDurableFather,admitPostwriteReceipt} from './durable-father-executor.mjs';
+import {executeDurableFather,admitPostwriteReceipt,reservePostwriteBudget} from './durable-father-executor.mjs';
 import {OfflineCreateIntentCandidate} from './create-intent-candidate.mjs';
 import {verifyTrustedWorkload} from './trusted-workload-jwks.mjs';
 import {verifyOwnerPreflight} from './owner-preflight.mjs';
@@ -28,7 +28,7 @@ function binding(c){return{owner:c.owner,connection:c.connection,plan:c.plan,pay
  */
 export default {async fetch(request,env){
  try{
-  const c=config(env),route=new URL(request.url).pathname;need(request.method==='POST'&&['/consume','/execute','/complete'].includes(route));
+  const c=config(env),route=new URL(request.url).pathname;need(request.method==='POST'&&['/consume','/execute','/complete','/reserve'].includes(route));
   // This module cannot be released by setting a request bool. Its existing mode
   // is consumed only by local workerd rehearsal; production route stays closed.
   need(env.FATHER_SERVICE_LOCAL_REHEARSAL==='local-only-no-geni');
@@ -36,11 +36,16 @@ export default {async fetch(request,env){
   const reader=request.body?.getReader();need(reader);const chunks=[];let size=0;
   try{for(;;){const v=await reader.read();if(v.done)break;size+=v.value.length;need(size<=32768);chunks.push(v.value);}}finally{await reader.cancel().catch(()=>{});reader.releaseLock();}
   const body=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));
-  exact(body,route==='/complete'?['workload_token','plan_hash','descriptor']:['workload_token','plan_hash','uploads']);need(body.plan_hash===c.plan);
+  exact(body,route==='/reserve'?['workload_token','plan_hash']:route==='/complete'?['workload_token','plan_hash','descriptor']:['workload_token','plan_hash','uploads']);need(body.plan_hash===c.plan);
   need(Math.floor(Date.now()/1000)<c.expires_at);
   await verifyTrustedWorkload(body.workload_token,c.workload_pins);
   need(Math.floor(Date.now()/1000)<c.expires_at);
   const approvedBinding={...binding(c),run_id:c.approved_run};
+  if(route==='/reserve'){
+   need(env.FATHER_OWNER_INTENTS&&typeof env.FATHER_OWNER_INTENTS.idFromName==='function');
+   const stub=env.FATHER_OWNER_INTENTS.get(env.FATHER_OWNER_INTENTS.idFromName('father-owner:'+c.owner));
+   return stub.fetch(new Request('https://owner-intent.invalid/reserve',{method:'POST',body:JSON.stringify({binding:binding(c)})}));
+  }
   // Receipt-only: never authorizes a vendor operation. Re-running owner graph
   // preflight after a create would reject the now-existing parent. Original
   // consumed intent plus same JWT/run/binding and immutable bytes govern this.
@@ -68,9 +73,10 @@ export class FatherOwnerIntent {
  async fetch(request){
   try{
    const c=config(this.env);need(this.env.FATHER_SERVICE_LOCAL_REHEARSAL==='local-only-no-geni');
-   const route=new URL(request.url).pathname;need(request.method==='POST'&&['/consume','/execute','/complete'].includes(route));
+   const route=new URL(request.url).pathname;need(request.method==='POST'&&['/consume','/execute','/complete','/reserve'].includes(route));
    const text=await request.text();need(text.length<=4096);const body=JSON.parse(text);exact(body,route==='/complete'?['binding','descriptor','source']:route==='/execute'?['binding','prewrite']:['binding']);
    need(JSON.stringify(body.binding)===JSON.stringify(binding(c)));
+   if(route==='/reserve')return Response.json(await reservePostwriteBudget(this.ctx.storage,binding(c),c.approved_run));
    // Receipt-only: never authorizes a vendor operation. Re-running owner graph
   // preflight after a create would reject the now-existing parent. Original
   // consumed intent plus same JWT/run/binding and immutable bytes govern this.

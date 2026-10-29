@@ -16,7 +16,7 @@ async function accountEvidenceInTransaction(tx,binding,descriptor){
   let ledger=await tx.get('evidence-ledger');if(ledger===undefined)ledger={binding:structuredClone(binding),run_id:descriptor.run_id,recipient:descriptor.recipient,total_bytes:0,objects:[]};
   exact(ledger,['binding','run_id','recipient','total_bytes','objects']);need(canonical(ledger.binding)===canonical(binding)&&ledger.run_id===descriptor.run_id&&ledger.recipient===descriptor.recipient&&Array.isArray(ledger.objects)&&ledger.objects.length<100&&Number.isSafeInteger(ledger.total_bytes));
   need(ledger.objects.every(x=>x&&x.operation_binding===binding.plan&&x.run_id===descriptor.run_id&&x.recipient===descriptor.recipient&&['pre_write','acknowledgment','readback','reconciliation'].includes(x.stage)&&Number.isSafeInteger(x.byte_length)&&x.byte_length>0&&/^[a-f0-9]{64}$/.test(x.sha256))&&ledger.total_bytes===ledger.objects.reduce((s,x)=>s+x.byte_length,0)&&new Set(ledger.objects.map(x=>x.sha256)).size===ledger.objects.length&&!ledger.objects.some(x=>x.sha256===descriptor.sha256));
-  need(ledger.total_bytes+descriptor.byte_length<=8388608);ledger.objects.push(structuredClone(descriptor));ledger.total_bytes+=descriptor.byte_length;await tx.put('evidence-ledger',ledger);return structuredClone(ledger);
+  const reservation=await tx.get('postwrite-reservation');need(ledger.total_bytes+descriptor.byte_length+(reservation?.phase==='reserved'&&descriptor.stage!=='readback'?reservation.byte_limit:0)<=8388608);ledger.objects.push(structuredClone(descriptor));ledger.total_bytes+=descriptor.byte_length;await tx.put('evidence-ledger',ledger);return structuredClone(ledger);
 }
 function payload(p,b){
  need(p&&typeof p==='object'&&p.names&&typeof p.names==='object');exact(p.names,['he','en']);
@@ -63,9 +63,24 @@ export async function admitPostwriteReceipt(storage,binding,descriptor,immutable
  need(immutable.descriptor&&['sha256','byte_length','stage','operation_binding','run_id','recipient'].every(k=>immutable.descriptor[k]===descriptor[k]));
  return storage.transaction(async tx=>{
   const intent=await tx.get('intent');need(intent&&canonical(intent.binding)===canonical(binding)&&intent.phase==='uncertain'&&intent.production_enabled===false);
+  const reservation=await tx.get('postwrite-reservation');need(reservation&&reservation.phase==='reserved'&&canonical(reservation.binding)===canonical(binding)&&reservation.run_id===descriptor.run_id&&reservation.recipient===descriptor.recipient&&descriptor.byte_length<=reservation.byte_limit);
   const existing=await tx.get('evidence-ledger');need(existing&&existing.objects?.some(x=>x.stage==='pre_write')&&await tx.get('postwrite-receipt')===undefined&&descriptor.stage==='readback');
+  need(existing.total_bytes===reservation.prior_total);
   const ledger=await accountEvidence({transaction:fn=>fn(tx)},binding,descriptor);
   const receipt={phase:'ciphertext_receipt_accounted_reconciliation_required',immutable:structuredClone(immutable),descriptor:structuredClone(descriptor),intent_version:intent.version,created_id:intent.created_id,ledger_total_bytes:ledger.total_bytes,intent_verified:false,retry_allowed:false,production_enabled:false};
-  await tx.put('postwrite-receipt',receipt);return receipt;
+  await tx.put('postwrite-reservation',{...reservation,phase:'accounted',sha256:descriptor.sha256,actual_bytes:descriptor.byte_length});await tx.put('postwrite-receipt',receipt);return receipt;
+ });
+}
+
+/** Reserves the maximum ciphertext size before remote upload, not after it.
+ * Same consumed intent/run/recipient; a failed upload leaves reservation intact.
+ */
+export async function reservePostwriteBudget(storage,binding,runId){
+ return storage.transaction(async tx=>{
+  const intent=await tx.get('intent'),ledger=await tx.get('evidence-ledger');
+  need(intent&&canonical(intent.binding)===canonical(binding)&&intent.phase==='uncertain'&&intent.production_enabled===false&&ledger&&canonical(ledger.binding)===canonical(binding)&&ledger.run_id===runId&&Array.isArray(ledger.objects)&&ledger.objects.some(x=>x.stage==='pre_write'));
+  need(ledger.objects.length>0&&ledger.objects.length<100&&ledger.objects.every(x=>x&&x.operation_binding===binding.plan&&x.run_id===runId&&x.recipient===ledger.recipient&&Number.isSafeInteger(x.byte_length)&&x.byte_length>0&&x.byte_length<=1048576&&/^[a-f0-9]{64}$/.test(x.sha256))&&new Set(ledger.objects.map(x=>x.sha256)).size===ledger.objects.length&&ledger.total_bytes===ledger.objects.reduce((n,x)=>n+x.byte_length,0)&&Number.isSafeInteger(ledger.total_bytes)&&ledger.total_bytes+1048576<=8388608&&await tx.get('postwrite-reservation')===undefined&&await tx.get('postwrite-receipt')===undefined);
+  const reservation={binding:structuredClone(binding),run_id:runId,recipient:ledger.recipient,byte_limit:1048576,prior_total:ledger.total_bytes,phase:'reserved',production_enabled:false};
+  await tx.put('postwrite-reservation',reservation);return{phase:'postwrite_ciphertext_budget_reserved',byte_limit:reservation.byte_limit,prior_total:reservation.prior_total,retry_allowed:false,production_enabled:false};
  });
 }

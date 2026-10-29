@@ -1,7 +1,7 @@
 import test from'node:test';import assert from'node:assert/strict';import{execFileSync}from'node:child_process';import{runProtectedFatherJob}from'./protected-father-runner.mjs';import{fixture,mockGitAndService,key}from'./ZZ-runner-fixture.mjs';
 test('protected runner joins real private approval + age uploads + service execute/receipt',{skip:!key},async t=>{
  const f=fixture(),state=mockGitAndService(t,f),events=[],r=await runProtectedFatherJob(f.env,f.approvalBytes,f.prewriteBytes,x=>events.push(x));
- const s=state();assert.equal(s.execute,1);assert.equal(s.complete,1);assert.equal(s.requests,35);assert.equal(r.intent_verified,false);assert.equal(events.length,14);
+ const s=state();assert.equal(s.execute,1);assert.equal(s.complete,1);assert.equal(s.requests,36);assert.equal(r.intent_verified,false);assert.equal(events.length,14);
  const entries=s.trees.get(s.tree),pre=s.blobs.get(entries.find(e=>e.path==='ZZ-pre.age').sha),post=s.blobs.get(entries.find(e=>e.path==='ZZ-post.age').sha);
  assert.deepEqual(execFileSync('age',['-d','-i',key],{input:pre}),f.prewriteBytes);assert.deepEqual(JSON.parse(execFileSync('age',['-d','-i',key],{input:post})),{result_phase:f.result.phase,created_id:f.result.created_id,evidence:f.result.private_evidence});
 });
