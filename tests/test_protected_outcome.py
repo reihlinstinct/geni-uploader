@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+import yaml
 
 WORKFLOW = Path(__file__).parents[1] / '.github/workflows/geni-upload.yml'
 
@@ -15,11 +16,13 @@ WORKFLOW = Path(__file__).parents[1] / '.github/workflows/geni-upload.yml'
 def test_failure_reported_only_after_ciphertext_retention(tmp_path, value, exit_code, mode):
     text = WORKFLOW.read_text()
     retention = text.index('echo "ciphertext committed: yes"')
-    final = text.index('- name: Report protected container outcome after ciphertext retention')
+    final = text.index('- name: Enforce clean container result after preserving protected output')
     assert retention < final
     assert 'continue-on-error' not in text[retention:]
-    block = text[final:]
-    script = block.split('run: |\n', 1)[1]
+    steps = yaml.safe_load(text)['jobs']['upload']['steps']
+    step = next(s for s in steps if s['name'].startswith('Enforce clean'))
+    assert step['if'] == 'always()'
+    script = step['run']
     (tmp_path / 'container-exit-code').write_text(value)
     result = subprocess.run(['bash', '-c', script], check=False, text=True,
                             capture_output=True, env=dict(os.environ,
@@ -30,8 +33,11 @@ def test_failure_reported_only_after_ciphertext_retention(tmp_path, value, exit_
 
 
 def test_expected_selftest_error_not_reported_as_plan_failure(tmp_path):
-    text = WORKFLOW.read_text().split('- name: Report protected container outcome', 1)[1]
-    script = text.split('run: |\n', 1)[1]
+    steps = yaml.safe_load(WORKFLOW.read_text())['jobs']['upload']['steps']
+    script = next(s for s in steps if s['name'].startswith('Enforce clean'))['run']
+    # Successful selftest requires an actual bounded nonzero result, not merely
+    # MODE=selftest with a missing result file after an interrupted step.
+    (tmp_path / 'container-exit-code').write_text('1')
     result = subprocess.run(['bash', '-c', script], check=False, text=True,
                             capture_output=True, env=dict(os.environ,
                             RUNNER_TEMP=str(tmp_path), MODE='selftest'))

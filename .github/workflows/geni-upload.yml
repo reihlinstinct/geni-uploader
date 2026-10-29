@@ -183,6 +183,7 @@ jobs:
           echo "container step done"
 
       - name: Encrypt the captured log and commit the ciphertext to the private repo
+        if: always()
         env:
           FAMILY_TREE_PAT: ${{ secrets.FAMILY_TREE_PAT }}
           PRIVATE_REPO_URL: ${{ secrets.PRIVATE_REPO_URL }}
@@ -193,6 +194,10 @@ jobs:
           umask 077
           RAW="$RUNNER_TEMP/raw.log"
           CT="$RUNNER_TEMP/upload-log.age"
+          # Preserve partial output; initialize only an absent log.
+          if [ ! -f "$RAW" ]; then
+            : > "$RAW"
+          fi
           EXIT=0
           (
             # Fail closed: every fallible command exits the subshell
@@ -235,20 +240,37 @@ jobs:
           fi
           echo "ciphertext committed: yes"
 
-      - name: Report protected container outcome after ciphertext retention
+      - name: Enforce clean container result after preserving protected output
+        if: always()
         env:
           MODE: ${{ inputs.mode }}
         run: |
-          set -euo pipefail
-          # selftest deliberately gets a nonzero container result.
-          if [ "$MODE" = "selftest" ]; then exit 0; fi
-          RESULT="$(cat "$RUNNER_TEMP/container-exit-code")"
-          if ! [[ "$RESULT" =~ ^[0-9]+$ ]] || [ "$RESULT" -gt 255 ]; then
-            echo "protected container outcome unavailable; failing closed"
+          set -eu
+          STATUS_FILE="$RUNNER_TEMP/container-exit-code"
+          if [ ! -f "$STATUS_FILE" ]; then
+            echo "source container result unavailable; not a clean plan or run"
             exit 1
           fi
-          if [ "$RESULT" -ne 0 ]; then
-            echo "protected container did not complete successfully; inspect the encrypted log"
+          STATUS="$(cat "$STATUS_FILE")"
+          if [ "${MODE:-}" = "selftest" ]; then
+            # Preserve the existing selftest contract: the deliberately dead
+            # loopback must fail, never look like a clean source operation.
+            if [[ "$STATUS" =~ ^[1-9][0-9]{0,2}$ ]] && [ "$STATUS" -le 255 ]; then
+              echo "selftest expected failure observed"
+              exit 0
+            fi
+            echo "selftest did not produce the expected failure"
             exit 1
           fi
-          echo "protected container outcome: success"
+          case "$STATUS" in
+            0) echo "source container finished cleanly" ;;
+            *) echo "source container did not finish cleanly; inspect protected output"; exit 1 ;;
+          esac
+
+      - name: Remove temporary plaintext after protected output preservation
+        if: always()
+        run: |
+          # Best effort only: runner loss or cancellation may prevent cleanup.
+          rm -f -- "$RUNNER_TEMP/raw.log" "$RUNNER_TEMP/gh-token" \
+            "$RUNNER_TEMP/geni-token" "$RUNNER_TEMP/git-cred"
+          rm -rf -- "$GITHUB_WORKSPACE/logrepo" "$RUNNER_TEMP/plan-report"
