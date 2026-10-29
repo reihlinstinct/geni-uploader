@@ -17,6 +17,8 @@ def fixture():
                      'source_ref': str(i + 1) * 64, 'content_hash': str(i + 5) * 64}
                for i, (role, kind) in enumerate(SOURCE_KINDS.items())}
     sources['protected_review']['principal_id'] = sources['owner_grant']['principal_id']
+    for key in ('source_ref', 'content_hash'):
+        sources['protected_review'][key] = sources['owner_grant'][key]
     return {'schema_version': 2, 'mode': 'single_human_approval_content',
             'assurance': ASSURANCE, 'human_count': 1, 'production_enabled': False,
             'pins': pins, 'exclusions': list(EXCLUDED_ACTIONS), 'risk_hash': 'c' * 64,
@@ -103,5 +105,13 @@ def test_refs_distinct_and_exclusions_complete():
 def test_extra_unknown_field_rejected():
     r = fixture()
     r['caller_claims_human'] = True
+    with pytest.raises(Blocked):
+        check(r, r, 200)
+
+
+@pytest.mark.parametrize('field', ['source_ref', 'content_hash'])
+def test_owner_grant_is_same_exact_protected_review_action(field):
+    r = fixture()
+    r['sources']['protected_review'][field] = 'e' * 64
     with pytest.raises(Blocked):
         check(r, r, 200)

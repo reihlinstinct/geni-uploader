@@ -7,7 +7,7 @@ from people_core import digest, exact, require
 
 ASSURANCE = 'single_human_owner_agent_dispatch_independent_agent_review'
 SOURCE_KEYS = ('kind', 'principal_id', 'source_ref', 'content_hash')
-SOURCE_KINDS = {'owner_grant': 'trusted_owner_conversation',
+SOURCE_KINDS = {'owner_grant': 'protected_environment_exact_payload_approval',
                 'protected_review': 'protected_environment_human_action',
                 'dispatch': 'designated_agent_workflow_dispatch',
                 'code_review': 'independent_agent_exact_head_review'}
@@ -43,13 +43,14 @@ def validate(record):
         _hash(source['source_ref'])
         _hash(source['content_hash'])
     s = record['sources']
-    # Same sole HUMAN approves exact payload/risk in trusted channel AND reviews
-    # protected job. Dispatcher/reviewer-agent are explicitly not extra humans.
+    # Same sole HUMAN approves exact payload/risk through the SAME protected job approval action. Dispatcher/reviewer-agent are explicitly not extra humans.
     require(s['owner_grant']['principal_id'] == s['protected_review']['principal_id'])
     require(s['dispatch']['principal_id'] != s['owner_grant']['principal_id'])
     require(s['code_review']['principal_id'] != s['dispatch']['principal_id'])
     require(s['code_review']['principal_id'] != s['owner_grant']['principal_id'])
-    require(len({x['source_ref'] for x in s.values()}) == len(SOURCE_KINDS))
+    require(s['owner_grant']['source_ref'] == s['protected_review']['source_ref'])
+    require(s['owner_grant']['content_hash'] == s['protected_review']['content_hash'])
+    require(len({s[role]['source_ref'] for role in ('owner_grant', 'dispatch', 'code_review')}) == 3)
     return deepcopy(record)
 
 
