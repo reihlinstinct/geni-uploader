@@ -31,6 +31,7 @@ call makes exactly two requests to the fixed origin `https://api.github.com`:
    stream: the read stops and cancels the stream at the first chunk that would
    pass 4096 bytes, so nothing beyond the cap is buffered. A missing body,
    non-byte chunk or invalid UTF-8 fails. `response.text()` is never used.
+   A rejected response (wrong status or any redirect) is cancelled unread (#498).
 2. The whole bundle is sealed with the injected `seal`. The ciphertext must be
    exactly the sealed-box size (message + 48 bytes). Then one
    `PUT /repos/{owner}/{repo}/environments/{environment_name}/secrets/{secret_name}`
@@ -128,6 +129,8 @@ endpoints are not stated on the page and remain to be verified.
   dotted names such as `.zz` still work (#497);
 - the PUT body is cancelled unread on 201, 204 and failing statuses, and a
   throwing, rejecting or missing body never changes the result (#497);
+- a rejected public-key body and a PUT that answers after its timeout are
+  cancelled unread (#498);
 - the ciphertext base64 equals an independent encoding just below, at and above
   the 32 KiB chunk boundary and at the largest accepted bundle (#497);
 - a public-key timeout and a PUT timeout: the signal is aborted, there is no

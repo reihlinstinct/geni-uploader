@@ -156,7 +156,10 @@ export function createEnvironmentSecretCustody(config, deps) {
       try {
         const body = await timed(pending, async (signal) => {
           const response = await fetch(base + 'public-key', { method: 'GET', headers: { ...headers }, redirect: 'manual', signal });
-          need(response && response.status === 200 && response.redirected !== true && response.type !== 'opaqueredirect');
+          if (!(response && response.status === 200 && response.redirected !== true && response.type !== 'opaqueredirect')) {
+            discardBody(response); // A rejected public-key response is never read either.
+            throw new Blocked();
+          }
           return boundedJson(response);
         });
         exact(body, ['key_id', 'key']);

@@ -267,9 +267,11 @@ test('PUT timeout is write_state_unknown, is never retried, and keeps the slot b
   assert.equal(h.trace[1].signal.aborted, true);
   // The abandoned PUT may still commit: a second write for this slot must not race it.
   assert.deepEqual(await h.custody.storeBundle({ slot: 'secondary', bundleJson: bundleJson() }), result('slot_busy'));
-  finish(respond(201));
+  const lateLog = [];
+  finish(respond(201, '', { body: streamOf(['ZZ-LATE-SENTINEL'], lateLog) }));
   await new Promise((r) => setImmediate(r));
   await new Promise((r) => setImmediate(r));
+  assert.deepEqual(lateLog, ['cancelled']); // #498 L2: the late response is discarded unread too.
   assert.equal((await h.custody.storeBundle({ slot: 'secondary', bundleJson: bundleJson() })).status, 'stored_created');
   assert.equal(h.trace.filter((t) => t.method === 'PUT').length, 2); // One per accepted call, none automatic.
 });
@@ -329,4 +331,23 @@ test('#497: ciphertext base64 is chunked and matches the reference encoding at a
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('./environment-secret-custody-candidate.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(src, /fromCharCode\(\.\.\./);
+});
+
+test('#498 L1: a rejected public-key response body is cancelled unread and nothing is written', async () => {
+  for (const extra of [{}, { status: 302 }, { redirected: true }, { type: 'opaqueredirect' }]) {
+    for (const status of [extra.status ?? 403, 500]) {
+      const log = [];
+      const h = harness({ key: respond(status, '', { body: streamOf(['ZZ-PROVIDER-TEXT-SENTINEL'], log), ...extra, status }) });
+      const r = await h.custody.storeBundle({ slot: 'secondary', bundleJson: bundleJson() });
+      assert.deepEqual(r, result('public_key_failed'));
+      await new Promise((res) => setImmediate(res));
+      assert.deepEqual(log, ['cancelled'], JSON.stringify({ status, ...extra }));
+      assert.deepEqual(h.trace.map((t) => t.method), ['GET']);
+    }
+  }
+  const redirectOk = [];
+  const h = harness({ key: respond(200, '', { body: streamOf(['ZZ'], redirectOk), redirected: true }) });
+  assert.deepEqual(await h.custody.storeBundle({ slot: 'secondary', bundleJson: bundleJson() }), result('public_key_failed'));
+  await new Promise((res) => setImmediate(res));
+  assert.deepEqual(redirectOk, ['cancelled']);
 });
