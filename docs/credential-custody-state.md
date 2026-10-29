@@ -31,3 +31,8 @@ primitive. Missing/corrupt records block reads; no reset/delete method exists.
 late acknowledgement, rotation, wrong owner/hash/schema, corruption, transaction
 rollback/error redaction and untouched issuer/grant/intent keys. Not imported by
 worker, runner or writer. No token, settings, account mutation or deployment.
+
+A real local workerd SQLite rehearsal additionally verifies concurrent reserve,
+pending persistence across restart, revocation epoch persistence, late commit
+rejection and explicit new generation with no outbound network. This does not
+prove the installed provider namespace or authenticate a caller.
