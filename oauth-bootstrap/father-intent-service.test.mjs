@@ -42,3 +42,15 @@ test('authenticated execute route still hits unconditional release gate before i
  const r=await service.fetch(new Request('https://service.invalid/execute',{method:'POST',body:JSON.stringify({workload_token:await token(c.workload_pins),plan_hash:c.plan,uploads})}),env);
  assert.equal(r.status,409);assert.equal(l.data.size,0);assert.equal(posts,0);
 });
+
+test('signed completion route verifies fixed immutable postwrite bytes then accounts without vendor call',async t=>{
+ const{fixture:postFixture}=await import('./ZZ-prewrite-fixture.mjs');const{OfflineCreateIntentCandidate}=await import('./create-intent-candidate.mjs');const{accountEvidence}=await import('./durable-father-executor.mjs');const{createHash}=await import('node:crypto');const hash=x=>createHash('sha256').update(x).digest('hex');
+ const f=postFixture(),c=fixture(),bb=f.binding;c.owner=bb.owner;c.connection=bb.connection;c.plan=bb.plan;c.payload=bb.payload;c.artifact=bb.artifact;c.policy=bb.policy;c.approved_run=bb.run_id;c.workload_pins.run_id=bb.run_id;
+ const{run_id,...b}=bb,d={...f.c.descriptor,stage:'readback'}, {commit,...source}=f.c.source;
+ const policy={mode:'unreleased_fixed_postwrite_policy',production_enabled:false,source,binding:bb,recipient:d.recipient,credential_sha256:f.c.credential_sha256},raw=JSON.stringify(policy);
+ const env={FATHER_INTENT_CONFIG:JSON.stringify(c),FATHER_SERVICE_LOCAL_REHEARSAL:'local-only-no-geni',FATHER_POSTWRITE_POLICY_JSON:raw,FATHER_POSTWRITE_POLICY_SHA256:hash(raw),GENI_SECONDARY_ACCESS_TOKEN:'ZZtoken',PRIVATE_GIT_CREDENTIAL:'ZZprivate'},l=local(env);
+ const storage={transaction:async fn=>fn({get:async k=>structuredClone(l.data.get(k)),put:async(k,v)=>l.data.set(k,structuredClone(v))})};const store=new OfflineCreateIntentCandidate(storage,b.owner);await store.consume(b,0);await accountEvidence(storage,b,{sha256:'e'.repeat(64),byte_length:100,stage:'pre_write',operation_binding:b.plan,run_id,recipient:d.recipient});await store.advance(b,1,'uncertain','f'.repeat(64));
+ let calls=0;t.mock.method(globalThis,'fetch',async u=>{if(u==='https://token.actions.githubusercontent.com/.well-known/jwks')return Response.json({keys:[jwk]});const i=f.urls.indexOf(u);assert.ok(i>=0);calls++;return Response.json(f.bodies[i]);});
+ const tok=await token(c.workload_pins),send=()=>service.fetch(new Request('https://service.invalid/complete',{method:'POST',body:JSON.stringify({workload_token:tok,plan_hash:c.plan,descriptor:d})}),env);
+ const response=await send();assert.equal(response.status,200);const out=await response.json();assert.equal(out.intent_verified,false);assert.equal(out.phase,'ciphertext_receipt_accounted_reconciliation_required');assert.equal(l.data.get('intent').phase,'uncertain');assert.equal(l.data.get('evidence-ledger').total_bytes,100+d.byte_length);assert.equal(calls,4);assert.deepEqual(l.data.get('postwrite-receipt').immutable.source,f.c.source);assert.equal((await send()).status,409);
+});
