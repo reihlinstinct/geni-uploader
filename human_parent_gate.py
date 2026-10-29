@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 
-from people_core import Blocked, exact, require
+from geni_uploader.core.people import Blocked, exact, require
 
 CONTRACT = Path(__file__).resolve().parent / 'docs/human-parent-release-gates.json'
 PROOFS = (

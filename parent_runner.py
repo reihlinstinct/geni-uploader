@@ -1,8 +1,8 @@
 """Offline parent-operation simulation. No production transport or entry point."""
 import copy
 
+from geni_uploader.core.people import Blocked, bind, digest, exact, require, validate
 from human_parent_gate import require_production_release
-from people_core import Blocked, bind, digest, exact, require, validate
 
 
 def payloads(data):

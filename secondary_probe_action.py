@@ -4,8 +4,8 @@ import os
 import subprocess
 from pathlib import Path
 
+from geni_uploader.core.people import Blocked, require
 from parent_probe import ReadOnly, collect, connection, encrypt
-from people_core import Blocked, require
 
 
 def run(environment):

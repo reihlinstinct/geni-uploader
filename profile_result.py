@@ -3,8 +3,8 @@ import re
 from copy import deepcopy
 from urllib.parse import unquote, urlsplit
 
+from geni_uploader.core.people import Blocked, exact, require
 from parent_intent_model import _hash, _id
-from people_core import Blocked, exact, require
 
 PINS = ('owner', 'payload_hash', 'run_hash', 'artifact_hash', 'approval_hash')
 FIELDS = ('schema_version', 'mode', 'pins', 'profile_id', 'profile_url',

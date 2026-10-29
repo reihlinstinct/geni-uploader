@@ -176,3 +176,43 @@ def test_runtime_fixture_excluded(tmp_path):
     package_release(ROOT, m, path, bundle)
     with tarfile.open(path, 'r:') as archive:
         assert 'oauth-bootstrap/runtime-fixture.mjs' not in archive.getnames()
+
+
+def test_src_implementation_present_and_hash_pinned(tmp_path):
+    import json
+    m = manifest()
+    bundle = tmp_path / 'bundle.mjs'
+    bundle.write_bytes(b'// ZZ bundle')
+    m['service']['bundle_sha256'] = hashlib.sha256(bundle.read_bytes()).hexdigest()
+    path = tmp_path / 'package.tar'
+    package_release(ROOT, m, path, bundle)
+    with tarfile.open(path, 'r:') as archive:
+        source = 'src/geni_uploader/core/people.py'
+        assert archive.extractfile(source).read() == (ROOT / source).read_bytes()
+        inventory = json.load(archive.extractfile('sha256-inventory.json'))
+        assert inventory[source] == hashlib.sha256((ROOT / source).read_bytes()).hexdigest()
+
+
+@pytest.mark.parametrize('mutation', ['dirty', 'symlink', 'parent_symlink'])
+def test_src_dirty_or_symlink_blocks_release(tmp_path, mutation):
+    checkout = tmp_path / 'checkout'
+    subprocess.run(['git', 'clone', '--local', '--quiet', str(ROOT), str(checkout)], check=True)
+    source = checkout / 'src/geni_uploader/core/people.py'
+    if mutation == 'dirty':
+        source.write_text(source.read_text() + '\n# ZZ dirty\n')
+    elif mutation == 'symlink':
+        target = tmp_path / 'ZZ-source.py'
+        target.write_bytes(source.read_bytes())
+        source.unlink()
+        source.symlink_to(target)
+    else:
+        folder = source.parent
+        target = tmp_path / 'ZZ-core'
+        folder.rename(target)
+        folder.symlink_to(target, target_is_directory=True)
+    m = manifest()
+    bundle = tmp_path / 'bundle.mjs'
+    bundle.write_bytes(b'// ZZ bundle')
+    m['service']['bundle_sha256'] = hashlib.sha256(bundle.read_bytes()).hexdigest()
+    with pytest.raises((ValueError, subprocess.CalledProcessError)):
+        package_release(checkout, m, tmp_path / 'blocked.tar', bundle)
