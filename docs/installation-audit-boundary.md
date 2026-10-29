@@ -104,7 +104,7 @@ Before asking the owner, resolve every nongenerated field:
   separately and explicitly shown; public SPKI not fabricated in advance;
 - one-shot bootstrap permissions, later selected-Worker audit/install scopes,
   private evidence destination/retention, rollback/revocation and verification;
-- cost ceiling0, no upgrade/card/budget/settings changes, required outcome and
+- cost ceiling 0, no upgrade/card/budget/settings changes, required outcome and
   unresolved checks that prevent execution.
 
 Generated version/namespace IDs may be pending only in the closed provisioning
