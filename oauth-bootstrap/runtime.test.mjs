@@ -96,7 +96,7 @@ import './intent-local-runtime.test.mjs';
 import './trusted-workload-jwks.test.mjs';
 
 // Isolate global fetch/clock mocks from concurrent Workers runtime checks.
-for (const suite of ['private-run-journal.test.mjs','protected-father-runner.test.mjs','post-write-job-handoff.test.mjs','durable-father-executor.test.mjs','owner-preflight.test.mjs','bounded-upload-descriptors.test.mjs','private-approval-writer.test.mjs','live-protected-capture.test.mjs','protected-approval-service.test.mjs','immutable-prewrite-evidence.test.mjs',
+for (const suite of ['authenticated-runner.test.mjs','private-run-journal.test.mjs','protected-father-runner.test.mjs','post-write-job-handoff.test.mjs','durable-father-executor.test.mjs','owner-preflight.test.mjs','bounded-upload-descriptors.test.mjs','private-approval-writer.test.mjs','live-protected-capture.test.mjs','protected-approval-service.test.mjs','immutable-prewrite-evidence.test.mjs',
  'postwrite-ledger-admission.test.mjs','father-intent-service.test.mjs','approval-admission.test.mjs','ciphertext-private-writer.test.mjs','reviewed-release-boundary.test.mjs']) {
  test(suite+' runs in an isolated process',{timeout:65000}, async () => {
   const {runIsolatedSuite}=await import('./isolated-test-runner.mjs');
