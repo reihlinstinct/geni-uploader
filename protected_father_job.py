@@ -136,9 +136,19 @@ def collect_from_environment(output):
                    'fresh_protections': [hashlib.sha256(fresh[i]['raw']).hexdigest() for i in (1, 3)],
                    'responses': [hashlib.sha256(s['raw']).hexdigest() for s in snapshots],
                    'config_sha256': hashlib.sha256(raw).hexdigest()}
-        # Actual API-captured decision replaces both same-human source placeholders.
+        # Stable decision binding can be recomputed by the service from fresh
+        # API reads. Raw envelope hashes stay diagnostic, not correlation keys.
+        decision = {'repository_id': str(pins['repository_id']),
+                    'run_id': str(pins['run_id']), 'run_attempt': 1,
+                    'job_id': str(job['id']), 'environment_id': str(pins['environment_id']),
+                    'reviewer_id': str(pins['reviewer_id']),
+                    'actor_id': str(pins['actor_id']), 'executor_sha': pins['sha'],
+                    'workflow_path': pins['workflow'],
+                    'plan_fingerprint': config['plan_fingerprint'],
+                    'risk_hash': record['risk_hash'],
+                    'review_content_hash': digest(_decode(snapshots[2]['raw']))}
         for role in ('owner_grant', 'protected_review'):
-            record['sources'][role]['source_ref'] = digest(capture)
+            record['sources'][role]['source_ref'] = digest(decision)
             record['sources'][role]['content_hash'] = digest(_decode(snapshots[2]['raw']))
         record = validate(record)
         target = Path(output)
@@ -150,7 +160,7 @@ def collect_from_environment(output):
             os.fsync(stream.fileno())
         return {'phase': 'protected_job_capture_only', 'production_enabled': False,
                 'post_permitted': False, 'record_hash': digest(record),
-                'capture': capture, 'exact_workflow_release_verified': False,
+                'capture': capture, 'decision': decision, 'exact_workflow_release_verified': False,
                 'independent_review_provenance_verified': False,
                 'historical_settings_verified': False}
     except (Blocked, KeyError, TypeError, ValueError, UnicodeError, OSError,

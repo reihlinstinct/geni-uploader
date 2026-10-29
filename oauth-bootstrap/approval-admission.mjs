@@ -127,3 +127,16 @@ export async function fetchAndAdmitSingleHuman({source,credential,expectedRecord
  const stored=receipts.get(receipt);need(stored);
  return admitSingleHumanApproval({approvalBytes:stored.bytes,expectedRecord,authenticatedRecord:receipt});
 }
+
+/** Join private immutable bytes to a service-owned live capture validator.
+ * This accepts an in-process function, not an HTTP callback or grant object.
+ * Not a hostile-JS sandbox. The release entrypoint owns the validator import.
+ */
+export async function fetchAndInspectSingleHuman({source,credential,inspectRecord}){
+ need(typeof inspectRecord==='function');const receipt=await fetchPrivateApproval({source,credential});
+ const stored=receipts.get(receipt),record=parse(stored.bytes);
+ // Shape/content invariants remain mandatory even before live correlation.
+ const content=admitSingleHumanApproval({approvalBytes:stored.bytes,expectedRecord:record,authenticatedRecord:receipt});
+ const capture=await inspectRecord(structuredClone(record));
+ return{content,capture,post_permitted:false,production_enabled:false};
+}
