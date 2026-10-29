@@ -60,3 +60,9 @@ test('authenticated read-only recovery remains release-gated before vendor calls
  const c=fixture(),env={FATHER_INTENT_CONFIG:JSON.stringify(c),FATHER_SERVICE_LOCAL_REHEARSAL:'local-only-no-geni'},l=local(env);let n=0;t.mock.method(globalThis,'fetch',async u=>{assert.equal(u,'https://token.actions.githubusercontent.com/.well-known/jwks');n++;return Response.json({keys:[jwk]});});
  const r=await service.fetch(new Request('https://service.invalid/recover',{method:'POST',body:JSON.stringify({workload_token:await token(c.workload_pins),plan_hash:c.plan})}),env);assert.equal(r.status,409);assert.equal(n,1);assert.equal(l.data.size,0);
 });
+
+test('signed receipt-only journal starts before consume, reads privately, rejects duplicate',async t=>{
+ const c=fixture(),env={FATHER_INTENT_CONFIG:JSON.stringify(c),FATHER_SERVICE_LOCAL_REHEARSAL:'local-only-no-geni'},l=local(env);let n=0;t.mock.method(globalThis,'fetch',async u=>{assert.equal(u,'https://token.actions.githubusercontent.com/.well-known/jwks');n++;return Response.json({keys:[jwk]});});
+ const tok=await token(c.workload_pins),entry={sequence:1,previous:'0'.repeat(64),event:{stage:'start',receipt:{execute_attempted:false}}};const send=(route,extra={})=>service.fetch(new Request('https://service.invalid'+route,{method:'POST',body:JSON.stringify({workload_token:tok,plan_hash:c.plan,...extra})}),env);
+ assert.equal((await send('/journal',{entry})).status,200);assert.equal((await send('/journal',{entry})).status,409);const read=await send('/journal-read');assert.equal(read.status,200);assert.equal((await read.json()).journal.entries.length,1);assert.equal(l.data.has('intent'),false);assert.ok(n>=1);
+});

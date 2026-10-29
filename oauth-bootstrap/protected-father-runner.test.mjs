@@ -17,3 +17,8 @@ test('journaled actual runner records private progress and disallows replay',{sk
   await assert.rejects(runJournaledFatherJob(f.env,f.approvalBytes,f.prewriteBytes));assert.equal(state().execute,1);
  }finally{await rm(root,{recursive:true,force:true});}
 });
+
+test('remote journal failure stops journaled job before execute without retry',{skip:!key},async t=>{
+ const{mkdtemp,rm}=await import('node:fs/promises'),{join}=await import('node:path'),{tmpdir}=await import('node:os'),{runJournaledFatherJob}=await import('./journaled-father-job.mjs');const root=await mkdtemp(join(tmpdir(),'ZZ-remote-journal-'));
+ try{const f=fixture();f.env.FATHER_PRIVATE_JOURNAL_DIRECTORY=join(root,'ZZ-private');let requests=0;t.mock.method(globalThis,'fetch',async u=>{requests++;assert.equal(u,'https://zz-service.invalid/journal');throw Error('ZZlost');});await assert.rejects(runJournaledFatherJob(f.env,f.approvalBytes,f.prewriteBytes));assert.equal(requests,1);}finally{await rm(root,{recursive:true,force:true});}
+});

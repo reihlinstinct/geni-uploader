@@ -20,6 +20,7 @@ function mockGitAndService(t,f,fault,serviceOverride,externalOverride){
   if(u.startsWith('https://zz-service.invalid')){
    if(serviceOverride)return serviceOverride(u,o);
    const r=JSON.parse(o.body);assert.equal(r.workload_token,f.env.FATHER_WORKLOAD_TOKEN);assert.equal(r.plan_hash,f.config.binding.plan);
+   if(u.endsWith('/journal'))return Response.json({phase:'opaque_progress_durable',sequence:r.entry.sequence,sha256:sha(JSON.stringify(r.entry)),retry_allowed:false,production_enabled:false});
    if(u.endsWith('/execute')){execute++;assert.equal(execute,1);assert.ok(r.uploads.approval.commit);assert.equal(r.uploads.prewrite.stage,'pre_write');if(fault==='execute')throw Error('ZZlost');return Response.json(f.result);}
    if(u.endsWith('/reserve')){if(fault==='reserve')throw Error('ZZlost');const entry=trees.get(tree).find(x=>x.path==='ZZ-pre.age');return Response.json({phase:'postwrite_ciphertext_budget_reserved',byte_limit:1048576,prior_total:blobs.get(entry.sha).length,retry_allowed:false,production_enabled:false});}
    assert.equal(u,'https://zz-service.invalid/complete');complete++;assert.equal(r.descriptor.stage,'readback');if(fault==='complete')throw Error('ZZlost');return Response.json({phase:'ciphertext_receipt_accounted_reconciliation_required',intent_verified:false,retry_allowed:false,production_enabled:false});
