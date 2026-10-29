@@ -26,7 +26,7 @@ A concurrent revoke increments the epoch and defeats a late acknowledgement.
 No automatic retry, rollback to the old token, deletion or namespace reset exists.
 An ambiguous write remains pending/unavailable. Explicit recovery is not provided.
 
-Thirteen synthetic tests cover pending-before-write ordering, response loss,
+Fifteen synthetic tests cover pending-before-write ordering, response loss,
 expiry, concurrent revoke, malformed acknowledgement, immutable input/config,
 concurrent reconnect, transaction-time expiry and untouched permanent barriers.
 A real local workerd SQLite composition checks eight competing reconnects,
