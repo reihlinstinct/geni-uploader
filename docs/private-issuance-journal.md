@@ -1,5 +1,11 @@
 # Private issuance-attempt exclusion journal (#382)
 
+SUPERSEDED AUTHORITY: the private Git ref described below is evidence only.
+The authoritative one-use issuance slot is the canonical owner SQLite state
+specified in sqlite-issuance-authority.md. Do not use Git ref creation as the
+issuer's permission to sign or retry. Existing code is dormant and must be
+rewired to the authoritative receipt before installation.
+
 Dormant module, no production caller. Before signing or changing service config,
 a future reviewed issuer reserves one owner-global permanent slot in its fixed
 private repository. The ref derives from owner identity ONLY, not plan/run/key.
