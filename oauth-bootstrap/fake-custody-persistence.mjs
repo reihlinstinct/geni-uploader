@@ -1,3 +1,4 @@
+import{createEnvironmentSecretCustody}from'./environment-secret-custody-candidate.mjs';
 // Fake-only composition seams. No route, network default, or authority claim.
 import{checkCustodyContent}from'./scoped-custody-policy.mjs';
 import{beginCredentialGeneration,commitCredentialGeneration,inspectCredentialGeneration}from'./credential-custody-state.mjs';
@@ -41,3 +42,21 @@ export function createFakeCredentialPersistence(config,storage,persist,clock){
  return Object.freeze({phase:'fake_credential_persistence_rehearsed',authenticated:false,write_permitted:false});
 }catch{fail();}};
 }
+
+// Real adapter, fake-only dependencies: destination is constructor-owned and the
+// shim never accepts a caller-selected slot, URL or acknowledgement.
+export function createFakeEnvironmentCredentialPersistence(config,storage,deps,clock){try{
+ exact(config,['policyJson','contextJson','registry']);
+ const policyJson=config.policyJson,contextJson=config.contextJson,policy=parse(policyJson);
+ exact(config.registry,['schema','destinations']);exact(config.registry.destinations,['secondary']);
+ const destination=config.registry.destinations.secondary;
+ for(const key of ['owner','repository_id','environment','secret'])need(destination[key]===policy[key]);
+ need(policy.slot==='secondary');
+ const adapter=createEnvironmentSecretCustody(config.registry,deps);
+ return createFakeCredentialPersistence({policyJson,contextJson},storage,async fixed=>{
+  const result=await adapter.storeBundle({slot:'secondary',bundleJson:fixed.bundleJson});
+  exact(result,['status','slot','bundle_sha256','authenticated','write_permitted']);
+  need(['stored_created','stored_updated'].includes(result.status)&&result.slot==='secondary'&&result.authenticated===false&&result.write_permitted===false&&result.bundle_sha256===fixed.bundle_sha256);
+  return Object.freeze({phase:'fake_environment_bundle_persisted',bundle_sha256:result.bundle_sha256});
+ },clock);
+}catch{fail();}}
