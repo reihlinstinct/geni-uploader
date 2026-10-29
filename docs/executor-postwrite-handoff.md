@@ -40,3 +40,21 @@ reviewed exact response/GET budgets, real emitted OIDC compatibility and separat
 immutable release/deployment/exact-run approval. The new handoff does not mark
 intent VERIFIED or remove consumed history. No production permissions, secret,
 configuration or deployment changes are included.
+
+## Fixed full result binding (#339)
+
+Before any encryption or HTTP, the post-write handoff now requires exact result,
+evidence-envelope and binding keys. Deployment-owned
+`FATHER_POSTWRITE_BINDING_JSON` plus its SHA256 must be canonical and match all
+six service identity fields: owner, connection, plan, payload, artifact and
+policy. This new required pin is dormant code, not provisioned configuration.
+The digest checks consistency, not deployment authenticity. The future reviewed
+runner must supply it from the same immutable execution policy, not service data.
+Created ID must differ from owner and agree with the acknowledgment. A
+consistent-result claim also requires matching profile, family focus and union
+IDs; uncertain responses may preserve partial/no-ID evidence without promoting
+it. Provider objects remain opaque private evidence, not authority. Their extra
+provider fields are kept inside ciphertext for reconciliation, not dropped.
+The synthetic regression mutates every binding field and rejects unknown/missing
+envelope keys, malformed identity and status before persistence. Existing actual
+age/remote-readback/decrypt proof passes with the complete binding.
