@@ -101,3 +101,15 @@ https://docs.github.com/en/billing/reference/product-usage-included
 SQLite Durable Objects are available on Workers Free; exceeding a free limit
 fails that operation. Actual account eligibility/capacity still needs checking:
 https://developers.cloudflare.com/durable-objects/platform/pricing/
+
+
+## Revocation and privileged provider limits (#405)
+
+Revocation disables issuance/execution but MUST preserve the permanent issuance
+slot, signed-grant slot, intent consume and private evidence. No revoke/reset or
+expiry path deletes them. Cloudflare account administrators can still delete a
+Worker/namespace or replace a binding. Application code cannot prevent privileged
+provider administration; this is not tamper-proof storage against an account
+admin. Actual namespace identity and installed binding must be pinned and checked
+before each approved release. A mismatch stops, never creates a fresh namespace
+to regain a spent operation. Restrict admin credentials and disclose this limit.
