@@ -148,3 +148,18 @@ def test_mother_payload_refused_before_network(monkeypatch):
     with pytest.raises(Blocked):
         enabled_fixture(monkeypatch).send('profile-999001', value, 'ZZTOKEN')
     assert calls == []
+
+
+def test_real_gate_blocks_fully_valid_inputs_before_network(monkeypatch):
+    calls = spy(monkeypatch)
+    with pytest.raises(Blocked, match='production parent creation disabled'):
+        mod.ClosedParentHTTP().send('profile-999001', proposed(), 'ZZTOKEN')
+    assert calls == []
+
+
+@pytest.mark.parametrize('status', [302, 500])
+def test_non200_valid_ack_body_cannot_be_success(monkeypatch, status):
+    calls = spy(monkeypatch, status=status, body=b'{"id":"profile-999002"}')
+    result = enabled_fixture(monkeypatch).send('profile-999001', proposed(), 'ZZTOKEN')
+    assert result['phase'] == 'UNCERTAIN'
+    assert sum(c[0] == 'request' for c in calls) == 1
