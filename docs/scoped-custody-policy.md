@@ -31,7 +31,7 @@ reader is a fake-only seam here. Before an actual consumer uses a credential,
 trusted custody/authority and atomic use/revocation semantics still need review;
 no async content check alone prevents a race after its return.
 
-53synthetic tests cover exact schemas, destination/owner/source/run mismatches,
+54synthetic tests cover exact schemas, destination/owner/source/run mismatches,
 clock/expiry edges, wrong generation/revocation, duplicates/unsafe numbers,
 revocation/rotation/expiry during wait, immutable input, no retry and sentinel
 non-disclosure. No real credentials, settings, callback or deployment involved.
