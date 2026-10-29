@@ -31,6 +31,7 @@ def test_core_identity_and_intact_source(legacy, monkeypatch):
         source = source.replace('from geni_uploader.core.' + destination + ' import ',
                                 'from ' + name + ' import ')
     if legacy == "profile_outcome_model":
+        assert source.count("from parent_intent_model import validate as validate_intent\n") == 1
         source = source.replace("from parent_intent_model import validate as validate_intent\n", "")
     assert hashlib.sha256(source.encode()).hexdigest() == before_hash
     for imports in [f'import {legacy}; import geni_uploader.core.{target} as canonical',
