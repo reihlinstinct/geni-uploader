@@ -12,13 +12,13 @@ storage. The candidate methods are the documented multipart script PUT and a
 POST setting workers.dev and preview exposure false. Upload descriptor hashes
 cover exact metadata and module bytes, NOT final multipart wire encoding. Wire
 bytes still need to be closed before approval. Body hashes are not credentials.
-The plan never permits overwrite/update of an existing target. A403/ambiguous
+The plan never permits overwrite/update of an existing target. A 403/ambiguous
 inventory is not evidence of absence. Verify account and absence independently
 immediately before any approved create, and stop on races or changes.
 
 Crucially, disabling exposure after upload does not prove the initial upload was
 never exposed. Current plan stays blocked until supported creation semantics or
-another reviewed method establishes this guarantee. Public fetch returns403 in
+another reviewed method establishes this guarantee. Public fetch returns 403 in
 the benchmark, but that is not equivalent to having no public endpoint. No
 routes/domains/dispatcher are added by this proposal. No arbitrary management
 path, HTTP method or bindings are accepted from input.
