@@ -10,7 +10,7 @@ def test_release_design_preserves_closed_gate_and_uninstalled_draft():
     assert not (ROOT / '.github/workflows/father-run-workflow-draft.yml').exists()
     draft = (ROOT / 'docs/father-run-workflow-draft.yml').read_text()
     assert 'exit 1' in draft
-    doc = (ROOT / 'docs/father-release-package-design.md').read_text()
+    doc = ' '.join((ROOT / 'docs/father-release-package-design.md').read_text().split())
     for requirement in ('NEW father-only Worker', 'NEW SQLite', 'No account change',
                         'not this', 'Instinct', 'Review deployments', 'GET only'):
         assert requirement in doc
