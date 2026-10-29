@@ -1,0 +1,151 @@
+# Source package layout and migration
+
+Status: design proposal, issue #291. No file moves or behavior changes in this
+PR. Creation release work remains higher priority. A layout change does not
+satisfy an authentication, storage, deployment or human-run release gate.
+
+## Why change
+
+The current tree has 25 top-level Python modules, a placeholder `geni_offline/`,
+and a separate Node Worker project. This grew through small feature PRs without
+a package boundary. Root scripts now mix source upload, offline parent models,
+network candidates, evidence validation, rendering and workflow adapters.
+Direct sibling imports and paths relative to `__file__` couple that structure to
+Docker, tests and workflows. Moving files without those consumers is unsafe.
+
+## Target ownership
+
+Use one installable Python package under `src/geni_uploader/`, with explicit
+subpackages by responsibility. Keep Node's dependency/build boundary separate.
+Names below are a destination map, not a claim that monolithic code has already
+been split internally.
+
+```
+src/geni_uploader/
+  __init__.py
+  core/                 # pure shared validation, data and intent semantics
+    people.py           # current people_core.py, initially moved intact
+    intent.py           # parent_intent_model.py
+    outcome.py          # profile_outcome_model.py
+    snapshot.py         # parent_snapshot.py
+    consumption.py      # parent_consumption.py (local prototype, not service)
+    runner.py           # parent_runner.py (synthetic only)
+    father_once.py      # father_once_simulation.py
+  client/               # explicit network boundary; never imported by pure core
+    upload.py           # geni_upload.py, initially moved intact
+    source_details.py   # source_details.py, initially moved intact
+    probe.py            # parent_probe.py (human read-only collector)
+    parent_contract.py  # parent_adapter_contract.py, pure wire descriptors
+    closed_parent.py    # parent_http_candidate.py, gate remains always closed
+  evidence/             # content contracts, not authenticated authority
+    approval.py         # approval_record.py
+    ciphertext.py       # ciphertext_evidence.py
+    github_review.py    # github_review_evidence.py
+    workflow_content.py # workflow_content_contract.py
+    profile_result.py   # profile_result.py
+    parent.py           # parent_evidence.py
+    envelope.py         # parent_envelope.py
+  workflow/             # small workflow-facing glue, not domain decisions
+    secondary_probe.py  # secondary_probe_action.py
+    release_gate.py     # human_parent_gate.py
+  cli/                  # thin argument/exit adapters, extracted separately
+    upload.py
+    source_details.py
+    parent_plan.py
+    parent_output.py
+  presentation/
+    plan_report.py
+    visual_plan.py
+  resources/            # reviewed machine contracts, packaged explicitly
+    human-parent-release-gates.json
+```
+
+`parent_plan.py` and `parent_output.py` currently combine CLI and pure logic.
+First move them intact to CLI modules; only a separate reviewed PR may extract
+pure planning/output review into core/evidence. Likewise do not split
+`geni_upload.py`'s HTTP and source orchestration while moving it. Each source
+file has one authoritative implementation, never a copied second implementation.
+The `client/` name marks the network boundary, not permission to call it.
+
+Keep `docs/` for human documents, `tests/` for tests/fixtures/mutant harnesses,
+`.github/` for GitHub-owned glue, and `tools/` for truly standalone audited tools.
+Keep `oauth-bootstrap/` intact for now: its Worker, Wrangler/build and Node test
+paths form a separate package. Its eventual directory rename is another issue,
+not part of this Python migration. No private family data enters this tree.
+
+## Dependency direction and compatibility
+
+- Core must not import CLI/workflow/client. Pure evidence may import shared
+  validation but must not fetch or grant authority.
+- Workflow/CLI may compose reviewed components; no import-time request, token
+  retrieval, deployment, dispatch or gate bypass is introduced.
+- Preserve existing public commands, flags, output bytes and exit codes. Do not
+  invent a new live creation command. New package entry points mirror existing
+  commands only after equivalence tests pass.
+- During migration, root modules can be temporary compatibility facades. A
+  facade aliases the real module where monkeypatch/import identity matters;
+  a naive star-import wrapper changes globals and is not equivalent. Executed
+  scripts need explicit main dispatch preserving argv and exit status.
+- Facades cannot stay forever. Remove each only after all imports, docs,
+  container paths, static guards and external entry points are mapped/tested.
+  Do not rewrite an approved release pin silently; a new image still requires
+  its ordinary separate build/release approval.
+
+## Staged PRs
+
+1. This design plus inventory and acceptance plan. No implementation moves.
+2. Packaging foundation: explicit build backend/package discovery, test import
+   setup and a no-side-effect package. Prove built wheel includes reviewed
+   resources and imports from outside the checkout. Do not execute data-repo
+   code or add `.`/the data checkout to import search paths.
+3. Move one pure leaf evidence module with its direct dependencies resolved;
+   update its callers/tests in the same PR. Keep temporary compatibility only
+   where required. Prove old/new behavior and monkeypatch identity. Repeat in
+   small dependency-ordered PRs, not a whole-repo rename.
+4. Move shared core/model modules as small dependency clusters. Update packaged
+   resource resolution using `importlib.resources`, including the always-closed
+   gate fixture; test missing/drifted package resources still block.
+5. Move presentation and CLI adapters, retaining all argument/error/exit and
+   offline side-effect guards. Test execution from a non-repository directory.
+6. Move client modules intact. Update Docker COPY/install, entrypoint paths,
+   baked-source equivalence and read-only workflow paths in the same PR.
+   Workflow changes are path-only and require explicit independent review.
+7. Remove obsolete root facades and placeholder only after a repository-wide
+   consumer scan is empty. Update README architecture and supported commands.
+
+Steps may be split further. Every PR has its issue reference, docs, signed
+small commits, exact-head independent PASS and green CI. No parallel worker
+moves the same module or changes a branch while its exact-head review runs.
+Coordinate with active creation work before touching its imports; integrate its
+behavior first rather than overwrite it with an older file.
+
+## Acceptance checklist for every move
+
+- Full Python 3.11/3.12/3.13 suites and lint remain green; all Node/runtime
+  suites still run with the same meaning. New import smoke tests are additive.
+- Keep behavior fixtures and mutation cases independent and unchanged in
+  meaning. A test path update cannot turn a mutation test into a skipped test.
+  Source/AST/digest guards point to the real implementation, not a facade.
+- Coverage still measures the same production logic. Update the two current
+  production paths in `.github/coverage_report.py` and CI include filters in
+  one reviewed PR when those implementations move; preserve floor/denominator
+  semantics and reject unexpected/missing files. Never count wrappers instead.
+- Docker image carries only reviewed tool code and packaged resources. Runtime
+  data repository remains data only. Verify baked implementation bytes and
+  entrypoint behavior after path updates, without publishing/deploying by merge.
+- `__file__` resource lookups, `python script.py`, `python -m`, test imports,
+  subprocess invocations and `.github` helper paths are all explicitly mapped.
+  Keep isolation flags and no-network/credential guards; do not drop `-I` to
+  make an import work.
+- No secret, workflow permission, environment, OIDC, production gate setting or
+  release policy changes. Public summaries remain value-free. No live Geni run.
+- Inventory root names, Docker paths, entrypoints, coverage paths and test count
+  before and after. Any lost check or unexplained output change blocks merge.
+
+## Rollback and boundaries
+
+Each migration PR is independently revertible with ordinary signed Git changes.
+Do not force-push/rewrite consumed intent or deployed evidence history. Package
+layout is not an authority boundary by itself; the current offline models and
+closed transport remain offline/closed after moving. Real profile creation
+requires the separate implementation, approval, deployment and human-run work.
