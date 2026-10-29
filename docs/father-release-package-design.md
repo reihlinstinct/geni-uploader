@@ -102,3 +102,45 @@ scope. Local fsync on an ephemeral hosted runner alone is not durable recovery.
 
 Until those checks are grounded, an exact deployment/probe proposal may be ready
 before an exact create proposal. No fixed live-ready date follows from this design.
+
+## Persistent journal choice (#366)
+
+Choose the NEW father-only owner's SQLite Durable Object for opaque progress
+receipts and request-attempt state. Keep raw provider/approval/prewrite/recovery
+evidence in the existing age-encrypted private-repository path. No new paid
+service, public storage or separate journal account is proposed. No resource is
+provisioned by this choice. This is a required implementation step, not a claim
+that the current local journal already has remote backing.
+
+Reason: publishing every journal event to the same private Git branch would race
+with the three existing add-only approval/evidence writers and invalidate their
+verified parent commits. A second branch/extra repository could avoid that race
+but introduces more scopes, ref ownership and partial-write recovery. The owner
+object already owns permanent consume/ledger state; storing bounded opaque
+receipts there gives one canonical account/run exclusion point and transactional
+ordering, independent of the hosted runner disk. The object must be pinned once;
+namespace replacement cannot erase history.
+
+Implement a dedicated authenticated receipt-only journal route. It must bind all
+six operation identity fields plus run/attempt and permanent owner namespace,
+allow <=100 append-only entries of <=4096 bytes with sequence/hash chain, reject
+reorder/duplicate/mutated entries and never accept raw provider/approval/token
+fields. Run start and execute-attempt must be committed remotely before the job
+continues; response loss stops rather than replays create. A lost journal response
+may mean its entry committed. Read-only inspection must recover committed entries
+under the same authority, not reset or resume execution. Later inspection after
+expiry needs a separately reviewed recovery grant, not an expired workload token.
+
+Store private opaque Git blob/tree/commit IDs, ref-attempt flags, known-created ID
+and boolean status only. No secret values, request credentials, names or provider
+objects enter this journal. Raw evidence still requires encryption and immutable
+private Git byte verification. Known-created ID is private personal metadata;
+service access and logs must not expose it publicly. Local 0600/fsynced journal
+can remain a secondary record, never the durability authority for release.
+
+No TTL/delete/reset for consumed intent or its canonical evidence/journal keys.
+Use bounded operation count one and no polling/retry loop. Verify actual storage
+and execution limits under the free deployment before approval; if this target
+requires a paid plan/card, stop and return the deployment decision, do not upgrade.
+The final exact provisioning manifest must include this journal route/config and
+private evidence access, not an unresolved storage placeholder.
