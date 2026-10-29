@@ -80,6 +80,7 @@ def package_release(root: Path, manifest: dict, output: Path, worker_bundle: Pat
         selected = (len(p.parts) == 1 and p.suffix == '.py') or (
             len(p.parts) >= 3 and p.parts[:2] == ('src', 'geni_uploader') and
             p.suffix == '.py') or path in [
+            'src/geni_uploader/resources/human-parent-release-gates.json',
             'pyproject.toml', 'oauth-bootstrap/package.json', 'oauth-bootstrap/package-lock.json',
             'docs/father-run-workflow-draft.yml'] or (
             len(p.parts) == 2 and p.parts[0] == 'oauth-bootstrap' and p.suffix == '.mjs' and

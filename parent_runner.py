@@ -3,7 +3,7 @@ import copy
 
 from geni_uploader.core import proposal_review
 from geni_uploader.core.people import Blocked, bind, digest, exact, require
-from human_parent_gate import require_production_release
+from geni_uploader.workflow.release_gate import require_production_release
 
 payloads = proposal_review.payloads
 
