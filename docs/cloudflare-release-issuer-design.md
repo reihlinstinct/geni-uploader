@@ -161,3 +161,13 @@ exact-run, no-self-review and no-admin-bypass pins. No automation may hold or us
 the reviewer's PAT/OAuth/session for this ceremony. No extra challenge is added.
 See [github-reviewer-account-assurance.md](github-reviewer-account-assurance.md)
 for token attribution, review-payload limits and the remaining assurance boundary.
+
+## Review attribution choice remains unresolved (#425)
+
+See [independent-review-receipt-options.md](independent-review-receipt-options.md).
+Shared-account engineering reviews are not independently attributable to the
+issuer. Options include explicitly choosing existing owner release consent plus
+process-level review (lower disclosed assurance), or a genuinely separate
+reviewer principal/exclusively held signed receipt. This is design only, not a
+relaxation of current release checks or a provisioned capability. Owner choice
+and a reviewed policy revision are needed before changing assurance semantics.
