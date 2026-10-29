@@ -8,6 +8,7 @@ const ENTRY_KEYS = ['owner', 'repository_owner', 'repository_name', 'repository_
 const SEAL_OVERHEAD = 48; // libsodium sealed box: 32-byte ephemeral key + 16-byte MAC.
 const MAX_BUNDLE = 49152;
 const MAX_KEY_BODY = 4096;
+const CALL_TIMEOUT_MS = 10000; // Per network call; a timeout is never retried.
 
 class Blocked extends Error {}
 const need = (x) => { if (!x) throw new Blocked(); };
@@ -54,17 +55,43 @@ function base64Key(x) {
   return bytes;
 }
 
+// Reads at most MAX_KEY_BODY bytes from the response stream. It stops (and cancels
+// the stream) at the first chunk that would cross the cap, never buffering past it.
 async function boundedJson(response) {
-  need(response && typeof response.text === 'function');
-  const raw = await response.text();
-  need(typeof raw === 'string' && raw.length <= MAX_KEY_BODY);
+  const stream = response && response.body;
+  need(stream && typeof stream.getReader === 'function');
+  const reader = stream.getReader();
+  const chunks = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      need(value instanceof Uint8Array);
+      total += value.length;
+      need(total <= MAX_KEY_BODY);
+      chunks.push(value);
+    }
+  } catch (error) {
+    try { reader.cancel().catch(() => {}); } catch { /* already closed */ }
+    throw error;
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
   let value;
-  try { value = JSON.parse(raw); } catch { throw new Blocked(); }
+  try { value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch { throw new Blocked(); }
   return value;
 }
 
+async function sha256Hex(raw) {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw)));
+  return Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 // `config` comes only from trusted deployment construction, never from a callback,
-// query or body. `fetch` and `seal` are required injections; there is no default.
+// query or body. `fetch`, `seal`, `setTimeout` and `clearTimeout` are required
+// injections; there is no default and no global fetch or timer.
 export function createEnvironmentSecretCustody(config, deps) {
   exact(config, ['schema', 'destinations']);
   need(config.schema === 1 && plain(config.destinations));
@@ -73,51 +100,80 @@ export function createEnvironmentSecretCustody(config, deps) {
   const registry = new Map(slots.map((slot) => [slot, entry(slot, config.destinations[slot])]));
   const destinations = new Set([...registry.values()].map((e) => [e.repository_id, e.environment, e.secret].join('\0')));
   need(destinations.size === registry.size); // Two slots never share one secret.
-  exact(deps, ['fetch', 'seal']);
-  const { fetch, seal } = deps;
-  need(typeof fetch === 'function' && typeof seal === 'function');
+  exact(deps, ['fetch', 'seal', 'setTimeout', 'clearTimeout']);
+  const { fetch, seal, setTimeout: setTimer, clearTimeout: clearTimer } = deps;
+  need([fetch, seal, setTimer, clearTimer].every((f) => typeof f === 'function'));
   const inFlight = new Set();
+
+  // Runs one network step under its own deadline. On timeout it aborts the signal
+  // and rejects; the abandoned step is tracked so its slot stays busy until it settles.
+  function timed(pending, step) {
+    const controller = new AbortController();
+    const work = Promise.resolve().then(() => step(controller.signal));
+    const record = { settled: false };
+    record.done = work.then(() => { record.settled = true; }, () => { record.settled = true; });
+    pending.push(record);
+    let timer;
+    const deadline = new Promise((resolve, reject) => {
+      timer = setTimer(() => { controller.abort(); reject(new Blocked()); }, CALL_TIMEOUT_MS);
+    });
+    return Promise.race([work, deadline]).finally(() => clearTimer(timer));
+  }
 
   async function store(slot, raw) {
     const fixed = registry.get(slot);
     need(fixed);
     bundle(raw, fixed);
-    if (inFlight.has(slot)) return 'slot_busy'; // A concurrent write for one slot stops, never queues.
+    if (inFlight.has(slot)) return { status: 'slot_busy' }; // A concurrent write for one slot stops, never queues.
+    const digest = await sha256Hex(raw); // Of the exact bundle that will be sealed, before any call.
+    if (inFlight.has(slot)) return { status: 'slot_busy' };
     inFlight.add(slot);
+    const pending = [];
     try {
       const base = API + '/repos/' + encodeURIComponent(fixed.repository_owner) + '/' +
         encodeURIComponent(fixed.repository_name) + '/environments/' + encodeURIComponent(fixed.environment) + '/secrets/';
       const headers = { Accept: 'application/vnd.github+json' };
       let key;
       try {
-        const response = await fetch(base + 'public-key', { method: 'GET', headers: { ...headers }, redirect: 'manual' });
-        need(response && response.status === 200 && response.redirected !== true && response.type !== 'opaqueredirect');
-        const body = await boundedJson(response);
+        const body = await timed(pending, async (signal) => {
+          const response = await fetch(base + 'public-key', { method: 'GET', headers: { ...headers }, redirect: 'manual', signal });
+          need(response && response.status === 200 && response.redirected !== true && response.type !== 'opaqueredirect');
+          return boundedJson(response);
+        });
         exact(body, ['key_id', 'key']);
         text(body.key_id, /^[A-Za-z0-9_-]{1,128}(?![\s\S])/);
         key = { key_id: body.key_id, key: base64Key(body.key) };
-      } catch { return 'public_key_failed'; }
+      } catch { return { status: 'public_key_failed' }; }
       let encrypted;
       try {
         const message = new TextEncoder().encode(raw);
         const cipher = await seal(message, key.key.slice());
         need(cipher instanceof Uint8Array && cipher.length === message.length + SEAL_OVERHEAD);
         encrypted = btoa(String.fromCharCode(...cipher));
-      } catch { return 'seal_failed'; }
+      } catch { return { status: 'seal_failed' }; }
       try {
-        const response = await fetch(base + encodeURIComponent(fixed.secret), {
-          method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' }, redirect: 'manual',
-          body: JSON.stringify({ encrypted_value: encrypted, key_id: key.key_id }),
+        const put = JSON.stringify({ encrypted_value: encrypted, key_id: key.key_id });
+        const status = await timed(pending, async (signal) => {
+          const response = await fetch(base + encodeURIComponent(fixed.secret), {
+            method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' }, redirect: 'manual', body: put, signal,
+          });
+          need(response && (response.status === 201 || response.status === 204) && response.redirected !== true);
+          return response.status;
         });
-        need(response && (response.status === 201 || response.status === 204) && response.redirected !== true);
-        return response.status === 201 ? 'stored_created' : 'stored_updated';
-      } catch { return 'write_state_unknown'; } // The PUT may have committed: no retry, no fallback.
-    } finally { inFlight.delete(slot); }
+        return { status: status === 201 ? 'stored_created' : 'stored_updated', bundle_sha256: digest };
+      } catch { return { status: 'write_state_unknown' }; } // The PUT may have committed: no retry, no fallback.
+    } finally {
+      // A timed-out call may still be running: keep the slot busy until it settles.
+      const open = pending.filter((r) => !r.settled);
+      if (open.length === 0) inFlight.delete(slot);
+      else Promise.all(open.map((r) => r.done)).then(() => inFlight.delete(slot));
+    }
   }
 
   return Object.freeze({
     async storeBundle(request) {
       let status;
+      let digest = null;
       let slot = null;
       try {
         exact(request, ['slot', 'bundleJson']);
@@ -125,9 +181,12 @@ export function createEnvironmentSecretCustody(config, deps) {
         slot = request.slot;
         const raw = request.bundleJson;
         need(typeof slot === 'string' && registry.has(slot));
-        status = await store(slot, raw);
-      } catch { status = 'input_rejected'; slot = registry.has(slot) ? slot : null; }
-      return Object.freeze({ status, slot, authenticated: false, write_permitted: false });
+        const outcome = await store(slot, raw);
+        status = outcome.status;
+        // Only a confirmed store acknowledges the digest; every failure carries null.
+        if (status === 'stored_created' || status === 'stored_updated') digest = outcome.bundle_sha256;
+      } catch { status = 'input_rejected'; digest = null; slot = registry.has(slot) ? slot : null; }
+      return Object.freeze({ status, slot, bundle_sha256: digest, authenticated: false, write_permitted: false });
     },
   });
 }

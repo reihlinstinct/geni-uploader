@@ -9,7 +9,7 @@ call is added or approved here.
 
 ## What it does
 
-`createEnvironmentSecretCustody(config, { fetch, seal })` takes a closed
+`createEnvironmentSecretCustody(config, { fetch, seal, setTimeout, clearTimeout })` takes a closed
 registry from trusted construction config only. Each slot fixes the canonical
 owner, repository owner/name, numeric repository ID, environment name and secret
 name. Two slots cannot share one destination. A callback, query or request body
@@ -25,7 +25,10 @@ call makes exactly two requests to the fixed origin `https://api.github.com`:
 
 1. `GET /repos/{owner}/{repo}/environments/{environment_name}/secrets/public-key`,
    `redirect: manual`. Only status 200 with exactly `key_id` and a base64
-   32-byte `key` is accepted, with a bounded body.
+   32-byte `key` is accepted. The body is read from `response.body` as a
+   stream: the read stops and cancels the stream at the first chunk that would
+   pass 4096 bytes, so nothing beyond the cap is buffered. A missing body,
+   non-byte chunk or invalid UTF-8 fails. `response.text()` is never used.
 2. The whole bundle is sealed with the injected `seal`. The ciphertext must be
    exactly the sealed-box size (message + 48 bytes). Then one
    `PUT /repos/{owner}/{repo}/environments/{environment_name}/secrets/{secret_name}`
@@ -35,10 +38,22 @@ call makes exactly two requests to the fixed origin `https://api.github.com`:
 There is no raw access-token route and no second secret: the stored value is
 always the complete versioned bundle.
 
+Each of the two requests runs under its own 10-second deadline, timed with the
+injected `setTimeout`/`clearTimeout` (there are no global timers). On expiry the
+request's `AbortSignal` is aborted. A public-key timeout gives
+`public_key_failed`, and a PUT timeout gives `write_state_unknown`. Neither is
+retried. An abandoned request keeps its slot busy until it settles, so a new
+write for that slot cannot race a PUT that may still commit.
+
 ## Results are fixed and value-free
 
-Every outcome is a frozen object `{status, slot, authenticated: false,
-write_permitted: false}`. `status` is one of `stored_created`, `stored_updated`,
+Every outcome is a frozen object `{status, slot, bundle_sha256,
+authenticated: false, write_permitted: false}`. `bundle_sha256` is the
+lowercase hex SHA-256 of the exact canonical bundle string that was sealed. It
+is computed before any request and returned only with `stored_created` or
+`stored_updated`; on every other status it is `null`. It is an acknowledgement
+digest for an outer orchestrator (#482/#484), not a secret and not
+authentication. `status` is one of `stored_created`, `stored_updated`,
 `input_rejected`, `slot_busy`, `public_key_failed`, `seal_failed` or
 `write_state_unknown`. No token, raw provider body, exception text or log line
 is returned or emitted.
@@ -99,7 +114,14 @@ endpoints are not stated on the page and remain to be verified.
 - bad seal output;
 - ambiguous writes;
 - request mutation across await;
-- same-slot concurrency.
+- same-slot concurrency;
+- the success digest against an independent SHA-256, and `null` on every failure;
+- the bounded stream: cancelled at the cap without pulling the next chunk, split
+  chunks, exactly 4096 bytes, missing or non-stream body, non-byte chunks and
+  invalid UTF-8;
+- a public-key timeout and a PUT timeout: the signal is aborted, there is no
+  retry, the timers are cleared, and the slot stays busy until an abandoned PUT
+  settles.
 
-The suite is run directly with `node --test`. It is not yet in the
-`runtime.test.mjs` aggregator; adding it waits for agreement (#475).
+The suite runs in the `runtime.test.mjs` aggregator as an isolated process
+(agreed in #485).
