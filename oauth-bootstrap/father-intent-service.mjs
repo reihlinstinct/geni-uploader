@@ -1,6 +1,7 @@
 // Unreleased authenticated service composition. No Geni endpoint or deployment.
 import {OfflineCreateIntentCandidate} from './create-intent-candidate.mjs';
 import {verifyTrustedWorkload} from './trusted-workload-jwks.mjs';
+import {verifyOwnerPreflight} from './owner-preflight.mjs';
 import {bindUploadedDescriptors} from './bounded-upload-descriptors.mjs';
 import {verifyProtectedApprovalContent} from './protected-approval-service.mjs';
 const need=x=>{if(!x)throw Error('father intent service blocked');};
@@ -39,7 +40,8 @@ export default {async fetch(request,env){
   need(Math.floor(Date.now()/1000)<c.expires_at);
   const approvedBinding={...binding(c),run_id:c.approved_run};
   const readbackEnv=bindUploadedDescriptors(env,body.uploads,approvedBinding);
-  await verifyProtectedApprovalContent(readbackEnv,approvedBinding);
+  const approval=await verifyProtectedApprovalContent(readbackEnv,approvedBinding);
+  await verifyOwnerPreflight(readbackEnv,approvedBinding,approval.approved_graph_hash);
   need(Math.floor(Date.now()/1000)<c.expires_at);
   need(env.FATHER_OWNER_INTENTS&&typeof env.FATHER_OWNER_INTENTS.idFromName==='function');
   const stub=env.FATHER_OWNER_INTENTS.get(env.FATHER_OWNER_INTENTS.idFromName('father-owner:'+c.owner));

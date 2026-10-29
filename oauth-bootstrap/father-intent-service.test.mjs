@@ -1,3 +1,4 @@
+import{ownerFixture}from'./ZZ-owner-preflight-fixture.mjs';
 import{uploadFixture}from'./ZZ-upload-fixture.mjs';
 import{joinedSetup as approvalFixture}from'./ZZ-joined-fixture.mjs';
 import test from'node:test';import assert from'node:assert/strict';import{generateKeyPair,exportJWK,SignJWT}from'jose';import service,{FatherOwnerIntent}from'./father-intent-service.mjs';import{PIN_CLAIMS}from'./intent-workload-verifier.mjs';
@@ -6,7 +7,7 @@ function fixture(){const p={iss:'https://token.actions.githubusercontent.com',au
 async function token(p){const now=Math.floor(Date.now()/1000);return new SignJWT({...Object.fromEntries(PIN_CLAIMS.map(k=>[k,p[k]])),iat:now-1,nbf:now-1,exp:now+60,jti:'ZZ-id'}).setProtectedHeader({alg:'RS256',typ:'JWT',kid:p.kid}).sign(pair.privateKey);}
 let uploads;
 const req=(tok,plan)=>new Request('https://service.invalid/consume',{method:'POST',body:JSON.stringify({workload_token:tok,plan_hash:plan,uploads:uploads??{}})});
-function withEvidence(env,c){const x=approvalFixture();const b=x.f.binding;Object.assign(c,{owner:b.owner,connection:b.connection,plan:b.plan,payload:b.payload,artifact:b.artifact,policy:b.policy,approved_run:b.run_id});c.workload_pins.run_id=b.run_id;env.FATHER_INTENT_CONFIG=JSON.stringify(c);Object.assign(env,x.env);uploads=uploadFixture(env);return x;}
+function withEvidence(env,c){const preliminary=ownerFixture({owner:'profile-999001',connection:'ZZ-secondary',plan:'1'.repeat(64)});const x=approvalFixture(preliminary.graph_hash);const b=x.f.binding;Object.assign(c,{owner:b.owner,connection:b.connection,plan:b.plan,payload:b.payload,artifact:b.artifact,policy:b.policy,approved_run:b.run_id});c.workload_pins.run_id=b.run_id;env.FATHER_INTENT_CONFIG=JSON.stringify(c);Object.assign(env,x.env);uploads=uploadFixture(env);const owner=ownerFixture(b);Object.assign(env,owner.env);x.urls.push(...owner.urls);x.bodies.push(...owner.bodies);return x;}
 function local(env){const data=new Map();let queue=Promise.resolve();const storage={transaction:fn=>{const work=queue.then(()=>fn({get:async k=>structuredClone(data.get(k)),put:async(k,v)=>data.set(k,structuredClone(v))}));queue=work.catch(()=>{});return work;}};const object=new FatherOwnerIntent({storage},env);const names=[];env.FATHER_OWNER_INTENTS={idFromName:n=>(names.push(n),n),get:()=>({fetch:r=>object.fetch(r)})};return{data,names};}
 test('signature + fixed config + canonical owner routes to permanent consume',async t=>{const c=fixture(),env={FATHER_INTENT_CONFIG:JSON.stringify(c),FATHER_SERVICE_LOCAL_REHEARSAL:'local-only-no-geni'},l=local(env),f=withEvidence(env,c);t.mock.method(globalThis,'fetch',async(u)=>{if(u==='https://token.actions.githubusercontent.com/.well-known/jwks')return Response.json({keys:[jwk]});return Response.json(f.bodies[f.urls.indexOf(u)])});const tok=await token(c.workload_pins),responses=await Promise.all(Array.from({length:10},()=>service.fetch(req(tok,c.plan),env)));assert.equal(responses.filter(r=>r.status===200).length,1);assert.equal(l.data.get('intent').phase,'consumed');assert.ok(l.names.every(n=>n==='father-owner:'+c.owner));const out=await responses.find(r=>r.status===200).json();assert.equal(out.post_permitted,false);});
 test('without explicit local-only deployment mode route closed before JWT fetch',async t=>{const c=fixture();let n=0;t.mock.method(globalThis,'fetch',()=>{n++;throw Error()});const r=await service.fetch(req('ZZ',c.plan),{FATHER_INTENT_CONFIG:JSON.stringify(c)});assert.equal(r.status,403);assert.equal(n,0);});
@@ -28,4 +29,9 @@ test('expired deployment config blocks before JWKS network',async t=>{
  const env={FATHER_INTENT_CONFIG:JSON.stringify(c),FATHER_SERVICE_LOCAL_REHEARSAL:'local-only-no-geni'};let calls=0;
  t.mock.method(globalThis,'fetch',()=>{calls++;throw Error('unexpected network');});
  assert.equal((await service.fetch(req(await token(c.workload_pins),c.plan),env)).status,403);assert.equal(calls,0);
+});
+test('authenticated approval and evidence but wrong token-self blocks before durable consume',async t=>{
+ const c=fixture(),env={FATHER_INTENT_CONFIG:JSON.stringify(c),FATHER_SERVICE_LOCAL_REHEARSAL:'local-only-no-geni'},l=local(env),f=withEvidence(env,c);
+ t.mock.method(globalThis,'fetch',async u=>{if(u==='https://token.actions.githubusercontent.com/.well-known/jwks')return Response.json({keys:[jwk]});const i=f.urls.indexOf(u),body=structuredClone(f.bodies[i]);if(u.startsWith('https://www.geni.com/api/profile?'))body.id='profile-999099';return Response.json(body);});
+ const tok=await token(c.workload_pins);assert.equal((await service.fetch(req(tok,c.plan),env)).status,403);assert.equal(l.data.size,0);
 });

@@ -22,6 +22,6 @@ export async function verifyProtectedApprovalContent(env,binding){
   const evidence=await verifyImmutablePrewriteEvidence(env,binding);
   need(evidence.descriptor.recipient===p.recipient);
   need(p.service_sha===env.FATHER_REVIEWED_SERVICE_SHA&&p.executor_sha===env.FATHER_REVIEWED_EXECUTOR_SHA&&p.workflow_sha===env.FATHER_REVIEWED_WORKFLOW_SHA);
-  return{phase:'private_v2_and_prewrite_content_joined',approval,evidence,protected_human_action_verified:false,post_permitted:false,production_enabled:false};
+  return{phase:'private_v2_and_prewrite_content_joined',approval,evidence,approved_graph_hash:p.graph_hash,protected_human_action_verified:false,post_permitted:false,production_enabled:false};
  }catch{throw Error('protected approval service blocked');}
 }
