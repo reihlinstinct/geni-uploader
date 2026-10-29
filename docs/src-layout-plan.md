@@ -6,7 +6,7 @@ satisfy an authentication, storage, deployment or human-run release gate.
 
 ## Why change
 
-The current tree has 25 top-level Python modules, a placeholder `geni_offline/`,
+The current tree has 25 top-level Python modules, an intentional test-enforced `geni_offline/` package (#93),
 and a separate Node Worker project. This grew through small feature PRs without
 a package boundary. Root scripts now mix source upload, offline parent models,
 network candidates, evidence validation, rendering and workflow adapters.
@@ -31,11 +31,13 @@ src/geni_uploader/
     consumption.py      # parent_consumption.py (local prototype, not service)
     runner.py           # parent_runner.py (synthetic only)
     father_once.py      # father_once_simulation.py
+    parent_contract.py  # parent_adapter_contract.py, PURE wire descriptors
+    proof_requirements.py # pure PROOFS constants, separated before envelope move
+    proposal_review.py  # pure verify_proposal, extracted before envelope move
   client/               # explicit network boundary; never imported by pure core
     upload.py           # geni_upload.py, initially moved intact
     source_details.py   # source_details.py, initially moved intact
     probe.py            # parent_probe.py (human read-only collector)
-    parent_contract.py  # parent_adapter_contract.py, pure wire descriptors
     closed_parent.py    # parent_http_candidate.py, gate remains always closed
   evidence/             # content contracts, not authenticated authority
     approval.py         # approval_record.py
@@ -75,7 +77,8 @@ not part of this Python migration. No private family data enters this tree.
 
 ## Dependency direction and compatibility
 
-- Core must not import CLI/workflow/client. Pure evidence may import shared
+- Core must not import CLI/workflow/client. Current father_once_simulation
+  imports the PURE parent_adapter_contract, so both belong in core, not client. Pure evidence may import shared
   validation but must not fetch or grant authority.
 - Workflow/CLI may compose reviewed components; no import-time request, token
   retrieval, deployment, dispatch or gate bypass is introduced.
@@ -102,15 +105,24 @@ not part of this Python migration. No private family data enters this tree.
    update its callers/tests in the same PR. Keep temporary compatibility only
    where required. Prove old/new behavior and monkeypatch identity. Repeat in
    small dependency-ordered PRs, not a whole-repo rename.
-4. Move shared core/model modules as small dependency clusters. Update packaged
+4. Move shared core/model modules as small dependency clusters. Before moving
+   parent_envelope into evidence, extract pure PROOFS from human_parent_gate into
+   core/proof_requirements and pure verify_proposal from parent_plan into
+   core/proposal_review. Preserve gate behavior and caller compatibility; then
+   evidence/envelope imports only those pure core modules, never workflow or CLI. Update packaged
    resource resolution using `importlib.resources`, including the always-closed
    gate fixture; test missing/drifted package resources still block.
-5. Move presentation and CLI adapters, retaining all argument/error/exit and
+5. Move workflow glue explicitly: secondary_probe_action to workflow/secondary_probe
+   and human_parent_gate to workflow/release_gate, updating read-only workflow
+   script paths and imports in a separately independently reviewed path-only PR.
+   Do not move these implicitly with CLI. PROOFS extraction precedes this stage.
+6. Move presentation and CLI adapters, retaining all argument/error/exit and
    offline side-effect guards. Test execution from a non-repository directory.
-6. Move client modules intact. Update Docker COPY/install, entrypoint paths,
+7. Move client modules intact. Update Docker COPY/install, entrypoint paths,
    baked-source equivalence and read-only workflow paths in the same PR.
    Workflow changes are path-only and require explicit independent review.
-7. Remove obsolete root facades and placeholder only after a repository-wide
+8. Remove obsolete root facades; retain or deliberately migrate the intentional
+   geni_offline package only with its #93 tests and purpose preserved, only after a repository-wide
    consumer scan is empty. Update README architecture and supported commands.
 
 Steps may be split further. Every PR has its issue reference, docs, signed
