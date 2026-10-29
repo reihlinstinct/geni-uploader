@@ -47,6 +47,7 @@ def test_repeatable_and_exclusive(tmp_path):
 
 @pytest.mark.parametrize('field,value', [('source_sha', 'f' * 40), ('free_only', False),
                          ('dispatch', True), ('activate_workflows', True), ('max_cost_usd', 1),
+                         ('schema_version', True),
                          ('actions', ['create']), ('geni_calls', 1), ('geni_calls', False)])
 def test_wrong_scope(field, value):
     m = manifest()
@@ -140,12 +141,17 @@ def test_top_level_unknown_field():
                                      'worker-bundle.mjs'])
 def test_missing_archive_members_value_error(tmp_path, missing):
     path = tmp_path / 'missing.tar'
+    import json
+    files = {'release-manifest.json': json.dumps(manifest()).encode(),
+             'worker-bundle.mjs': b'// ZZ bundle'}
+    inventory = {k: hashlib.sha256(v).hexdigest() for k, v in files.items()}
+    files['sha256-inventory.json'] = json.dumps(inventory).encode()
     with tarfile.open(path, 'w') as archive:
-        for name in ['sha256-inventory.json', 'release-manifest.json', 'worker-bundle.mjs']:
+        for name, data in files.items():
             if name != missing:
                 info = tarfile.TarInfo(name)
-                info.size = 2
-                archive.addfile(info, io.BytesIO(b'{}'))
+                info.size = len(data)
+                archive.addfile(info, io.BytesIO(data))
     with pytest.raises(ValueError, match='father release package blocked'):
         inspect_package(path)
 

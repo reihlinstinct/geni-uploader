@@ -26,7 +26,7 @@ def _hex(value, length):
 def validate_manifest(m, source_sha):
     _exact(m, ['schema_version', 'phase', 'source_sha', 'free_only', 'max_cost_usd',
                'activate_workflows', 'dispatch', 'geni_calls', 'service', 'issuer', 'actions'])
-    _need(m['schema_version'] == 1 and m['source_sha'] == source_sha)
+    _need(type(m['schema_version']) is int and m['schema_version'] == 1 and m['source_sha'] == source_sha)
     _need(m['free_only'] is True and type(m['max_cost_usd']) is int and m['max_cost_usd'] == 0)
     _need(m['activate_workflows'] is False and m['dispatch'] is False and type(m['geni_calls']) is int and m['geni_calls'] == 0)
     _need(m['phase'] in ['closed_provisioning', 'verified_release_candidate'])
