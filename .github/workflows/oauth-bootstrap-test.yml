@@ -41,4 +41,4 @@ jobs:
           export ZZ_TEST_AGE_KEY="$RUNNER_TEMP/ZZ-age/test-key"
           trap 'rm -f "$ZZ_TEST_AGE_KEY"' EXIT
           age-keygen -o "$ZZ_TEST_AGE_KEY"
-          node --test oauth-bootstrap/protected-job-evidence.test.mjs oauth-bootstrap/post-write-job-handoff.test.mjs
+          node --test oauth-bootstrap/protected-father-runner.test.mjs oauth-bootstrap/protected-job-evidence.test.mjs oauth-bootstrap/post-write-job-handoff.test.mjs
