@@ -17,7 +17,7 @@ handler. Missing binding blocks. No real private config appears in this repo.
 No new production toggle or release authority; production_enabled stays false.
 Actual service config/credential scope and versioned approval adapter remain open.
 
-22mockedHTTP tests;9individual guard mutants executed/killed cover fingerprint,
+23mockedHTTP tests;9individual guard mutants executed/killed cover fingerprint,
 canonical JSON, same destination ID/owner/repo, path distinction, expected pins,
 run and false production state. Future entrypoint isolation/authentication and
 reviewed code/binding audit are not established by those tests.

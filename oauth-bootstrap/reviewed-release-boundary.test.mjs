@@ -12,3 +12,5 @@ test('source is derived from captured config not mutable env',async t=>{const c=
 
 test('otherwise valid alternate repository blocked by same-destination pin',()=>{for(const field of ['repository_id','owner','repo']){const c=config();c.storage[field]=field==='repository_id'?'999009':'ZZ-other';assert.throws(()=>bindReviewedRelease(env(c)));}});
 test('writer pins are derived and descriptor cannot redirect',async t=>{const c=config(),api=bindReviewedRelease(env(c));let n=0;t.mock.method(globalThis,'fetch',async()=>{n++;throw Error('ZZ')});await assert.rejects(api.persistEvidence({bytes:new Uint8Array([255]),descriptor:{repo:'ZZ-other'},onProgress:()=>{}}));assert.equal(n,0);});
+
+test('canonical valid config with wrong fingerprint independently blocked',()=>{const e=env();e.REVIEWED_RELEASE_SHA256='0'.repeat(64);assert.throws(()=>bindReviewedRelease(e));});
