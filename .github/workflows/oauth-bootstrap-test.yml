@@ -42,3 +42,19 @@ jobs:
           trap 'rm -f "$ZZ_TEST_AGE_KEY"' EXIT
           age-keygen -o "$ZZ_TEST_AGE_KEY"
           node --test oauth-bootstrap/entrypoint-success.test.mjs oauth-bootstrap/authenticated-runner.test.mjs oauth-bootstrap/protected-father-runner.test.mjs oauth-bootstrap/protected-job-evidence.test.mjs oauth-bootstrap/post-write-job-handoff.test.mjs
+
+  summary:
+    name: Run summary
+    if: always()
+    needs: [offline]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Write run summary
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/ci/run_summary.py

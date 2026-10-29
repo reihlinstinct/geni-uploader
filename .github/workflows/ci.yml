@@ -59,3 +59,19 @@ jobs:
       - name: Per-file floor gate (enabled when repo variable COVERAGE_GATE=on)
         if: vars.COVERAGE_GATE == 'on'
         run: python .github/coverage_report.py coverage.json --floor "$(cat .github/coverage-floor.txt)" --fail-under
+
+  summary:
+    name: Run summary
+    if: always()
+    needs: [test, coverage]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Write run summary
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/ci/run_summary.py
