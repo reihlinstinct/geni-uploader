@@ -9,7 +9,7 @@ import json
 from geni_uploader.core.intent import _id
 from geni_uploader.core.parent_contract import LIMIT, classify_create, payload
 from geni_uploader.core.people import require
-from human_parent_gate import require_production_release
+from geni_uploader.workflow.release_gate import require_production_release
 
 
 class ClosedParentHTTP:

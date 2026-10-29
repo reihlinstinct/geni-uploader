@@ -1,7 +1,61 @@
 """Public policy copies stay consistent and distinguish conditional modes."""
+from html.parser import HTMLParser
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).parents[1]
+
+class _InlineScriptParser(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=False)
+        self.scripts = []
+        self.current = None
+
+    def handle_starttag(self, tag, attrs):
+        if tag == 'script':
+            if attrs or self.current is not None:
+                raise ValueError('expected one plain inline script')
+            self.current = []
+
+    def handle_startendtag(self, tag, attrs):
+        if tag == 'script':
+            raise ValueError('self-closing script is not allowed')
+
+    def handle_endtag(self, tag):
+        if tag == 'script':
+            if self.current is None:
+                raise ValueError('unmatched script close')
+            self.scripts.append(''.join(self.current))
+            self.current = None
+
+    def handle_data(self, data):
+        if self.current is not None:
+            self.current.append(data)
+
+
+def _inline_script(page):
+    parser = _InlineScriptParser()
+    parser.feed(page)
+    parser.close()
+    if parser.current is not None or len(parser.scripts) != 1:
+        raise ValueError('expected exactly one closed inline script')
+    return parser.scripts[0]
+
+
+@pytest.mark.parametrize('tag', ['script', 'SCRIPT', 'ScRiPt'])
+def test_inline_script_parser_preserves_case_variants_and_exact_source(tag):
+    source = "\nconst x = '<tag>&amp;';\r\n"
+    assert _inline_script(f'<{tag}>{source}</{tag}>') == source
+
+
+@pytest.mark.parametrize('page', ['', '<script>unclosed', '<script/>',
+    '<script src="ZZ.invalid"></script>', '<script nonce="ZZ">x</script>',
+    '<script>x</script><SCRIPT>y</SCRIPT>', '</script>'])
+def test_inline_script_parser_rejects_ambiguous_or_attributed_scripts(page):
+    with pytest.raises(ValueError):
+        _inline_script(page)
+
 
 
 def test_privacy_copies_match_and_cover_hosted_data():
@@ -30,14 +84,13 @@ def test_landing_links_terms_and_privacy_without_authorizing_access():
 def test_callback_reads_only_access_token_with_pinned_script():
     import base64
     import hashlib
-    import re
     page = (ROOT / 'docs/oauth-callback.html').read_text()
     assert 'layout: null' in page
     assert '{{' not in page and '{%' not in page
     assert "history.replaceState(null, '', location.pathname)" in page
     assert 'name="referrer" content="no-referrer"' in page
     assert "default-src 'none'" in page
-    script = re.search(r'<script>(.*?)</script>', page, re.DOTALL).group(1)
+    script = _inline_script(page)
     digest = base64.b64encode(hashlib.sha256(script.encode()).digest()).decode()
     assert "script-src 'sha256-" + digest + "'" in page
     for forbidden in ('document.cookie', 'localStorage',
@@ -55,7 +108,6 @@ def test_callback_reads_only_access_token_with_pinned_script():
 
 def test_callback_script_extracts_only_fragment_copies_and_clears():
     import json
-    import re
     import shutil
     import subprocess
 
@@ -64,7 +116,7 @@ def test_callback_script_extracts_only_fragment_copies_and_clears():
     if not node:
         pytest.skip('node unavailable for offline DOM simulation')
     page = (ROOT / 'docs/oauth-callback.html').read_text()
-    script = re.search(r'<script>(.*?)</script>', page, re.DOTALL).group(1)
+    script = _inline_script(page)
     harness = r'''
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
@@ -99,7 +151,6 @@ const assert = require('node:assert/strict');
 
 def test_callback_diagnostics_are_fixed_presence_only_before_url_clear():
     import json
-    import re
     import shutil
     import subprocess
 
@@ -108,7 +159,7 @@ def test_callback_diagnostics_are_fixed_presence_only_before_url_clear():
     if not node:
         pytest.skip('node unavailable for offline DOM simulation')
     page = (ROOT / 'docs/oauth-callback.html').read_text()
-    script = re.search(r'<script>(.*?)</script>', page, re.DOTALL).group(1)
+    script = _inline_script(page)
     assert script.index('const diagnostics') < script.index('history.replaceState')
     assert script.count('.get(') == 0
     assert script.count('.getAll(') == 2
@@ -151,7 +202,6 @@ for (const [search, hash, expected] of cases) {
 
 def test_query_token_copy_conflicts_and_clear_failure():
     import json
-    import re
     import shutil
     import subprocess
 
@@ -160,7 +210,7 @@ def test_query_token_copy_conflicts_and_clear_failure():
     if not node:
         pytest.skip('node unavailable for offline DOM simulation')
     page = (ROOT / 'docs/oauth-callback.html').read_text()
-    script = re.search(r'<script>(.*?)</script>', page, re.DOTALL).group(1)
+    script = _inline_script(page)
     harness = r"""
 const vm=require('node:vm'),assert=require('node:assert/strict');
 (async()=>{

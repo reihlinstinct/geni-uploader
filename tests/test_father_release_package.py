@@ -216,3 +216,15 @@ def test_src_dirty_or_symlink_blocks_release(tmp_path, mutation):
     m['service']['bundle_sha256'] = hashlib.sha256(bundle.read_bytes()).hexdigest()
     with pytest.raises((ValueError, subprocess.CalledProcessError)):
         package_release(checkout, m, tmp_path / 'blocked.tar', bundle)
+
+
+def test_packaged_gate_resource_in_release_archive(tmp_path):
+    m = manifest()
+    bundle = tmp_path / 'bundle.mjs'
+    bundle.write_bytes(b'// ZZ bundle')
+    m['service']['bundle_sha256'] = hashlib.sha256(bundle.read_bytes()).hexdigest()
+    path = tmp_path / 'package.tar'
+    package_release(ROOT, m, path, bundle)
+    with tarfile.open(path, 'r:') as archive:
+        name = 'src/geni_uploader/resources/human-parent-release-gates.json'
+        assert archive.extractfile(name).read() == (ROOT / name).read_bytes()

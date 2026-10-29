@@ -1,14 +1,20 @@
 import argparse
+import atexit
 import json
 import os
 import sys
 import tempfile
 import unittest
 import unittest.mock
+from contextlib import ExitStack
 from typing import ClassVar
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import geni_upload as g
+
+_TEMP_STATE_DIRECTORIES = ExitStack()
+atexit.register(_TEMP_STATE_DIRECTORIES.close)
+
 
 MANIFEST = {
     "targets": [
@@ -43,7 +49,10 @@ def _run_args(**kw):
     d = {
         "confirm": "YES",
         "manifest": None,
-        "state": tempfile.mktemp(),
+        "state": os.path.join(
+            _TEMP_STATE_DIRECTORIES.enter_context(tempfile.TemporaryDirectory(prefix="ZZ-state-")),
+            "state.json",
+        ),
         "token_file": None,
         "smoke": False,
         "log": None,
@@ -51,6 +60,21 @@ def _run_args(**kw):
     }
     d.update(kw)
     return argparse.Namespace(**d)
+
+
+class TemporaryStatePathTests(unittest.TestCase):
+    def test_run_args_state_is_private_unique_and_cleaned_up(self):
+        from pathlib import Path
+        with ExitStack() as managed:
+            with unittest.mock.patch.dict(_run_args.__globals__, {"_TEMP_STATE_DIRECTORIES": managed}):
+                first, second = _run_args(), _run_args()
+            parent = Path(first.state).parent
+            self.assertNotEqual(parent, Path(second.state).parent)
+            self.assertTrue(parent.is_dir())
+            self.assertEqual(parent.stat().st_mode & 0o777, 0o700)
+            self.assertFalse(Path(first.state).exists())
+            Path(first.state).write_text('{}', encoding='utf-8')
+        self.assertFalse(parent.exists())
 
 
 class ManifestTests(unittest.TestCase):
@@ -1657,7 +1681,7 @@ class MainThrottleOutputTest(unittest.TestCase):
         import contextlib
         import io
         import tempfile
-        secret = "1000000000000000001"
+        synthetic_profile_id = "9990000000000000001"
 
         def fake_execute(method, kind, url, token=None, data=None):
             raise g.ThrottledError(f"GET {url} -> HTTP 429 rate limit")
@@ -1666,7 +1690,7 @@ class MainThrottleOutputTest(unittest.TestCase):
             mpath = os.path.join(tmp, "m.yaml")
             with open(mpath, "w") as f:
                 f.write("targets:\n"
-                        f'  - profile_id: "{secret}"\n'
+                        f'  - profile_id: "{synthetic_profile_id}"\n'
                         '    expect_name: "ZZSENTINEL PERSONA"\n')
             os.environ["GENI_ACCESS_TOKEN"] = "tok"
             argv = ["geni_upload.py", "pguid", "--manifest", mpath]
@@ -1679,7 +1703,7 @@ class MainThrottleOutputTest(unittest.TestCase):
                 os.environ.pop("GENI_ACCESS_TOKEN", None)
         text = err.getvalue()
         self.assertIn("throttled (HTTP 429)", text)
-        self.assertNotIn(secret, text)
+        self.assertNotIn(synthetic_profile_id, text)
         self.assertNotIn("profile-g", text)
 
 
