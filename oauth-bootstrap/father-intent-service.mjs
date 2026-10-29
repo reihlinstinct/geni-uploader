@@ -1,6 +1,7 @@
 // Unreleased authenticated service composition. No Geni endpoint or deployment.
 import {OfflineCreateIntentCandidate} from './create-intent-candidate.mjs';
 import {verifyTrustedWorkload} from './trusted-workload-jwks.mjs';
+import {verifyImmutablePrewriteEvidence} from './immutable-prewrite-evidence.mjs';
 const need=x=>{if(!x)throw Error('father intent service blocked');};
 const exact=(x,ks)=>need(x&&Object.getPrototypeOf(x)===Object.prototype&&Object.keys(x).sort().join(',')===[...ks].sort().join(','));
 const hex=(x,n)=>need(typeof x==='string'&&new RegExp('^[a-f0-9]{'+n+'}$').test(x));
@@ -34,6 +35,8 @@ export default {async fetch(request,env){
   exact(body,['workload_token','plan_hash']);need(body.plan_hash===c.plan);
   need(Math.floor(Date.now()/1000)<c.expires_at);
   await verifyTrustedWorkload(body.workload_token,c.workload_pins);
+  need(Math.floor(Date.now()/1000)<c.expires_at);
+  await verifyImmutablePrewriteEvidence(env,{...binding(c),run_id:c.approved_run});
   need(Math.floor(Date.now()/1000)<c.expires_at);
   need(env.FATHER_OWNER_INTENTS&&typeof env.FATHER_OWNER_INTENTS.idFromName==='function');
   const stub=env.FATHER_OWNER_INTENTS.get(env.FATHER_OWNER_INTENTS.idFromName('father-owner:'+c.owner));
