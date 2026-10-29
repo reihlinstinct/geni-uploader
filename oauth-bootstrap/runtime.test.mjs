@@ -95,10 +95,10 @@ import './intent-local-runtime.test.mjs';
 // Fixed-issuer trust boundary uses mocked fetch and synthetic signing keys only.
 import './trusted-workload-jwks.test.mjs';
 
-// Isolate global mocked fetch/clock from concurrently registered runtime tests.
-test('approval admission regressions run in an isolated process', async () => {
-  const { execFileSync } = await import('node:child_process');
-  execFileSync(process.execPath, ['--test', 'approval-admission.test.mjs'], {
-    cwd: new URL('.', import.meta.url), timeout: 30000, stdio: 'pipe'
-  });
-});
+// Isolate global fetch/clock mocks from concurrent Workers runtime checks.
+for (const suite of ['approval-admission.test.mjs','ciphertext-private-writer.test.mjs']) {
+ test(suite+' runs in an isolated process', async () => {
+  const {execFileSync}=await import('node:child_process');
+  execFileSync(process.execPath,['--test',suite],{cwd:new URL('.',import.meta.url),timeout:30000,stdio:'pipe'});
+ });
+}
