@@ -1,5 +1,10 @@
 # Dormant private approval-to-signature composition (#385)
 
+> Superseded production route (#407): use the separate Cloudflare Worker design
+> in [cloudflare-release-issuer-design.md](cloudflare-release-issuer-design.md).
+> This file records dormant Node/private-runner work only. Do not provision or
+> execute that route as a fallback. Its old Git journal is not authority.
+
 No installed caller, real key creation, deployment or vendor access. The private
 Node module validates fixed canonical config and v2 approval bytes with the full
 existing Python validator. Operation/run/service/executor/workflow pins must
