@@ -32,7 +32,8 @@ remain unresolved release blockers. Current v2 check returns all owner/action/
 dispatch/review/revocation/POST/production flags FALSE and two_humans_verifiedfalse.
 It never writes a private record, dispatches, deploys or calls Geni.
 
-44synthetic tests and14individual mutants run/killed cover assurance/human count,
+46synthetic tests and16individual mutants run/killed cover assurance/human count,
 production flag, same-owner reviewer, distinct dispatcher/independent agent,
-distinct source refs, kind, exact expectation, time, reviewed head and revocation.
+distinct source refs, same exact owner/review action+content, kind, exact
+expectation, time, reviewed head and revocation.
 Every pin mismatch rejects. These content tests do not establish live provenance.
