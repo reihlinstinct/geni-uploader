@@ -25,7 +25,8 @@ test('workerd evidence budgets, streams, cancellation and hostile responses',{ti
  t=make({routes:[route],credential:key},async()=>new Response(new ReadableStream()));await blocked('deadline-stream',()=>t.get(route));
  t=make({routes:[route],credential:key},good);t.close();await blocked('explicit-close',()=>t.get(route));
  t=make({routes:[route],credential:key},good);const requests=await Promise.allSettled(Array.from({length:17},()=>t.get(route)));if(calls>32||requests.every(x=>x.status==='fulfilled'))throw Error('ZZ-concurrent-request-cap');out.push('concurrent-request-cap');
- for(const bad of ['//zz.invalid','/repos/ZZ/ZZ/../ZZ','/repos/ZZ/ZZ/actions#ZZ','/repos/ZZ/ZZ/actions\\n'])await blocked('bad-route',()=>make({routes:[bad],credential:key},good));
+ const dotRoute='/repos/ZZ/ZZ.tool/actions/runs/999001';t=make({routes:[dotRoute],credential:key},async()=>Response.json({ok:true}));await t.get(dotRoute);t.close();out.push('safe-dot');
+ for(const bad of ['/repos/ZZ/.ZZ/actions','/repos/ZZ/./actions','/repos/ZZ/../actions','//zz.invalid','/repos/ZZ/ZZ/../ZZ','/repos/ZZ/ZZ/actions#ZZ','/repos/ZZ/ZZ/actions\\n'])await blocked('bad-route',()=>make({routes:[bad],credential:key},good));
  return Response.json(out);}}`;
  const bundle=await build({stdin:{contents:entry,resolveDir:new URL('.',import.meta.url).pathname,sourcefile:'ZZ-transport.mjs'},bundle:true,platform:'browser',format:'esm',write:false,metafile:true});assert.deepEqual(Object.keys(bundle.metafile.inputs).sort(),['ZZ-transport.mjs','worker-evidence-transport.mjs']);
  const mf=new Miniflare(convertV4MiniflareOptions({name:'ZZ-evidence-transport',modules:true,script:bundle.outputFiles[0].text,compatibilityDate:'2026-10-01'}));try{const r=await mf.dispatchFetch('https://zz.invalid');assert.equal(r.status,200,await r.clone().text());const results=await r.json();assert.ok(results.includes('deadline-fetch'));assert.ok(results.includes('duplicate'));}finally{await mf.dispose();}
