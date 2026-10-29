@@ -1,6 +1,6 @@
 // Fixed-issuer network trust boundary. No owner consent, replay store or permit.
 import { importJWK } from 'jose';
-import { verifyOfflineWorkload } from './intent-workload-verifier.mjs';
+import { verifyOfflineWorkload,validateWorkloadHeader } from './intent-workload-verifier.mjs';
 const URL = 'https://token.actions.githubusercontent.com/.well-known/jwks';
 const fail = () => { throw new Error('trusted workload verification blocked'); };
 const check = value => { if (!value) fail(); };
@@ -27,7 +27,7 @@ function headerKid(token) {
   const bytes=Buffer.from(parts[0],'base64url');
   check(bytes.toString('base64url')===parts[0]);
   const h=parseUnique(new TextDecoder('utf-8',{fatal:true}).decode(bytes));
-  check(h&&Object.keys(h).sort().join(',')==='alg,kid,typ');
+  check(h);validateWorkloadHeader(h,{kid:h.kid});
   check(h.alg==='RS256'&&h.typ==='JWT'&&typeof h.kid==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(h.kid));
   return h.kid;
 }
