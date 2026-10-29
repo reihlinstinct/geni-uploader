@@ -23,3 +23,14 @@ call under the shipped gate. Actual external calls, config, deploy and recovery
 permission are not performed. Original workload expiry is not extended; later
 recovery requires separately reviewed explicit recovery authority, not recycling
 an expired approval. Persistent storage/recovery handoff remains open.
+
+## Reservation failure after execution (#359)
+
+The ciphertext reservation is after `/execute` and before private upload. If the
+reservation request fails or its response is lost, the vendor create may already
+have happened and the intent remains consumed/uncertain. The job must not replay
+create, even if no postwrite ciphertext receipt exists. Known acknowledged ID
+stays in the object; read-only recovery reports it and current fixed observations.
+With lost acknowledgment, identity remains unresolved. Recovery observations do
+not reconstruct missing raw acknowledgment or prove a matching new parent is the
+one this run created. Original expiry still applies; no expired run is revived.
