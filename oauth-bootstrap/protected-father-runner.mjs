@@ -54,6 +54,7 @@ export async function runProtectedFatherJob(env,approvalBytes,prewriteBytes,onPr
   await onProgress({stage:'execute_attempt',receipt:{execute_attempted:true}});
   executeAttempted=true;
   const result=await service(env,c,'/execute',{uploads:{approval:{commit:approval.source.commit,blob_sha:approval.source.blob_sha,content_sha256:approval.source.content_sha256},prewrite:pre.descriptor}});
+  const reservation=await service(env,c,'/reserve',{});need(reservation.phase==='postwrite_ciphertext_budget_reserved'&&reservation.byte_limit===1048576&&reservation.prior_total===pre.descriptor.byte_length&&reservation.retry_allowed===false&&reservation.production_enabled===false);
   const postEnv=storageEnv(env,c.postwrite_storage,pre.descriptor.commit,pre.descriptor.byte_length);
   const persisted=await persistPostWriteHandoff(postEnv,result,x=>onProgress({stage:'readback',receipt:x}));
   await onProgress({stage:'completion_attempt',receipt:{execute_attempted:true}});
