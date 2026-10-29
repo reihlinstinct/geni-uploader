@@ -33,3 +33,10 @@ depth, malformed JSON/UTF-8, raw fetch failure, explicit close, blocked later
 reads, stalled-fetch and stalled-stream deadlines. These are functional checks,
 not provider CPU measurement. No Cloudflare resource, key, deploy or live API
 call is made. The full CPU profiling/release blockers remain in #407/#411.
+
+## Repository segment boundary (#429)
+
+Transport itself rejects leading-dot repository segments and dot/double-dot
+segments before any fetch, independently of source/CI config. Safe internal-dot
+names remain accepted. Direct workerd tests exercise both outcomes. No caller
+can bypass this boundary by skipping upstream config validation.

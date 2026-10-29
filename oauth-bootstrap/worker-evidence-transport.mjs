@@ -14,7 +14,7 @@ export function createWorkerEvidenceTransport({routes,credential},fetcher=fetch)
  try{
   need(Array.isArray(routes)&&routes.length>0&&routes.length<=16&&new Set(routes).size===routes.length);
   // Exact deployment-owned routes; reject URL normalization/host override tricks.
-  for(const path of routes)need(typeof path==='string'&&path.length<=512&&/^\/repos\/[A-Za-z0-9_-]+\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_/?=&.-]+(?![\s\S])/.test(path)&&!path.includes('..')&&!path.includes('//')&&!path.includes('#')&&new URL('https://api.github.com'+path).pathname+new URL('https://api.github.com'+path).search===path);
+  for(const path of routes)need(typeof path==='string'&&path.length<=512&&/^\/repos\/[A-Za-z0-9_-]+\/[A-Za-z0-9][A-Za-z0-9_.-]*\/[A-Za-z0-9_/?=&.-]+(?![\s\S])/.test(path)&&!path.includes('..')&&!path.includes('//')&&!path.includes('#')&&new URL('https://api.github.com'+path).pathname+new URL('https://api.github.com'+path).search===path);
   need(typeof credential==='string'&&/^[A-Za-z0-9_]{1,4096}(?![\s\S])/.test(credential)&&typeof fetcher==='function');
   const allowed=new Set(routes),controller=new AbortController(),readers=new Set();let count=0,total=0,active=true,rejectStop;
   const stopped=new Promise((_,reject)=>{rejectStop=reject;});stopped.catch(()=>{});
