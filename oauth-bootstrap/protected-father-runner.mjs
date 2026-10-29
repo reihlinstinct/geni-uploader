@@ -7,7 +7,7 @@ const hash=x=>createHash('sha256').update(x).digest('hex');
 const need=x=>{if(!x)throw Error('protected father runner blocked');};
 const exact=(x,ks)=>need(x&&Object.getPrototypeOf(x)===Object.prototype&&Object.keys(x).sort().join(',')===[...ks].sort().join(','));
 const bindingFields=['owner','connection','plan','payload','artifact','policy'];
-function config(env){
+export function protectedRunnerConfig(env){
  const raw=env.FATHER_RUNNER_RELEASE_JSON;need(typeof raw==='string'&&raw.length<=65536&&hash(raw)===env.FATHER_RUNNER_RELEASE_SHA256);
  const c=JSON.parse(raw);need(JSON.stringify(c)===raw);exact(c,['mode','production_enabled','service_origin','binding','prewrite_sha256','prewrite_storage','postwrite_storage']);
  need(c.mode==='unreleased_protected_father_runner'&&c.production_enabled===false);
@@ -30,7 +30,7 @@ function storageEnv(env,release,parent,total=0){
  const p=structuredClone(release);if(parent!==undefined)p.storage.parent_commit=parent;p.storage.existing_total_bytes=total;
  const raw=JSON.stringify(p);return{...env,FATHER_EVIDENCE_RELEASE_JSON:raw,FATHER_EVIDENCE_RELEASE_SHA256:hash(raw)};
 }
-async function service(env,c,route,body){
+export async function protectedRunnerService(env,c,route,body){
  need(typeof env.FATHER_WORKLOAD_TOKEN==='string'&&env.FATHER_WORKLOAD_TOKEN.length>0&&env.FATHER_WORKLOAD_TOKEN.length<=16384);
  const ctl=new AbortController();let timer,active=true;
  try{
@@ -46,19 +46,19 @@ async function service(env,c,route,body){
 export async function runProtectedFatherJob(env,approvalBytes,prewriteBytes,onProgress){
  let executeAttempted=false;
  try{
-  const c=config(env);need(typeof onProgress==='function'&&approvalBytes instanceof Uint8Array&&prewriteBytes instanceof Uint8Array&&hash(prewriteBytes)===c.prewrite_sha256);
+  const c=protectedRunnerConfig(env);need(typeof onProgress==='function'&&approvalBytes instanceof Uint8Array&&prewriteBytes instanceof Uint8Array&&hash(prewriteBytes)===c.prewrite_sha256);
   const approval=await persistPrivateApprovalRecord(env,approvalBytes,x=>onProgress({stage:'approval',receipt:x}));
   const preEnv=storageEnv(env,c.prewrite_storage,approval.source.commit);
   const pre=await persistProtectedJobEvidence(preEnv,prewriteBytes,x=>onProgress({stage:'pre_write',receipt:x}));
   // The only service request that can reach the dormant create route.
   await onProgress({stage:'execute_attempt',receipt:{execute_attempted:true}});
   executeAttempted=true;
-  const result=await service(env,c,'/execute',{uploads:{approval:{commit:approval.source.commit,blob_sha:approval.source.blob_sha,content_sha256:approval.source.content_sha256},prewrite:pre.descriptor}});
-  const reservation=await service(env,c,'/reserve',{});need(reservation.phase==='postwrite_ciphertext_budget_reserved'&&reservation.byte_limit===1048576&&reservation.prior_total===pre.descriptor.byte_length&&reservation.retry_allowed===false&&reservation.production_enabled===false);
+  const result=await protectedRunnerService(env,c,'/execute',{uploads:{approval:{commit:approval.source.commit,blob_sha:approval.source.blob_sha,content_sha256:approval.source.content_sha256},prewrite:pre.descriptor}});
+  const reservation=await protectedRunnerService(env,c,'/reserve',{});need(reservation.phase==='postwrite_ciphertext_budget_reserved'&&reservation.byte_limit===1048576&&reservation.prior_total===pre.descriptor.byte_length&&reservation.retry_allowed===false&&reservation.production_enabled===false);
   const postEnv=storageEnv(env,c.postwrite_storage,pre.descriptor.commit,pre.descriptor.byte_length);
   const persisted=await persistPostWriteHandoff(postEnv,result,x=>onProgress({stage:'readback',receipt:x}));
   await onProgress({stage:'completion_attempt',receipt:{execute_attempted:true}});
-  const completion=await service(env,c,'/complete',{descriptor:persisted.descriptor});
+  const completion=await protectedRunnerService(env,c,'/complete',{descriptor:persisted.descriptor});
   need(completion.phase==='ciphertext_receipt_accounted_reconciliation_required'&&completion.intent_verified===false&&completion.retry_allowed===false&&completion.production_enabled===false);
   return{phase:'protected_job_receipt_accounted_reconciliation_required',created_id:persisted.created_id,descriptor:persisted.descriptor,intent_verified:false,retry_allowed:false,production_enabled:false};
  }catch{
