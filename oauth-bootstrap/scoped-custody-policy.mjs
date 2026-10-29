@@ -3,7 +3,7 @@ const fail=()=>{throw Error('credential custody blocked');};
 const need=x=>{if(!x)fail();};
 const exact=(x,keys)=>need(x&&Object.getPrototypeOf(x)===Object.prototype&&Object.keys(x).sort().join(',')===[...keys].sort().join(','));
 const integer=x=>need(Number.isSafeInteger(x)&&x>=0&&x<2**40);
-const hex=(x,n)=>need(typeof x==='string'&&new RegExp('^[a-f0-9]{'+n+'}$').test(x));
+const hex=(x,n)=>need(typeof x==='string'&&new RegExp('^[a-f0-9]{'+n+'}(?![\\s\\S])').test(x));
 const credential=x=>need(typeof x==='string'&&x.length>0&&x.length<=16384&&!/[\s\x00-\x1f\x7f]/.test(x));
 // Canonical input transport rejects duplicate keys, whitespace variants, unsafe
 // numbers, inherited properties and getters before any policy decision.
@@ -20,14 +20,14 @@ const destinationKeys=['slot','owner','repository_id','environment','secret'];
 function validate(bundle,policy,state,context,now){
  exact(bundle,bundleKeys);exact(policy,policyKeys);exact(state,stateKeys);exact(context,contextKeys);
  need(bundle.schema===1&&policy.schema===1&&state.schema===1);
- need(policy.slot==='secondary'&&typeof policy.owner==='string'&&/^profile-[1-9][0-9]{0,29}$/.test(policy.owner));
- need(typeof policy.repository_id==='string'&&/^[1-9][0-9]{0,19}$/.test(policy.repository_id));
- need(typeof policy.environment==='string'&&/^[A-Za-z0-9_-]{1,80}$/.test(policy.environment));
- need(typeof policy.secret==='string'&&/^GENI_[A-Z0-9_]{1,80}$/.test(policy.secret));
+ need(policy.slot==='secondary'&&typeof policy.owner==='string'&&/^profile-[1-9][0-9]{0,29}(?![\s\S])/.test(policy.owner));
+ need(typeof policy.repository_id==='string'&&/^[1-9][0-9]{0,19}(?![\s\S])/.test(policy.repository_id));
+ need(typeof policy.environment==='string'&&/^[A-Za-z0-9_-]{1,80}(?![\s\S])/.test(policy.environment));
+ need(typeof policy.secret==='string'&&/^GENI_[A-Z0-9_]{1,80}(?![\s\S])/.test(policy.secret));
  for(const key of destinationKeys)need(bundle[key]===policy[key]&&context[key]===policy[key]);
  need(state.slot===policy.slot&&state.owner===policy.owner);
  for(const key of ['executor_sha','workflow_sha']){hex(policy[key],40);need(context[key]===policy[key]);}
- need(typeof policy.run_id==='string'&&/^[1-9][0-9]{0,19}$/.test(policy.run_id));
+ need(typeof policy.run_id==='string'&&/^[1-9][0-9]{0,19}(?![\s\S])/.test(policy.run_id));
  need(policy.run_attempt===1&&context.run_attempt===1&&context.run_id===policy.run_id);
  integer(now);integer(policy.max_lifetime_seconds);integer(policy.approval_expires_at);
  // Maximum accepted lifetime is a reviewed candidate, never a native Secret TTL.
