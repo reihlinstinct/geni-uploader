@@ -1,22 +1,11 @@
 """Offline parent-operation simulation. No production transport or entry point."""
 import copy
 
-from geni_uploader.core.people import Blocked, bind, digest, exact, require, validate
+from geni_uploader.core import proposal_review
+from geni_uploader.core.people import Blocked, bind, digest, exact, require
 from human_parent_gate import require_production_release
 
-
-def payloads(data):
-    """Deterministic approved-name payload proposal, not verified API encoding."""
-    validate(data)
-    result = []
-    for parent in data['parents']:
-        require('en' in parent['names'])
-        # English main-name encoding is a proposal until vendor proofs are reviewed.
-        result.append({'names': copy.deepcopy(parent['names']),
-                       **copy.deepcopy(parent['names']['en']),
-                       'gender': parent['gender'], 'is_alive': parent['is_alive'],
-                       'public': False})
-    return result
+payloads = proposal_review.payloads
 
 
 class SyntheticTransport:

@@ -25,7 +25,8 @@ def test_wheel_is_explicit_and_imports_outside_checkout_without_network(tmp_path
         "geni_offline/__init__.py", "geni_uploader/__init__.py",
         "geni_uploader/core/__init__.py", "geni_uploader/core/intent.py",
         "geni_uploader/core/outcome.py", "geni_uploader/core/parent_contract.py",
-        "geni_uploader/core/people.py", "geni_uploader/core/snapshot.py",
+        "geni_uploader/core/people.py", "geni_uploader/core/proof_requirements.py",
+        "geni_uploader/core/proposal_review.py", "geni_uploader/core/snapshot.py",
         "geni_uploader/evidence/__init__.py",
         "geni_uploader/evidence/approval.py",
         "geni_uploader/evidence/ciphertext.py",
@@ -57,6 +58,7 @@ def audit(event, args):
 sys.addaudithook(audit)
 import geni_uploader, geni_offline
 import geni_uploader.core.people
+import geni_uploader.core.proof_requirements, geni_uploader.core.proposal_review
 import geni_uploader.core.intent, geni_uploader.core.parent_contract
 import geni_uploader.core.snapshot, geni_uploader.core.outcome
 import geni_uploader.evidence.approval
