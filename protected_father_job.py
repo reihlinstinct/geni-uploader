@@ -13,8 +13,8 @@ import urllib.request
 from pathlib import Path
 
 from geni_uploader.core.people import Blocked, digest, exact, require
-from github_review_evidence import inspect, requests
-from single_human_approval_record import validate
+from geni_uploader.evidence.github_review import inspect, requests
+from geni_uploader.evidence.single_human_approval import validate
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
