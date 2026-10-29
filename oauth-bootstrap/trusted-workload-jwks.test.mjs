@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {generateKeyPairSync} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {generateKeyPair,exportJWK,SignJWT} from 'jose';
 import {PIN_CLAIMS} from './intent-workload-verifier.mjs';
@@ -56,4 +57,29 @@ test('malformed JSON header and declared size produce fixed errors',async t=>{
  const bad=Buffer.from('ZZSECRET').toString('base64url')+'.e30.AA';
  await assert.rejects(verify(bad,pins),{message:'trusted workload verification blocked'});
  assert.equal(calls,1);
+});
+
+// Every fixture is otherwise valid and keeps the pinned key, so adjacent
+// parsing/lookup/type guards cannot mask removal of these exact bounds.
+const validOversize=JSON.stringify({keys:[jwk]})+' '.repeat(65537);
+for(const [label,body,options] of [
+ ['declared valid JSON byte cap',JSON.stringify({keys:[jwk]}),{headers:{'content-length':'65537'}}],
+ ['streamed valid JSON byte cap',validOversize,{}],
+])test(label,async t=>{
+ t.mock.method(globalThis,'fetch',async()=>new Response(body,options));
+ await assert.rejects(verify(token,pins),{message:'trusted workload verification blocked'});
+});
+for(const [label,modulusLength,publicExponent] of [
+ ['large modulus',4608,65537], ['wrong exponent',2048,3],
+])test(label+' rejects even when token signature matches that key',async t=>{
+ const custom=generateKeyPairSync('rsa',{modulusLength,publicExponent});
+ const key={...custom.publicKey.export({format:'jwk'}),kid:pins.kid,alg:'RS256',use:'sig'};
+ const customToken=await new SignJWT(claims).setProtectedHeader({alg:'RS256',typ:'JWT',kid:pins.kid}).sign(custom.privateKey);
+ t.mock.method(globalThis,'fetch',async()=>Response.json({keys:[key]}));
+ await assert.rejects(verify(customToken,pins),{message:'trusted workload verification blocked'});
+});
+test('key count retains pinned valid key and isolates set cap',async t=>{
+ const keys=[jwk,...Array.from({length:16},(_,i)=>({...jwk,kid:'ZZ-extra-'+i}))];
+ t.mock.method(globalThis,'fetch',async()=>Response.json({keys}));
+ await assert.rejects(verify(token,pins),{message:'trusted workload verification blocked'});
 });
