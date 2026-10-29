@@ -32,3 +32,15 @@ hostile run/reviewer/rules/job/workflow evidence, then add Worker-only complete
 v2 validation, expiry and exact operation-binding rejection. Bundle contains only
 capture, pure v2 validator and bounded transport; no Node compatibility. No
 resources, secrets, keys, account settings, deploy or live API calls.
+
+## Capture regression integrity
+
+The Worker test deep-copies every response body so late environment/branch
+changes cannot mutate the early responses by alias. It changes jobs[0].run_id
+independently of job ID/name and advances a test-only clock to exact expiry
+while the eighth response is returned. No production clock injection is added.
+
+Negative controls were run individually against the real-workerd suite: deleting
+late rules reread, final fresh() or job-to-run comparison each passed the old
+test (coverage gap); each now fails the updated test. Unmodified implementation
+passes. Production capture bytes are unchanged by these regression repairs.
