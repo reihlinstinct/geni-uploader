@@ -41,7 +41,7 @@ export async function persistCiphertext({bytes,descriptor,storagePins,credential
   bytes=Buffer.from(bytes);descriptor=structuredClone(descriptor);storagePins=structuredClone(storagePins);
   const p=storagePins,root='/repos/'+p.owner+'/'+p.repo;let requests=0;
   const request=async(method,route,body)=>{
-   need(active&&!ctl.signal.aborted&&++requests<=12);const r=await fetch('https://api.github.com'+route,{method,redirect:'error',signal:ctl.signal,headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+credential,'Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28'},...(body?{body:JSON.stringify(body)}:{})});
+   need(active&&!ctl.signal.aborted&&++requests<=12);const r=await fetch('https://api.github.com'+route,{method,redirect:'manual',signal:ctl.signal,headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+credential,'Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28'},...(body?{body:JSON.stringify(body)}:{})});
    need(active&&!ctl.signal.aborted);need(r.status===(method==='POST'?201:200)&&!r.redirected&&!r.headers.get('link')&&r.body);
    const h=r.headers.get('content-length');if(h!==null)need(/^[0-9]+$/.test(h)&&Number(h)<=2097152);
    const reader=r.body.getReader(),chunks=[];let total=0;try{for(;;){const {done,value}=await reader.read();if(done)break;total+=value.length;need(total<=2097152);chunks.push(value);}}finally{await reader.cancel().catch(()=>{});reader.releaseLock();}

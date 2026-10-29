@@ -45,7 +45,7 @@ export async function fetchPrivateApproval({source,credential}){
  try{
   const parts=sourcePins(source);need(typeof credential==='string'&&credential.length>0&&credential.length<=4096&&/^[A-Za-z0-9_]+$/.test(credential));
   const root='/repos/'+source.owner+'/'+source.repo;let count=0;
-  const get=async route=>{need(++count<=11);const r=await fetch('https://api.github.com'+route,{redirect:'error',signal:ctl.signal,headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+credential,'X-GitHub-Api-Version':'2022-11-28'}});
+  const get=async route=>{need(++count<=11);const r=await fetch('https://api.github.com'+route,{redirect:'manual',signal:ctl.signal,headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+credential,'X-GitHub-Api-Version':'2022-11-28'}});
    need(r.status===200&&!r.redirected&&!r.headers.get('link')&&r.body);const declared=r.headers.get('content-length');if(declared!==null)need(/^[0-9]+$/.test(declared)&&Number(declared)<=131072);
    const reader=r.body.getReader();let total=0;const chunks=[];try{for(;;){const v=await reader.read();if(v.done)break;total+=v.value.length;need(total<=131072);chunks.push(v.value);}}finally{await reader.cancel().catch(()=>{});reader.releaseLock();}
    // API envelopes can be128KiB; the actual approval object remains64KiB.
@@ -85,5 +85,37 @@ export function admitApproval({approvalBytes,expectedPins,authenticatedRecord,ex
   }
   need(r.approvals[0].approver_ref!==r.approvals[1].approver_ref&&r.approvals[0].evidence_ref!==r.approvals[1].evidence_ref);
   return {phase:'private_record_content_admitted_only',record_provenance_verified:true,content_consistent:true,owner_approval_verified:false,payload_approval_verified:false,review_provenance_verified:false,post_permitted:false,production_enabled:false,record_sha256:hash(receipt.bytes),release_gaps:['authenticated_owner_record_creation','protected_human_review_correlation','permanent_replay_consumption']};
+ }catch{fail();}
+}
+
+/** Join the existing immutable private byte receipt to the single-human v2
+ * shape. Capture authentication is still a separate release obligation; a
+ * matching record/config hash is not proof of the human clicking the gate.
+ */
+export function admitSingleHumanApproval({approvalBytes,expectedRecord,authenticatedRecord}){
+ try{
+  const receipt=receipts.get(authenticatedRecord);need(receipt);
+  const now=Math.floor(Date.now()/1000);need(now>=receipt.fetchedAt&&now-receipt.fetchedAt<=30);
+  need(approvalBytes instanceof Uint8Array&&Buffer.from(approvalBytes).equals(receipt.bytes));
+  const validate=r=>{
+   exact(r,['schema_version','mode','assurance','human_count','production_enabled','pins','exclusions','risk_hash','sources','reviewed_executor_sha','revocation_epoch']);
+   need(r.schema_version===2&&r.mode==='single_human_approval_content'&&r.assurance==='single_human_owner_agent_dispatch_independent_agent_review'&&r.human_count===1&&r.production_enabled===false);
+   pins(r.pins);need(r.pins.issued_at<=now&&now<r.pins.expires_at);
+   need(JSON.stringify(r.exclusions)===JSON.stringify(EXCLUSIONS));hex(r.risk_hash,64);
+   need(Number.isSafeInteger(r.revocation_epoch)&&r.revocation_epoch>=0&&r.revocation_epoch<2**40&&r.reviewed_executor_sha===r.pins.executor_sha);
+   const kinds={owner_grant:'protected_environment_exact_payload_approval',protected_review:'protected_environment_human_action',dispatch:'designated_agent_workflow_dispatch',code_review:'independent_agent_exact_head_review'};
+   exact(r.sources,Object.keys(kinds));
+   for(const [role,kind]of Object.entries(kinds)){
+    const x=r.sources[role];exact(x,['kind','principal_id','source_ref','content_hash']);
+    need(x.kind===kind&&typeof x.principal_id==='string'&&/^[1-9][0-9]{0,19}$/.test(x.principal_id));hex(x.source_ref,64);hex(x.content_hash,64);
+   }
+   const s=r.sources;need(s.owner_grant.principal_id===s.protected_review.principal_id&&s.owner_grant.source_ref===s.protected_review.source_ref&&s.owner_grant.content_hash===s.protected_review.content_hash);
+   need(new Set([s.owner_grant.principal_id,s.dispatch.principal_id,s.code_review.principal_id]).size===3);
+   need(new Set([s.owner_grant.source_ref,s.dispatch.source_ref,s.code_review.source_ref]).size===3);
+  };
+  const record=parse(approvalBytes);validate(record);validate(expectedRecord);
+  const canonical=x=>Array.isArray(x)?'['+x.map(canonical).join(',')+']':x&&typeof x==='object'?'{'+Object.keys(x).sort().map(k=>JSON.stringify(k)+':'+canonical(x[k])).join(',')+'}':JSON.stringify(x);
+  need(canonical(record)===canonical(expectedRecord));
+  return {phase:'private_single_human_content_admitted_only',record_provenance_verified:true,content_consistent:true,human_count:1,two_humans_verified:false,owner_approval_verified:false,protected_human_action_verified:false,post_permitted:false,production_enabled:false,record_sha256:hash(receipt.bytes)};
  }catch{fail();}
 }
