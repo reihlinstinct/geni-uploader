@@ -28,3 +28,13 @@ complete approval/source/review/CI verification, authenticated installation audi
 versioned Worker identity, SQLite internal wrapper, bounded total subrequests,
 private receipts/handoff, key provisioning and whole-bundle CPU proof remain
 required. No provider deployment or real key is used by these tests.
+
+## Await-expiry regression (#419)
+
+A real-workerd synthetic test pins time within the valid window, awaits actual
+Ed25519 verification, then advances its test-only clock to exact expiry before
+returning the crypto result. The unmodified verifier rejects with fixed text.
+A still-valid control succeeds; a test-only bundled mutation deleting only the
+final freshness check incorrectly succeeds on the crossing case, proving that
+the regression exercises that check. Crypto verification is actually called once
+in each control/crossing path. No production clock injection or code change.
