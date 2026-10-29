@@ -26,6 +26,15 @@ def test_wheel_is_explicit_and_imports_outside_checkout_without_network(tmp_path
         "geni_uploader/core/__init__.py", "geni_uploader/core/intent.py",
         "geni_uploader/core/outcome.py", "geni_uploader/core/parent_contract.py",
         "geni_uploader/core/people.py", "geni_uploader/core/snapshot.py",
+        "geni_uploader/evidence/__init__.py",
+        "geni_uploader/evidence/approval.py",
+        "geni_uploader/evidence/ciphertext.py",
+        "geni_uploader/evidence/github_review.py",
+        "geni_uploader/evidence/parent.py",
+        "geni_uploader/evidence/profile_result.py",
+        "geni_uploader/evidence/single_human_approval.py",
+        "geni_uploader/evidence/workflow_content.py",
+
     ]
     installed = tmp_path / "environment"
     venv.EnvBuilder(with_pip=True).create(installed)
@@ -50,6 +59,13 @@ import geni_uploader, geni_offline
 import geni_uploader.core.people
 import geni_uploader.core.intent, geni_uploader.core.parent_contract
 import geni_uploader.core.snapshot, geni_uploader.core.outcome
+import geni_uploader.evidence.approval
+import geni_uploader.evidence.ciphertext
+import geni_uploader.evidence.github_review
+import geni_uploader.evidence.workflow_content
+import geni_uploader.evidence.parent
+import geni_uploader.evidence.profile_result
+import geni_uploader.evidence.single_human_approval
 print(json.dumps({'paths':[geni_uploader.__file__,geni_offline.__file__,geni_uploader.core.people.__file__],
                   'blocked':blocked}))
 '''
