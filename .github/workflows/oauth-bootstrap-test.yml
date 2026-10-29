@@ -1,0 +1,44 @@
+name: OAuth bootstrap offline tests
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  offline:
+    timeout-minutes: 10
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+      - run: npm ci --ignore-scripts
+        working-directory: oauth-bootstrap
+      - run: node --test test.mjs
+        working-directory: oauth-bootstrap
+      - run: node --test runtime.test.mjs
+        working-directory: oauth-bootstrap
+        env:
+          CLOUDFLARE_SEND_METRICS: "false"
+      - run: node --test chrome-ready.test.mjs cdp-load.test.mjs browser.test.mjs
+        working-directory: oauth-bootstrap
+      - run: node --test transport.test.mjs
+        working-directory: oauth-bootstrap
+      - name: Rehearse real age encryption and private persistence with synthetic key
+        env:
+          AGE_VERSION: v1.3.2
+          AGE_SHA256: cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/FiloSottile/age/releases/download/${AGE_VERSION}/age-${AGE_VERSION}-linux-amd64.tar.gz" -o "$RUNNER_TEMP/ZZ-age.tgz"
+          echo "${AGE_SHA256}  $RUNNER_TEMP/ZZ-age.tgz" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/ZZ-age"
+          tar -xzf "$RUNNER_TEMP/ZZ-age.tgz" -C "$RUNNER_TEMP/ZZ-age"
+          export PATH="$RUNNER_TEMP/ZZ-age/age:$PATH"
+          export ZZ_TEST_AGE_KEY="$RUNNER_TEMP/ZZ-age/test-key"
+          trap 'rm -f "$ZZ_TEST_AGE_KEY"' EXIT
+          age-keygen -o "$ZZ_TEST_AGE_KEY"
+          node --test oauth-bootstrap/entrypoint-success.test.mjs oauth-bootstrap/authenticated-runner.test.mjs oauth-bootstrap/protected-father-runner.test.mjs oauth-bootstrap/protected-job-evidence.test.mjs oauth-bootstrap/post-write-job-handoff.test.mjs
