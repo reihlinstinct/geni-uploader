@@ -61,3 +61,21 @@ jobs:
           path: ${{ runner.temp }}/secondary-evidence/parent-evidence.age
           if-no-files-found: error
           retention-days: 1
+
+  summary:
+    permissions:
+      contents: read
+    name: Run summary
+    if: always()
+    needs: [collect]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Write run summary
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/ci/run_summary.py
