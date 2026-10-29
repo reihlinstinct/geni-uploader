@@ -1,5 +1,10 @@
 # Separate private release issuer and one-approval handoff (#380)
 
+> Superseded production route (#407): use the separate Cloudflare Worker design
+> in [cloudflare-release-issuer-design.md](cloudflare-release-issuer-design.md).
+> This file records dormant Node/private-runner work only. Do not provision or
+> execute that route as a fallback. Its old Git journal is not authority.
+
 Design only. No issuer, repository, key, secret, workflow, service configuration,
 namespace or account setting is created. The shipped release gate still rejects.
 The existing draft workflow still stops. This document is not a resolved

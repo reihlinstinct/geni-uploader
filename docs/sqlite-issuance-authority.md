@@ -17,7 +17,7 @@ Actual account plan, free capacity and nonbillable execution still need checking
 
 ## Authority and ordering
 
-The future private issuer is a DISTINCT workload principal from the public
+The future separate issuer is a DISTINCT workload principal from the public
 protected runner. A public runner OIDC token cannot call issuance reservation,
 sign policy, install config or delete state. Never select the issuer solely by a
 request body boolean/repository name or by sharing a bearer deploy credential.
@@ -64,20 +64,16 @@ configuration capability to the father-only service, do not claim isolation;
 resolve a capability-limited config adapter or disclose and separately approve
 the broader risk. Do not alter the existing OAuth service.
 
-## Nonbillable issuer execution remains unresolved
+## Separate Cloudflare issuer selected (#407)
 
-Private hosted runner included credit is not a zero-spend guarantee. Official
-GitHub billing docs say additional usage is billed unless a stop-usage budget is
-enabled. Do not create/change budgets, enable billing, add a card, upgrade a plan
-or run a potentially billable private job under the free-only assumption.
-
-A separately verified existing nonbillable execution route must satisfy private
-key custody, exact source review, bounded run, no public key material leakage,
-private durable receipts and separation from the public runner. Candidates need
-actual evaluation; naming a local runner or free service is not proof that it is
-available, persistent, safe or nonbillable. If no route can be established, stop
-that work and ask the user through the existing decision path. This design does
-not solve that blocker by assumption or silently move the key to a public job.
+The intended issuer is now a separate Cloudflare Worker, not a private hosted
+GitHub job. See [cloudflare-release-issuer-design.md](cloudflare-release-issuer-design.md)
+for exclusive Worker-secret key custody, versioned Worker identity, internal
+service binding, namespace audit and bounded WebCrypto runtime requirements.
+Existing GitHub issuer run pins are legacy storage schema, not proof of a
+Cloudflare principal. Actual account Free eligibility/capacity and exact-bundle
+CPU fit remain unverified. No resource, secret, key, settings or deploy approval
+is supplied by this choice. The old Node issuer remains dormant.
 
 ## Required implementation tests
 
