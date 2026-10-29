@@ -7,7 +7,7 @@ export const PIN_CLAIMS = Object.freeze(['iss', 'aud', 'sub', 'repository', 'rep
   'event_name', 'actor_id', 'run_id', 'run_attempt', 'runner_environment']);
 // Extras are informational only. Never use these instead of a required pin.
 const OPTIONAL_INFORMATIONAL = Object.freeze(['actor','repository_owner','repository_visibility',
-  'run_number','workflow','head_ref','base_ref','ref_type','check_run_id','ref_protected']);
+  'run_number','workflow','head_ref','base_ref','ref_type','check_run_id']);
 const OPTIONAL_WORKFLOW = Object.freeze(['job_workflow_ref','job_workflow_sha']);
 export function validateWorkloadHeader(header,pins){
   check(header&&Object.getPrototypeOf(header)===Object.prototype);
