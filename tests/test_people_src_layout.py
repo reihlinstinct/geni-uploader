@@ -1,5 +1,6 @@
 """Migration regression guards, preserving compatibility without duplicate logic."""
 import ast
+import hashlib
 import subprocess
 import sys
 from pathlib import Path
@@ -27,9 +28,10 @@ def test_fresh_import_order_identity():
 
 
 def test_move_is_byte_identical_to_reviewed_pre_move_source():
-    before = subprocess.check_output(
-        ["git", "show", "782fadd5934c63a1eb91bd740b7a8e8c6b8c9468:people_core.py"], cwd=ROOT)
-    assert (ROOT / "src/geni_uploader/core/people.py").read_bytes() == before
+    # Reviewed pre-move bytes, independent of shallow-checkout git history.
+    assert hashlib.sha256((ROOT / "src/geni_uploader/core/people.py").read_bytes()).hexdigest() == (
+        "fb5878fe39ca2f245ed9e520c17c7fafd86fa6c8fb2393fd6fe4ca4b28ebf651"
+    )
 
 
 def test_runtime_callers_use_canonical_import_not_legacy_facade():
@@ -46,3 +48,11 @@ def test_runtime_callers_use_canonical_import_not_legacy_facade():
     assert "people_core" not in docker and "geni_uploader" not in docker
     assert "COPY geni_upload.py /opt/geni_upload.py" in docker
     assert "COPY source_details.py /opt/source_details.py" in docker
+
+
+def test_existing_offline_cli_from_outside_checkout(tmp_path):
+    for name in ["parent_plan.py", "parent_output.py", "parent_probe.py"]:
+        result = subprocess.run([sys.executable, str(ROOT / name), "--help"],
+                                check=False, cwd=tmp_path, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+        assert "usage:" in result.stdout.lower()
