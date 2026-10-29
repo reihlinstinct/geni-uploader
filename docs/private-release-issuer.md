@@ -7,10 +7,15 @@ match. It correlates the current sole approved public job and immutable workflow
 with the existing live capture checks, then verifies the private persistent
 issuance reservation before signing. Public output is never produced.
 
-A separately provisioned exclusive-purpose Ed25519 key must be in a 0600 regular
-file (not symlink); derived public SPKI and digest must equal exact issuer config.
-Temporary raw key bytes are zeroed after parsing; the in-memory key remains
-sensitive. This is not a key-provisioning path. Synthetic tests generate ephemeral
+A separately provisioned exclusive-purpose Ed25519 key is opened with
+O_NOFOLLOW/O_NONBLOCK. The same descriptor must report a regular file owned by
+the process uid, exactly mode0600 including no special bits, and size1..4096. A
+bounded <=4097-byte read from that descriptor rejects growth/size mismatch. Raw
+bytes are zeroed and the descriptor closed on success or failure. Public SPKI
+and digest must match exact issuer config. These checks avoid pathname
+substitution after open; they do not prove safe parent-directory custody, prevent
+a same-uid process modifying the inode, or establish deployment provenance. The
+in-memory parsed key remains sensitive. This is not a key-provisioning path. Synthetic tests generate ephemeral
 keys only. The key signs only the exact father policy format, no other protocol.
 
 The <=15-minute canonical policy is generated with a random grant ID and
@@ -28,3 +33,16 @@ not turn current API correlation into historical or independent-review proof.
 Failure after reservation leaves it spent. Fixed errors intentionally disclose no
 key, token, raw approval or provider response. Inspect private state; never retry
 issuance automatically. Late-expiry recovery remains separately authorized.
+
+
+## Expiry and descriptor regressions (#387)
+
+Approval issued_at <= server now < expires_at is required before capture,
+again before reservation and again immediately before signature. Expiry during
+capture causes no reservation; expiry during reservation stops with the slot
+spent, no signature or retry. Generated release expiry is capped by the approval
+expiry as well as the configured <=15-minute duration. Zero clock skew applies.
+Tests spy on the actual crypto sign function on failure paths, use syntactically
+valid but different pins, and cover remote reservation readback failure, key uid,
+symlink, pathname substitution, special permissions, oversized/growing reads and
+read errors with byte zeroing/descriptor close checks. No live key was used.
