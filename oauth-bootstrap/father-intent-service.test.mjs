@@ -35,3 +35,10 @@ test('authenticated approval and evidence but wrong token-self blocks before dur
  t.mock.method(globalThis,'fetch',async u=>{if(u==='https://token.actions.githubusercontent.com/.well-known/jwks')return Response.json({keys:[jwk]});const i=f.urls.indexOf(u),body=structuredClone(f.bodies[i]);if(u.startsWith('https://www.geni.com/api/profile?'))body.id='profile-999099';return Response.json(body);});
  const tok=await token(c.workload_pins);assert.equal((await service.fetch(req(tok,c.plan),env)).status,403);assert.equal(l.data.size,0);
 });
+
+test('authenticated execute route still hits unconditional release gate before intent or vendor POST',async t=>{
+ const c=fixture(),env={FATHER_INTENT_CONFIG:JSON.stringify(c),FATHER_SERVICE_LOCAL_REHEARSAL:'local-only-no-geni',FATHER_EXECUTOR_PAYLOAD_JSON:JSON.stringify({ZZ:'synthetic'})},l=local(env),f=withEvidence(env,c);let posts=0;
+ t.mock.method(globalThis,'fetch',async(u,o)=>{if(o?.method==='POST')posts++;if(u==='https://token.actions.githubusercontent.com/.well-known/jwks')return Response.json({keys:[jwk]});return Response.json(f.bodies[f.urls.indexOf(u)]);});
+ const r=await service.fetch(new Request('https://service.invalid/execute',{method:'POST',body:JSON.stringify({workload_token:await token(c.workload_pins),plan_hash:c.plan,uploads})}),env);
+ assert.equal(r.status,409);assert.equal(l.data.size,0);assert.equal(posts,0);
+});

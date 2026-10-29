@@ -33,24 +33,26 @@ export async function executeDurableFather(storage,binding,approvedPayload,token
  requireFatherRelease(); // ALWAYS throws in shipped code, before state or network.
  payload(approvedPayload,binding);need(typeof token==='string'&&/^[A-Za-z0-9._~-]{8,4096}$/.test(token));
  const store=new OfflineCreateIntentCandidate(storage,binding.owner);await store.consume(binding,0);
- let version=1,created=null;
+ let version=1,created=null;const evidence={schema_version:1,mode:'private_post_write_evidence',binding:structuredClone(binding),acknowledgment:null,profile:null,family:null,union:null};
  try{
   await accountEvidence(storage,binding,prewrite);
   const ack=await fixedRequest('POST',binding.owner+'/add-parent',token,approvedPayload);
+  evidence.acknowledgment=ack.value;
   need(typeof ack.value.id==='string'&&/^profile-[1-9][0-9]{0,29}$/.test(ack.value.id)&&ack.value.id!==binding.owner);created=ack.value.id;
   // Record returned ID immediately, before any later readback/evidence failure.
   await store.advance(binding,1,'acknowledge',ack.hash,created);version=2;
   const profile=await fixedRequest('GET',created+'?only_ids=true',token);
+  evidence.profile=profile.value;
   need(profile.value.id===created&&profile.value.public===false&&profile.value.is_alive===approvedPayload.is_alive&&profile.value.gender==='male'&&canonical(profile.value.names)===canonical(approvedPayload.names)&&Object.keys(approvedPayload.names.en).every(k=>profile.value[k]===approvedPayload[k]));
-  const family=await fixedRequest('GET',binding.owner+'/immediate-family?only_ids=true',token);need(family.value.focus?.id===binding.owner&&family.value.nodes&&typeof family.value.nodes==='object'&&!Array.isArray(family.value.nodes)&&Object.keys(family.value.nodes).length<=100);
+  const family=await fixedRequest('GET',binding.owner+'/immediate-family?only_ids=true',token);evidence.family=family.value;need(family.value.focus?.id===binding.owner&&family.value.nodes&&typeof family.value.nodes==='object'&&!Array.isArray(family.value.nodes)&&Object.keys(family.value.nodes).length<=100);
   for(const [id,node]of Object.entries(family.value.nodes))need(node&&node.id===id&&/^(profile|union)-[1-9][0-9]{0,29}$/.test(id));
   need(family.value.nodes[created]?.id===created&&family.value.nodes[binding.owner]?.id===binding.owner);
   const unions=Object.values(family.value.nodes).filter(x=>/^union-[1-9][0-9]{0,29}$/.test(x?.id)&&Array.isArray(x.children)&&x.children.includes(binding.owner));need(unions.length===1);const uid=unions[0].id;
-  const union=await fixedRequest('GET',uid+'?only_ids=true',token);need(union.value.id===uid&&canonical(union.value.partners)===canonical([created])&&canonical(union.value.children)===canonical([binding.owner])&&(!union.value.adopted_children||union.value.adopted_children.length===0)&&(!union.value.foster_children||union.value.foster_children.length===0));
+  const union=await fixedRequest('GET',uid+'?only_ids=true',token);evidence.union=union.value;need(union.value.id===uid&&canonical(union.value.partners)===canonical([created])&&canonical(union.value.children)===canonical([binding.owner])&&(!union.value.adopted_children||union.value.adopted_children.length===0)&&(!union.value.foster_children||union.value.foster_children.length===0));
   // No VERIFIED claim until encrypted post-write evidence persistence is joined.
-  await store.advance(binding,version,'uncertain',hash(canonical({profile:profile.hash,family:family.hash,union:union.hash})));return{phase:'consumed_readback_consistent_evidence_pending',created_id:created,post_write_evidence_durable:false,retry_allowed:false,production_enabled:false};
+  await store.advance(binding,version,'uncertain',hash(canonical({profile:profile.hash,family:family.hash,union:union.hash})));return{phase:'consumed_readback_consistent_evidence_pending',created_id:created,private_evidence:evidence,post_write_evidence_durable:false,retry_allowed:false,production_enabled:false};
  }catch{
   try{await store.advance(binding,version,'uncertain',hash('uncertain:'+version+':'+(created??'unknown')));}catch{/* consumed state remains authoritative even if transition fails */}
-  return{phase:'consumed_uncertain',created_id:created,retry_allowed:false,production_enabled:false};
+  return{phase:'consumed_uncertain',created_id:created,private_evidence:evidence,post_write_evidence_durable:false,retry_allowed:false,production_enabled:false};
  }
 }

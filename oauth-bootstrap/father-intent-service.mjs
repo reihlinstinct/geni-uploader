@@ -1,4 +1,5 @@
 // Unreleased authenticated service composition. No Geni endpoint or deployment.
+import {executeDurableFather} from './durable-father-executor.mjs';
 import {OfflineCreateIntentCandidate} from './create-intent-candidate.mjs';
 import {verifyTrustedWorkload} from './trusted-workload-jwks.mjs';
 import {verifyOwnerPreflight} from './owner-preflight.mjs';
@@ -26,7 +27,7 @@ function binding(c){return{owner:c.owner,connection:c.connection,plan:c.plan,pay
  */
 export default {async fetch(request,env){
  try{
-  const c=config(env);need(request.method==='POST'&&new URL(request.url).pathname==='/consume');
+  const c=config(env),route=new URL(request.url).pathname;need(request.method==='POST'&&['/consume','/execute'].includes(route));
   // This module cannot be released by setting a request bool. Its existing mode
   // is consumed only by local workerd rehearsal; production route stays closed.
   need(env.FATHER_SERVICE_LOCAL_REHEARSAL==='local-only-no-geni');
@@ -45,7 +46,7 @@ export default {async fetch(request,env){
   need(Math.floor(Date.now()/1000)<c.expires_at);
   need(env.FATHER_OWNER_INTENTS&&typeof env.FATHER_OWNER_INTENTS.idFromName==='function');
   const stub=env.FATHER_OWNER_INTENTS.get(env.FATHER_OWNER_INTENTS.idFromName('father-owner:'+c.owner));
-  return await stub.fetch(new Request('https://owner-intent.invalid/consume',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({binding:binding(c)})}));
+  return await stub.fetch(new Request('https://owner-intent.invalid'+route,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(route==='/execute'?{binding:binding(c),prewrite:approval.evidence.descriptor}:{binding:binding(c)})}));
  }catch{return Response.json({phase:'blocked',production_enabled:false,retry_allowed:false},{status:403});}
 }};
 /** Real SQLite-backed DO wrapper. No public namespace route beyond service fetch.
@@ -57,9 +58,16 @@ export class FatherOwnerIntent {
  async fetch(request){
   try{
    const c=config(this.env);need(this.env.FATHER_SERVICE_LOCAL_REHEARSAL==='local-only-no-geni');
-   need(request.method==='POST'&&new URL(request.url).pathname==='/consume');
-   const text=await request.text();need(text.length<=4096);const body=JSON.parse(text);exact(body,['binding']);
+   const route=new URL(request.url).pathname;need(request.method==='POST'&&['/consume','/execute'].includes(route));
+   const text=await request.text();need(text.length<=4096);const body=JSON.parse(text);exact(body,route==='/execute'?['binding','prewrite']:['binding']);
    need(JSON.stringify(body.binding)===JSON.stringify(binding(c)));
+   if(route==='/execute'){
+    // Payload and credential are deployment owned, never request fields.
+    need(typeof this.env.FATHER_EXECUTOR_PAYLOAD_JSON==='string'&&this.env.FATHER_EXECUTOR_PAYLOAD_JSON.length<=65536);
+    const payload=JSON.parse(this.env.FATHER_EXECUTOR_PAYLOAD_JSON);need(JSON.stringify(payload)===this.env.FATHER_EXECUTOR_PAYLOAD_JSON);
+    const d=body.prewrite;need(d&&d.stage==='pre_write');
+    return Response.json(await executeDurableFather(this.ctx.storage,binding(c),payload,this.env.GENI_SECONDARY_ACCESS_TOKEN,{sha256:d.sha256,byte_length:d.byte_length,stage:d.stage,operation_binding:d.operation_binding,run_id:d.run_id,recipient:d.recipient}));
+   }
    const store=new OfflineCreateIntentCandidate(this.ctx.storage,c.owner);
    const value=await store.consume(binding(c),0);
    return Response.json({phase:value.phase,version:value.version,production_enabled:false,post_permitted:false});
