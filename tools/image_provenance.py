@@ -100,11 +100,19 @@ def workflow_image(text: str) -> str:
     return pins[0].strip("'\"")
 
 
+def _uncommented(text: str) -> list[str]:
+    return [line for line in _logical_lines(text) if not line.lstrip().startswith("#")]
+
+
 def workflow_runs(text: str) -> list[list[str]]:
+    """One token list per `docker run`, so runs chained on one line are checked separately."""
     runs = []
-    for line in _logical_lines(text):
-        if re.search(r"\bdocker\s+run\b", line):
-            runs.append(line.split())
+    for line in _uncommented(text):
+        tokens = line.split()
+        starts = [i for i in range(len(tokens) - 1) if tokens[i:i + 2] == ["docker", "run"]]
+        for n, start in enumerate(starts):
+            end = starts[n + 1] if n + 1 < len(starts) else len(tokens)
+            runs.append(tokens[start:end])
     return runs
 
 
@@ -122,7 +130,8 @@ def check_runs(runs: list[list[str]], image_paths: set[str]) -> None:
             if script not in image_paths:
                 raise ProvenanceError(f"docker run calls {script}, which the image does not contain")
         if "--entrypoint" in tokens:
-            override = tokens[tokens.index("--entrypoint") + 1]
+            at = tokens.index("--entrypoint")
+            override = tokens[at + 1] if at + 1 < len(tokens) else None
             if override != "python" or not scripts:
                 raise ProvenanceError("an --entrypoint override must be python with an /opt script")
 
@@ -203,7 +212,7 @@ def check(root: Path, descriptor_path: Path, allow_missing_revision: bool = Fals
     check_runs(runs, copied)
     # An --entrypoint hidden in an argument array would bypass check_runs.
     in_runs = sum(tokens.count("--entrypoint") for tokens in runs)
-    if workflow.count("--entrypoint") != in_runs:
+    if sum(line.count("--entrypoint") for line in _uncommented(workflow)) != in_runs:
         raise ProvenanceError("--entrypoint may only appear literally on a docker run line")
 
     notes = []

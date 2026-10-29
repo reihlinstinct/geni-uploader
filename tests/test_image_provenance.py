@@ -276,6 +276,30 @@ def test_workflow_routing_mismatches_fail(repo, old, new, match):
     fails(root, descriptor_for(root, rev), match)
 
 
+@pytest.mark.parametrize("old,new,match", [
+    # Review 5697494171: a trailing --entrypoint is a clean refusal, not an IndexError.
+    ('"$IMAGE" plan', '"$IMAGE" plan --entrypoint', 'entrypoint override'),
+    # A second run chained on the same line is checked on its own, whatever the registry.
+    ('"$IMAGE" plan', '"$IMAGE" plan && docker run quay.io/zz/other:1 plan', 'target the pinned'),
+    ('"$IMAGE" plan', '"$IMAGE" plan; docker run registry.example.invalid/zz plan',
+     'target the pinned'),
+    ('--entrypoint python', '--entrypoint=sh', 'only appear literally'),
+])
+def test_review_edge_cases_fail_closed(repo, old, new, match):
+    root, rev = repo
+    wf = root / ip.WORKFLOW
+    wf.write_text(wf.read_text().replace(old, new))
+    fails(root, descriptor_for(root, rev), match)
+
+
+def test_comments_mentioning_the_flag_do_not_false_positive(repo):
+    root, rev = repo
+    wf = root / ip.WORKFLOW
+    wf.write_text(wf.read_text().replace(
+        "      - run: |", "      # never pass --entrypoint sh here\n      - run: |"))
+    assert ip.check(root, descriptor_for(root, rev))
+
+
 def test_workflow_without_docker_run_fails(repo):
     root, rev = repo
     wf = root / ip.WORKFLOW
@@ -293,6 +317,7 @@ def test_real_dockerfile_and_workflow_routing_are_consistent():
     assert ip.IMAGE_RE.fullmatch(ip.workflow_image(workflow))
     runs = ip.workflow_runs(workflow)
     ip.check_runs(runs, set(copies))
-    assert workflow.count("--entrypoint") == sum(t.count("--entrypoint") for t in runs)
+    lines = ip._uncommented(workflow)
+    assert sum(x.count("--entrypoint") for x in lines) == sum(t.count("--entrypoint") for t in runs)
     for src in copies.values():
         assert (ROOT / src).is_file()

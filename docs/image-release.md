@@ -36,6 +36,7 @@ A JSON object with exactly these keys:
    - every `/opt/*.py` it calls is in the image
    - `--entrypoint` is only `python` with such a script, and it only appears literally
      on a `docker run` line, never hidden in an argument array
+   - runs chained on one line (`&&`, `;`) are checked one by one, and comment lines are ignored
 7. The descriptor's files don't match `git show <engine_revision>:<path>`. When the
    commit isn't in the local clone the check fails closed. `--allow-missing-revision`
    downgrades this to an explicit "NOT verified" note.
