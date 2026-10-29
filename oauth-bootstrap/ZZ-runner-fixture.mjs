@@ -17,7 +17,10 @@ function mockGitAndService(t,f,fault,serviceOverride,externalOverride){
  t.mock.method(globalThis,'fetch',async(u,o)=>{
   requests++;assert.equal(o.redirect,'manual');let body;
   if(externalOverride){const out=await externalOverride(u,o);if(out!==undefined)return out;}
-  if(u.startsWith('https://zz-service.invalid')){
+  const serviceUrl=new URL(u);
+  if(serviceUrl.origin==='https://zz-service.invalid'&&!serviceUrl.username&&!serviceUrl.password){
+   assert.ok(['/journal','/execute','/reserve','/complete'].includes(serviceUrl.pathname));
+   assert.equal(serviceUrl.search,'');assert.equal(serviceUrl.hash,'');
    if(serviceOverride)return serviceOverride(u,o);
    const r=JSON.parse(o.body);assert.equal(r.workload_token,f.env.FATHER_WORKLOAD_TOKEN);assert.equal(r.plan_hash,f.config.binding.plan);
    if(u.endsWith('/journal'))return Response.json({phase:'opaque_progress_durable',sequence:r.entry.sequence,sha256:sha(JSON.stringify(r.entry)),retry_allowed:false,production_enabled:false});
