@@ -157,3 +157,19 @@ def test_plan_fingerprint_excludes_only_dynamic_capture():
     r['pins']['payload_hash'] = '0'*64
     assert plan_fingerprint(r) != original
 
+
+
+def test_capture_decision_binds_actual_job_run_and_static_plan(monkeypatch, tmp_path):
+    from people_core import digest
+    setup(monkeypatch)
+    path = tmp_path/'ZZ.json'
+    result = collect_from_environment(path)
+    record = json.loads(path.read_text())
+    decision = result['decision']
+    assert decision['job_id'] == '46'
+    assert decision['run_id'] == '42'
+    assert decision['run_attempt'] == 1
+    assert decision['plan_fingerprint'] == plan_fingerprint(record)
+    for role in ('owner_grant', 'protected_review'):
+        assert record['sources'][role]['source_ref'] == digest(decision)
+        assert record['sources'][role]['content_hash'] == decision['review_content_hash']
