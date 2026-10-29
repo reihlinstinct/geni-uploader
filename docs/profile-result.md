@@ -15,7 +15,8 @@ explicitly keeps `production_enabled` and `provenance_authenticated` false.
 
 Record the vendor-returned API `profile_id` separately from the vendor-returned
 `profile_url`. Do not construct a URL from the API id: URL GUID and API profile
-id are distinct identifiers. The URL checker accepts only an HTTPS www.geni.com
+id are distinct identifiers. Equal digits in those identifiers are not proof
+of identity either. The URL checker accepts only an HTTPS www.geni.com
 people path with a nonempty name segment and positive numeric GUID, with no
 credentials, port, query, fragment or encoded path separator. It does not fetch
 that URL or prove that it resolves to the API id. Other vendor URL formats are

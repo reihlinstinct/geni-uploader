@@ -120,3 +120,41 @@ def test_encoded_hebrew_name_segment_allowed_without_decoding_into_new_url():
     value = fixture()
     value['profile_url'] = 'https://www.geni.com/people/%D7%90%D7%91/999003'
     assert validate(value, value['pins'])['profile_url'] == value['profile_url']
+
+
+@pytest.mark.parametrize('version', [0, 2, -1, '1', None])
+def test_schema_version_exact_one(version):
+    value = fixture()
+    value['schema_version'] = version
+    with pytest.raises(Blocked):
+        validate(value, fixture()['pins'])
+
+
+def test_source_cap_isolated_with_distinct_refs():
+    value = fixture()
+    value.update(phase=PHASES[2], readback_ref='b'*64,
+                 source_refs=[f'{n:064x}' for n in range(100)])
+    assert len(validate(value, value['pins'])['source_refs']) == 100
+    value['source_refs'].append(f'{100:064x}')
+    with pytest.raises(Blocked):
+        validate(value, value['pins'])
+
+
+@pytest.mark.parametrize('url', ['https://www.geni.com/foo/ZZ/1',
+                                'https://www.geni.com/peoplex/ZZ/1'])
+def test_people_path_prefix_required(url):
+    value = fixture()
+    value['profile_url'] = url
+    with pytest.raises(Blocked):
+        validate(value, value['pins'])
+
+
+@pytest.mark.parametrize('key,bad', [('owner', 'profile-self'), ('owner', 'profile-0'),
+                                   ('owner', 123), ('payload_hash', 'ZZ'),
+                                   ('run_hash', 'A'*64), ('artifact_hash', 1),
+                                   ('approval_hash', 'a'*63)])
+def test_equal_expected_and_supplied_malformed_pins_rejected(key, bad):
+    value = fixture()
+    value['pins'][key] = bad
+    with pytest.raises(Blocked):
+        validate(value, deepcopy(value['pins']))
