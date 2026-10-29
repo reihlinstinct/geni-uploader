@@ -15,7 +15,7 @@ jobs:
   probe:
     if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && github.actor == 'reihl' && github.triggering_actor == 'reihl' && inputs.confirm == 'TEST' }}
     environment: token-probe
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

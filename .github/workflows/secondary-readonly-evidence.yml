@@ -26,7 +26,7 @@ jobs:
   collect:
     if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && github.actor == 'reihlinstinct' && github.triggering_actor == 'reihlinstinct' && github.run_attempt == 1 && inputs.confirm == 'READ_ONLY' }}
     environment: secondary-readonly-evidence
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
     env:
       AGE_VERSION: v1.3.2
