@@ -115,3 +115,52 @@ def test_owner_grant_is_same_exact_protected_review_action(field):
     r['sources']['protected_review'][field] = 'e' * 64
     with pytest.raises(Blocked):
         check(r, r, 200)
+
+
+def test_revocation_epoch_upper_bound_independent_of_expectation():
+    r = fixture()
+    r['revocation_epoch'] = 2**40
+    with pytest.raises(Blocked):
+        check(r, r, 200)
+
+
+@pytest.mark.parametrize('role', SOURCE_KINDS)
+def test_leading_zero_principal_id_even_with_correct_role_relations(role):
+    r = fixture()
+    r['sources'][role]['principal_id'] = '0' + r['sources'][role]['principal_id']
+    if role in ('owner_grant', 'protected_review'):
+        r['sources']['owner_grant']['principal_id'] = '0999003'
+        r['sources']['protected_review']['principal_id'] = '0999003'
+    with pytest.raises(Blocked):
+        check(r, r, 200)
+
+
+@pytest.mark.parametrize('role', SOURCE_KINDS)
+def test_unknown_field_inside_each_source(role):
+    r = fixture()
+    r['sources'][role]['caller_human_claim'] = True
+    with pytest.raises(Blocked):
+        check(r, r, 200)
+
+
+def test_production_none_is_not_bool_false():
+    r = fixture()
+    r['production_enabled'] = None
+    with pytest.raises(Blocked):
+        check(r, r, 200)
+
+
+@pytest.mark.parametrize('field', ['payload_hash', 'executor_sha'])
+def test_uppercase_hex_pin_even_when_expected_and_review_head_agree(field):
+    r = fixture()
+    r['pins'][field] = r['pins'][field].upper()
+    if field == 'executor_sha':
+        r['reviewed_executor_sha'] = r['pins'][field]
+    with pytest.raises(Blocked):
+        check(r, r, 200)
+
+
+def test_non_int_now_in_valid_time_window():
+    r = fixture()
+    with pytest.raises(Blocked):
+        check(r, r, 200.0)
