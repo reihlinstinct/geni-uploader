@@ -61,7 +61,7 @@
    "path": ".github/workflows/oauth-bootstrap-test.yml",
    "rule": "unhashed-pip-install",
    "scope": "dependencies",
-   "evidence": "python -m pip install -r requirements-dev.txt",
+   "evidence": "pip install -r requirements-dev.txt",
    "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
    "reason": "Pre-existing pip install without --require-hashes; resolves unhashed dependencies; tracked for hash pinning in this issue."
   },
@@ -77,7 +77,7 @@
    "path": "Dockerfile",
    "rule": "unhashed-pip-install",
    "scope": "dependencies",
-   "evidence": "pip install --no-cache-dir \"PyYAML==6.0.3\"",
+   "evidence": "pip install --no-cache-dir PyYAML==6.0.3",
    "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
    "reason": "Pre-existing pip install without --require-hashes; resolves unhashed dependencies; tracked for hash pinning in this issue."
   },
