@@ -106,7 +106,16 @@ See [docs/usage.md](docs/usage.md) for detailed usage, exit codes, verification,
 
 ## Usage: GitHub Action
 
-The service workflow is manual dispatch only, triggered only by the personal account (`reihl`). Agents develop and test offline only and never dispatch or schedule it. See [docs/privacy.md](docs/privacy.md) for the access policy and workflow execution rules.
+The source-upload service workflow (`geni-upload.yml`) remains manual dispatch
+only, with actor and triggering actor restricted to the personal account
+(`reihl`). Agents do not invoke or schedule that write workflow. This is not a
+blanket description of every workflow: a separate read-only evidence
+workflow has an assistant actor condition and is intended to require protected
+human environment review; verify effective settings before each authorized run.
+It cannot create profiles or upload sources. See
+[workflow authority](docs/workflow-authority.md) for the distinction between
+current code, deployment settings and the unreleased profile-creation design,
+and [privacy](docs/privacy.md) for data handling. No exact-run approval is implied.
 
 ## Expected private repository structure
 
@@ -226,3 +235,13 @@ The last started stage identifies the check that did not complete. Partial item
 passes do not mean the whole plan passed. Only `plan_checked result=pass` confirms
 all pre-mutation checks completed, not that a repair succeeded. Repair and snapshot
 emit their own pass marker after completion. No extra service calls or write permissions are added.
+
+
+Read-only metadata plans require a token and exit nonzero before identity checks
+when no token is available. This is intentional: an unverified plan cannot be
+complete or ready. Optional summary persistence never replaces the plan outcome.
+
+An upload `plan` without a token can return exit code 0 for a local preview,
+but its report remains incomplete and says `Safe to run: no`. Exit code 0
+alone does not prove readiness or authorize a write. This differs from the
+metadata `details-plan` above, which exits nonzero when no token is available.

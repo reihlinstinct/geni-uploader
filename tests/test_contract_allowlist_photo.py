@@ -165,6 +165,7 @@ import geni_upload, source_details
 def _no_network(*args, **kwargs):
     raise AssertionError("execute must not run in the allowlist probe")
 geni_upload.execute = _no_network
+geni_upload.get_token = lambda args: "ZZsynthetic-probe-token"
 seen = []
 def _stop(items, token):
     seen.append(sorted(geni_upload.ALLOWLIST))

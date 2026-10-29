@@ -12,6 +12,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import geni_upload as api
+import plan_report
 
 FIELDS = {"document": {"title", "description", "date", "labels"},
           "photo": {"title", "description", "date"}}
@@ -446,10 +447,14 @@ def main():
     parser.add_argument("--sync-state", action="store_true")
     args = parser.parse_args()
     stack = ExitStack()
+    summary = plan_report.report("details-plan")
     try:
         diagnostic("schema")
         items = load_records(args.manifest)
         diagnostic("schema", "pass")
+        summary["counts"] = plan_report.details_counts(items)
+        summary["checks"]["schema"] = "pass"
+        summary["checks"]["listing"] = "not_required"
         if args.mode == "validate":
             print("source-details schema valid")
             return 0
@@ -467,6 +472,8 @@ def main():
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         diagnostic("token")
         token = api.get_token(args)
+        if args.mode == "plan" and not token:
+            raise api.ApiError("plan requires token for complete verification")
         diagnostic("token", "pass")
         api.ALLOWLIST.update({("GET", "document"), ("GET", "photo"),
                               ("POST", "document_update"), ("POST", "photo_update")})
@@ -475,7 +482,12 @@ def main():
             snapshot(items, token, args.output)
             diagnostic("snapshot", "pass")
         else:
+            summary["checks"]["identity"] = "fail"
+            summary["checks"]["preconditions"] = "fail"
             plan = checked_plan(items, token)
+            summary["checks"]["identity"] = "pass"
+            summary["checks"]["preconditions"] = "pass"
+            summary["complete"] = True
             if args.mode == "repair":
                 diagnostic("repair")
                 apply_plan(plan, token, args.state, args.sync_state)
@@ -502,6 +514,8 @@ def main():
         return 1
     finally:
         stack.close()
+        if args.mode == "plan":
+            plan_report.save(summary)
 
 
 if __name__ == "__main__":
