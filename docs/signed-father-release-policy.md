@@ -28,3 +28,14 @@ custody, public pin and revocation/one-use behavior, not merely name this design
 23 tests cover field/signature/key/expiry mutations, attacker self-signed envelope,
 valid signed overlong expiry, and real workerd Ed25519 verification. No external
 HTTP, production signing, configuration, deployment, gate or workflow changes.
+
+## Enforcement limits clarified (#373-#376)
+
+This verifier does NOT enforce single-use. The dormant adapter consumes the
+signed grant/run atomically in the canonical owner's SQLite object, separately
+from permanent intent consume. The shipped rejecting guard still does not invoke
+that adapter. Clock skew allowance is zero. The signed message has no domain
+prefix, so the issuer's dedicated key must sign nothing except this exact policy
+format. The issuer identity, exclusive-purpose key custody and pinned public key
+must be concrete in the approval manifest. Additional tests re-sign each invalid
+field, check key-ID mismatch/wrong key types, and reject non-canonical JSON.

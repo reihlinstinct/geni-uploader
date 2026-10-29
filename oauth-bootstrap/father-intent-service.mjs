@@ -88,7 +88,7 @@ export class FatherOwnerIntent {
    need(JSON.stringify(body.binding)===JSON.stringify(binding(c)));
    if(route==='/journal')return Response.json(await appendDurableProgress(this.ctx.storage,binding(c),c.approved_run,body.entry));
    if(route==='/journal-read')return Response.json(await inspectDurableProgress(this.ctx.storage,binding(c),c.approved_run));
-   if(route==='/recover')return Response.json(await collectDurableFatherRecovery(this.ctx.storage,binding(c),this.env.GENI_SECONDARY_ACCESS_TOKEN));
+   if(route==='/recover')return Response.json(await collectDurableFatherRecovery(this.ctx.storage,binding(c),this.env.GENI_SECONDARY_ACCESS_TOKEN,this.env,c.approved_run));
    if(route==='/reserve')return Response.json(await reservePostwriteBudget(this.ctx.storage,binding(c),c.approved_run));
    // Receipt-only: never authorizes a vendor operation. Re-running owner graph
   // preflight after a create would reject the now-existing parent. Original
@@ -102,7 +102,7 @@ export class FatherOwnerIntent {
     need(typeof this.env.FATHER_EXECUTOR_PAYLOAD_JSON==='string'&&this.env.FATHER_EXECUTOR_PAYLOAD_JSON.length<=65536);
     const payload=JSON.parse(this.env.FATHER_EXECUTOR_PAYLOAD_JSON);need(JSON.stringify(payload)===this.env.FATHER_EXECUTOR_PAYLOAD_JSON);
     const d=body.prewrite;need(d&&d.stage==='pre_write');
-    return Response.json(await executeDurableFather(this.ctx.storage,binding(c),payload,this.env.GENI_SECONDARY_ACCESS_TOKEN,{sha256:d.sha256,byte_length:d.byte_length,stage:d.stage,operation_binding:d.operation_binding,run_id:d.run_id,recipient:d.recipient}));
+    return Response.json(await executeDurableFather(this.ctx.storage,binding(c),payload,this.env.GENI_SECONDARY_ACCESS_TOKEN,{sha256:d.sha256,byte_length:d.byte_length,stage:d.stage,operation_binding:d.operation_binding,run_id:d.run_id,recipient:d.recipient},this.env,c.approved_run));
    }
    const store=new OfflineCreateIntentCandidate(this.ctx.storage,c.owner);
    const value=await store.consume(binding(c),0);
