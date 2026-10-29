@@ -51,6 +51,8 @@ jobs:
           docker inspect --format='digest: {{index .RepoDigests 0}}' "$TAG"
 
   summary:
+    permissions:
+      contents: read
     name: Run summary
     if: always()
     needs: [build]

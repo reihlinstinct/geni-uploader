@@ -63,6 +63,8 @@ jobs:
           retention-days: 1
 
   summary:
+    permissions:
+      contents: read
     name: Run summary
     if: always()
     needs: [collect]

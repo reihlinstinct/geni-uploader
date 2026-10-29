@@ -44,6 +44,8 @@ jobs:
           node --test oauth-bootstrap/entrypoint-success.test.mjs oauth-bootstrap/authenticated-runner.test.mjs oauth-bootstrap/protected-father-runner.test.mjs oauth-bootstrap/protected-job-evidence.test.mjs oauth-bootstrap/post-write-job-handoff.test.mjs
 
   summary:
+    permissions:
+      contents: read
     name: Run summary
     if: always()
     needs: [offline]

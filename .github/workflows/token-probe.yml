@@ -28,6 +28,8 @@ jobs:
         run: python3 -I tools/token-probe/check.py
 
   summary:
+    permissions:
+      contents: read
     name: Run summary
     if: always()
     needs: [probe]
