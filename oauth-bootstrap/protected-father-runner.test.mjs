@@ -5,7 +5,7 @@ test('protected runner joins real private approval + age uploads + service execu
  const entries=s.trees.get(s.tree),pre=s.blobs.get(entries.find(e=>e.path==='ZZ-pre.age').sha),post=s.blobs.get(entries.find(e=>e.path==='ZZ-post.age').sha);
  assert.deepEqual(execFileSync('age',['-d','-i',key],{input:pre}),f.prewriteBytes);assert.deepEqual(JSON.parse(execFileSync('age',['-d','-i',key],{input:post})),{result_phase:f.result.phase,created_id:f.result.created_id,evidence:f.result.private_evidence});
 });
-for(const fault of ['execute','postupload','complete'])test('runner response loss '+fault+' never retries create',{skip:!key},async t=>{const f=fixture(),state=mockGitAndService(t,f,fault);await assert.rejects(runProtectedFatherJob(f.env,f.approvalBytes,f.prewriteBytes,()=>{}),e=>e.execute_attempted===true);assert.equal(state().execute,1);});
+for(const fault of ['execute','reserve','postupload','complete'])test('runner response loss '+fault+' never retries create',{skip:!key},async t=>{const f=fixture(),state=mockGitAndService(t,f,fault);await assert.rejects(runProtectedFatherJob(f.env,f.approvalBytes,f.prewriteBytes,()=>{}),e=>e.execute_attempted===true);assert.equal(state().execute,1);});
 test('runner invalid config stops before write',async t=>{let n=0;t.mock.method(globalThis,'fetch',()=>n++);await assert.rejects(runProtectedFatherJob({},new Uint8Array([1]),new Uint8Array([2]),()=>{}),e=>e.execute_attempted===false);assert.equal(n,0);});
 
 test('journaled actual runner records private progress and disallows replay',{skip:!key},async t=>{

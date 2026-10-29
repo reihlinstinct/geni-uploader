@@ -84,3 +84,33 @@ export async function reservePostwriteBudget(storage,binding,runId){
   await tx.put('postwrite-reservation',reservation);return{phase:'postwrite_ciphertext_budget_reserved',byte_limit:reservation.byte_limit,prior_total:reservation.prior_total,retry_allowed:false,production_enabled:false};
  });
 }
+
+/** Fixed read-only recovery of an existing consumed operation. A possible new
+ * parent observed after lost acknowledgment is never assigned as created_id.
+ * Returned evidence is private and still needs encryption/persistence.
+ */
+export async function collectDurableFatherRecovery(storage,binding,token){
+ requireFatherRelease(); // unchanged unconditional production barrier
+ const snapshot=await storage.transaction(async tx=>{
+  const intent=await tx.get('intent');need(intent&&canonical(intent.binding)===canonical(binding)&&['consumed','acknowledged','uncertain'].includes(intent.phase)&&intent.production_enabled===false);
+  return{intent,ledger:await tx.get('evidence-ledger'),receipt:await tx.get('postwrite-receipt')??null};
+ });
+ need(typeof token==='string'&&/^[A-Za-z0-9._~-]{8,4096}$/.test(token));
+ const evidence={schema_version:1,mode:'private_read_only_recovery_evidence',binding:structuredClone(binding),intent:structuredClone(snapshot.intent),ledger:structuredClone(snapshot.ledger??null),receipt:structuredClone(snapshot.receipt),self:null,family:null,profile:null,union:null};
+ let complete=false;
+ try{
+  const self=await fixedRequest('GET','profile?only_ids=true',token);evidence.self=self.value;need(self.value.id===binding.owner);
+  const family=await fixedRequest('GET',binding.owner+'/immediate-family?only_ids=true',token);evidence.family=family.value;
+  need(family.value.focus?.id===binding.owner&&family.value.nodes&&Object.getPrototypeOf(family.value.nodes)===Object.prototype&&Object.keys(family.value.nodes).length<=100);
+  for(const[id,node]of Object.entries(family.value.nodes))need(node&&node.id===id&&/^(profile|union)-[1-9][0-9]{0,29}$/.test(id));
+  const known=snapshot.intent.created_id;
+  if(known!==null){
+   need(typeof known==='string'&&/^profile-[1-9][0-9]{0,29}$/.test(known)&&known!==binding.owner);
+   const profile=await fixedRequest('GET',known+'?only_ids=true',token);evidence.profile=profile.value;need(profile.value.id===known);
+   const unions=Object.values(family.value.nodes).filter(x=>/^union-[1-9][0-9]{0,29}$/.test(x?.id)&&Array.isArray(x.children)&&x.children.includes(binding.owner)&&Array.isArray(x.partners)&&x.partners.includes(known));
+   if(unions.length===1){const union=await fixedRequest('GET',unions[0].id+'?only_ids=true',token);evidence.union=union.value;need(union.value.id===unions[0].id);}
+  }
+  complete=true;
+ }catch{/* bounded partial read evidence remains private; never retries */}
+ return{phase:complete?'consumed_read_only_observations_collected':'consumed_read_only_observations_partial',created_id:snapshot.intent.created_id,private_evidence:evidence,observation_complete:complete,identity_resolved:snapshot.intent.created_id!==null,intent_verified:false,retry_allowed:false,production_enabled:false};
+}
