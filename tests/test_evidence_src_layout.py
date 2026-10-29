@@ -2,6 +2,7 @@
 import ast
 import hashlib
 import importlib
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -10,13 +11,13 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 MOVES = {
-    "approval_record": ("approval", "e33fce32ae3e479ebb8dbfed2049afe7f73c82fa87af839a90cf8760433fb3b4"),
-    "ciphertext_evidence": ("ciphertext", "61f1339557d8867231db26c84bdb8cab5a83c88da584383efb1966279b7e84b3"),
-    "github_review_evidence": ("github_review", "c0f37f28cccdcafa8bbe4d2d109a920b1f6fbd5923fc3cae083489923c7ed093"),
-    "workflow_content_contract": ("workflow_content", "a085345055d0f81198d3702368c63b616ac05baf88a1bdbb70e3ebe1c4cfce71"),
-    "parent_evidence": ("parent", "4f015b9e8cee42a51f2913b541464f9a7353bfb3bd2f14cab764889a37bf8da9"),
-    "profile_result": ("profile_result", "1dfc5c1d89afe9704ea1b146ac55ad260dbc697ca298ed03dc96cda91d396853"),
-    "single_human_approval_record": ("single_human_approval", "e97fe42e8d5bb928404f25a7795160167f9e2ffd1a7fdf6f85f0edd0193cce16"),
+    "approval_record": ("approval", "5f3ee84baaeb68b7bd7dc099321b02fe55acab0ce8ebdbb01f0fa22e156fdf12"),
+    "ciphertext_evidence": ("ciphertext", "4ff764cbd65360ca308390f56a0939621f70aa96c1b16e2a072bc72166720ebe"),
+    "github_review_evidence": ("github_review", "74689e9bda6e2c615935eb7da601ebef75e2c3b371255df46af6d63cae91db16"),
+    "workflow_content_contract": ("workflow_content", "f1d9d7804d572db1d024904fbe460c97c581ce3a084ccad0f475c7676f2f8e62"),
+    "parent_evidence": ("parent", "b51a48ddc47eebe79a158d960b6244573c3633bbe2ee444df39b5c7b1dd51818"),
+    "profile_result": ("profile_result", "71778b73a5483f6efcce2e4aa475773bb0fac8c7db7dddfbe4d5fc0e722d9a0c"),
+    "single_human_approval_record": ("single_human_approval", "42ca6e5f17e300e5a482b6e2a6df85632efbe83bf16825bbfef52fdf06e2762f"),
 }
 
 
@@ -31,7 +32,16 @@ def normalized_ast_hash(source):
     while end < len(tree.body) and isinstance(tree.body[end], (ast.Import, ast.ImportFrom)):
         end += 1
     tree.body[first:end] = sorted(tree.body[first:end], key=ast.dump)
-    return hashlib.sha256(ast.dump(tree, include_attributes=False).encode()).hexdigest()
+    def stable(node):
+        if isinstance(node, ast.AST):
+            return [type(node).__name__, [[key, stable(value)]
+                    for key, value in ast.iter_fields(node)
+                    if not (key == "type_params" and value == [])]]
+        if isinstance(node, list):
+            return [stable(value) for value in node]
+        return [type(node).__name__, repr(node)]
+    return hashlib.sha256(json.dumps(stable(tree), sort_keys=True).encode()).hexdigest()
+
 
 
 @pytest.mark.parametrize('legacy', MOVES)
