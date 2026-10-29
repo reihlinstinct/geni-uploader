@@ -9,13 +9,14 @@ const exact=(x,ks)=>need(x&&Object.getPrototypeOf(x)===Object.prototype&&Object.
 export async function accountEvidence(storage,binding,descriptor){
  exact(descriptor,['sha256','byte_length','stage','operation_binding','run_id','recipient']);
  need(/^[a-f0-9]{64}$/.test(descriptor.sha256)&&/^[a-f0-9]{64}$/.test(descriptor.recipient)&&Number.isSafeInteger(descriptor.byte_length)&&descriptor.byte_length>0&&descriptor.byte_length<=1048576&&descriptor.operation_binding===binding.plan&&/^[1-9][0-9]{0,19}$/.test(descriptor.run_id)&&['pre_write','acknowledgment','readback','reconciliation'].includes(descriptor.stage));
- return storage.transaction(async tx=>{
+ return storage.transaction(tx=>accountEvidenceInTransaction(tx,binding,descriptor));
+}
+async function accountEvidenceInTransaction(tx,binding,descriptor){
   const intent=await tx.get('intent');need(intent&&canonical(intent.binding)===canonical(binding));
   let ledger=await tx.get('evidence-ledger');if(ledger===undefined)ledger={binding:structuredClone(binding),run_id:descriptor.run_id,recipient:descriptor.recipient,total_bytes:0,objects:[]};
   exact(ledger,['binding','run_id','recipient','total_bytes','objects']);need(canonical(ledger.binding)===canonical(binding)&&ledger.run_id===descriptor.run_id&&ledger.recipient===descriptor.recipient&&Array.isArray(ledger.objects)&&ledger.objects.length<100&&Number.isSafeInteger(ledger.total_bytes));
   need(ledger.objects.every(x=>x&&x.operation_binding===binding.plan&&x.run_id===descriptor.run_id&&x.recipient===descriptor.recipient&&['pre_write','acknowledgment','readback','reconciliation'].includes(x.stage)&&Number.isSafeInteger(x.byte_length)&&x.byte_length>0&&/^[a-f0-9]{64}$/.test(x.sha256))&&ledger.total_bytes===ledger.objects.reduce((s,x)=>s+x.byte_length,0)&&new Set(ledger.objects.map(x=>x.sha256)).size===ledger.objects.length&&!ledger.objects.some(x=>x.sha256===descriptor.sha256));
   need(ledger.total_bytes+descriptor.byte_length<=8388608);ledger.objects.push(structuredClone(descriptor));ledger.total_bytes+=descriptor.byte_length;await tx.put('evidence-ledger',ledger);return structuredClone(ledger);
- });
 }
 function payload(p,b){
  need(p&&typeof p==='object'&&p.names&&typeof p.names==='object');exact(p.names,['he','en']);
@@ -55,4 +56,16 @@ export async function executeDurableFather(storage,binding,approvedPayload,token
   try{await store.advance(binding,version,'uncertain',hash('uncertain:'+version+':'+(created??'unknown')));}catch{/* consumed state remains authoritative even if transition fails */}
   return{phase:'consumed_uncertain',created_id:created,private_evidence:evidence,post_write_evidence_durable:false,retry_allowed:false,production_enabled:false};
  }
+}
+
+export async function admitPostwriteReceipt(storage,binding,descriptor,immutable){
+ exact(immutable,['source','descriptor']);
+ need(immutable.descriptor&&['sha256','byte_length','stage','operation_binding','run_id','recipient'].every(k=>immutable.descriptor[k]===descriptor[k]));
+ return storage.transaction(async tx=>{
+  const intent=await tx.get('intent');need(intent&&canonical(intent.binding)===canonical(binding)&&intent.phase==='uncertain'&&intent.production_enabled===false);
+  const existing=await tx.get('evidence-ledger');need(existing&&existing.objects?.some(x=>x.stage==='pre_write')&&await tx.get('postwrite-receipt')===undefined&&descriptor.stage==='readback');
+  const ledger=await accountEvidence({transaction:fn=>fn(tx)},binding,descriptor);
+  const receipt={phase:'ciphertext_receipt_accounted_reconciliation_required',immutable:structuredClone(immutable),descriptor:structuredClone(descriptor),intent_version:intent.version,created_id:intent.created_id,ledger_total_bytes:ledger.total_bytes,intent_verified:false,retry_allowed:false,production_enabled:false};
+  await tx.put('postwrite-receipt',receipt);return receipt;
+ });
 }
