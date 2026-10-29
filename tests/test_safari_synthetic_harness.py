@@ -48,14 +48,17 @@ def test_extractor_equivalence_and_node_cases(tmp_path):
     script = (ROOT / "docs/zz-safari-test-extractor.js").read_text()
     normalized = script.replace("reihlinstinct.github.io", "www.geni.com").replace(
         "/geni-uploader/zz-safari-test.html", "/platform/oauth/auth_success")
-    # Pin the reviewed production parser until its separate PR is merged.
-    assert hashlib.sha256(normalized.encode()).hexdigest() == "5acf53cec45539095a04e175c51cf6be834e49704582e7826e18c861df3d85b7"
     production = ROOT / "tools/safari-token/extract-token.js"
     if production.exists():
         assert normalized == production.read_text()
+        cases = ROOT / "tools/safari-token/test-extract.js"
+    else:
+        # Interim pin only until the production parser lands.
+        assert hashlib.sha256(normalized.encode()).hexdigest() == "5acf53cec45539095a04e175c51cf6be834e49704582e7826e18c861df3d85b7"
+        cases = ROOT / "tests/safari_harness_node.cjs"
     node = shutil.which("node")
     if node is None:
         pytest.skip("Node unavailable; parser execution not verified")
     (tmp_path / "extract-token.js").write_text(normalized)
-    shutil.copyfile(ROOT / "tests/safari_harness_node.cjs", tmp_path / "test.cjs")
+    shutil.copyfile(cases, tmp_path / "test.cjs")
     subprocess.run([node, str(tmp_path / "test.cjs")], check=True, timeout=20)
