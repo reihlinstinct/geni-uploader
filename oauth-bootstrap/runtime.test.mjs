@@ -91,3 +91,6 @@ test(
 
 // #233: real local SQLite persistence/concurrency, never a production service.
 import './intent-local-runtime.test.mjs';
+
+// Fixed-issuer trust boundary uses mocked fetch and synthetic signing keys only.
+import './trusted-workload-jwks.test.mjs';
