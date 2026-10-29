@@ -94,3 +94,16 @@ test('noncanonical signature padding bits rejected even with identical decoded b
   assert.deepEqual(Buffer.from(parts[2], 'base64url'), Buffer.from(token.split('.')[2], 'base64url'));
   await assert.rejects(verify(parts.join('.'), publicKey, pins, now));
 });
+function officialShape(){
+ const p={...pins,sub:'repo:ZZ-org@999002/ZZ-repo@999001:environment:ZZ-protected',job_workflow_ref:'ZZ-org/ZZ-automation/.github/workflows/ZZ.yml@refs/heads/master',job_workflow_sha:'c'.repeat(40)};
+ const body={...claims(),sub:p.sub,job_workflow_ref:p.job_workflow_ref,job_workflow_sha:p.job_workflow_sha,repository_owner:'ZZ-org',actor:'ZZ-actor',repository_visibility:'public',run_number:'10',workflow:'ZZ-workflow',head_ref:'',base_ref:'',ref_type:'branch',check_run_id:'999005',repo_property_workspace_id:'ZZ-workspace'};
+ return{p,body};
+}
+test('documented GitHub-shaped x5t and informational extras with ID-bound subject and pinned reusable workflow',async()=>{
+ const{p,body}=officialShape();const out=await verify(await sign(body,{x5t:'ZZ-thumbprint'}),publicKey,p,now);assert.equal(out.workload_verified,true);assert.equal(out.owner_approval_verified,false);
+});
+for(const k of ['sub','job_workflow_ref','job_workflow_sha'])test('official-shaped load-bearing '+k+' missing/mismatch rejected',async()=>{
+ for(const missing of[true,false]){const{p,body}=officialShape();if(missing)delete body[k];else body[k]='ZZ-wrong';await assert.rejects(verify(await sign(body,{x5t:'ZZ-thumbprint'}),publicKey,p,now));}
+});
+test('unreviewed reusable workflow claims reject instead of silently treating as extras',async()=>{const{body}=officialShape();await assert.rejects(verify(await sign(body),publicKey,{...pins,sub:body.sub},now));});
+for(const [label,change]of[['unknown',b=>b.ZZ_unknown='ZZ'],['nested',b=>b.actor={id:'ZZ'}],['extra cap',b=>b.actor='Z'.repeat(501)],['empty required',b=>b.repository_id=''],['old name-only subject',b=>b.sub='repo:ZZ-org/ZZ-repo:environment:ZZ-protected']])test('official-shaped '+label+' rejected',async()=>{const{p,body}=officialShape();change(body);await assert.rejects(verify(await sign(body),publicKey,p,now));});
