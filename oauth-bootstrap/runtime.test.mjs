@@ -88,3 +88,6 @@ test(
     }
   },
 );
+
+// #233: real local SQLite persistence/concurrency, never a production service.
+import './intent-local-runtime.test.mjs';
