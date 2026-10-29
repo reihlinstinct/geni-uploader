@@ -19,4 +19,5 @@ for(const url of [base,base+'?access_token='+token,base+'?#access_token='+token,
 test(base+'#access_token='+token,false,true);
 // Source-level smoke check only, not proof of all possible program behavior.
 for(const bad of ['fetch(', 'XMLHttpRequest', 'sendBeacon','localStorage','sessionStorage','document.','console.','alert(', 'navigator.','window.open','location.assign','location=','new Image','WebSocket','import(','eval(','Function(','postMessage'])assert(!code.includes(bad),bad);
+assert(!/location\s*(?:\.\s*(?:href\s*=|replace\s*\(|assign\s*\()|=)/.test(code), 'navigation smoke check');
 console.log(count+' synthetic cases PASS; forbidden-primitives smoke check PASS');
