@@ -64,3 +64,26 @@ namespace deletion or changed binding can erase history outside this class;
 never claim append-only methods protect against an administrator. Any ambiguous
 storage outcome blocks the future executor until separately approved read-only
 inspection. The candidate cannot be wired into #232 as a trusted permit yet.
+
+## Local SQLite runtime rehearsal
+
+`intent-local-runtime.test.mjs` runs the unchanged candidate inside the pinned
+local workerd/Miniflare runtime with SQLite-backed Durable Object storage. The
+wrapper exists only inside the test bundle, with invented fixed owner/routing,
+no credentials and outbound fetch denied. It is imported by the existing runtime
+test entry point, so no workflow permission or configuration change is required.
+
+Twenty concurrent connection/plan variants produce exactly one consumption and
+nineteen refusals. Both intent and event snapshot survive disposal and recreation
+of the runtime against one explicit temporary persistence root. Consumption is
+still blocked after restart, uncertainty cannot acknowledge/replay, and the only
+modeled completion is separately supplied reconciliation evidence. A second
+restart retains that terminal state and all three event snapshots. The test
+removes its own temporary directory after shutdown. No candidate state is public.
+
+This is local runtime evidence, stronger than a fake Map but not a deployed
+Cloudflare durability, crash/power-loss, backup/restore or authenticated-route
+claim. Restart here is graceful runtime shutdown, not an abrupt process kill.
+The fixture's unauthenticated wrapper is NOT exported by the product and must
+never be deployed. Namespace authority, cross-account isolation, permanent
+production history, ciphertext persistence and release review remain blockers.
