@@ -28,8 +28,6 @@ src/geni_uploader/
     intent.py           # parent_intent_model.py
     outcome.py          # profile_outcome_model.py
     snapshot.py         # parent_snapshot.py
-    consumption.py      # parent_consumption.py (local prototype, not service)
-    runner.py           # parent_runner.py (synthetic only)
     father_once.py      # father_once_simulation.py
     parent_contract.py  # parent_adapter_contract.py, PURE wire descriptors
     proof_requirements.py # pure PROOFS constants, separated before envelope move
@@ -49,7 +47,9 @@ src/geni_uploader/
     envelope.py         # parent_envelope.py
   workflow/             # small workflow-facing glue, not domain decisions
     secondary_probe.py  # secondary_probe_action.py
-    release_gate.py     # human_parent_gate.py
+    release_gate.py     # human_parent_gate.py, includes always-closed gate
+    consumption.py      # parent_consumption.py (local prototype; composes evidence)
+    runner.py           # parent_runner.py (synthetic only; composes release gate)
   cli/                  # thin argument/exit adapters, extracted separately
     upload.py
     source_details.py
@@ -115,7 +115,13 @@ not part of this Python migration. No private family data enters this tree.
 5. Move workflow glue explicitly: secondary_probe_action to workflow/secondary_probe
    and human_parent_gate to workflow/release_gate, updating read-only workflow
    script paths and imports in a separately independently reviewed path-only PR.
-   Do not move these implicitly with CLI. PROOFS extraction precedes this stage.
+   Move parent_runner and parent_consumption into workflow in this same stage:
+   runner imports require_production_release from release_gate; consumption imports
+   evidence/envelope.review. These are composition, not pure core. Do not move
+   these implicitly with CLI. PROOFS extraction precedes this stage.
+   client/closed_parent also imports the always-closed release gate; client may
+   depend on workflow/release_gate only for this fail-closed boundary, never the
+   reverse. Preserve the gate check before network work.
 6. Move presentation and CLI adapters, retaining all argument/error/exit and
    offline side-effect guards. Test execution from a non-repository directory.
 7. Move client modules intact. Update Docker COPY/install, entrypoint paths,
@@ -161,3 +167,37 @@ Do not force-push/rewrite consumed intent or deployed evidence history. Package
 layout is not an authority boundary by itself; the current offline models and
 closed transport remain offline/closed after moving. Real profile creation
 requires the separate implementation, approval, deployment and human-run work.
+
+## Current local import graph (AST inventory)
+
+Generated from root modules using Python ast Import/ImportFrom (including local
+function imports). External imports omitted. This is an inventory of CURRENT
+filenames, not a claim that destinations already exist. Repeat at each move.
+
+```text
+approval_record -> people_core
+ciphertext_evidence -> people_core
+father_once_simulation -> parent_adapter_contract, parent_intent_model, people_core
+geni_upload -> plan_report, visual_plan
+github_review_evidence -> people_core
+human_parent_gate -> people_core
+parent_adapter_contract -> people_core
+parent_consumption -> parent_envelope, people_core
+parent_envelope -> human_parent_gate, parent_plan, people_core
+parent_evidence -> people_core
+parent_http_candidate -> human_parent_gate, parent_adapter_contract, parent_intent_model, people_core
+parent_intent_model -> people_core
+parent_output -> parent_probe, parent_snapshot, people_core
+parent_plan -> human_parent_gate, parent_probe, parent_runner, people_core
+parent_probe -> people_core
+parent_runner -> human_parent_gate, people_core
+parent_snapshot -> people_core
+people_core -> (no local imports)
+plan_report -> (no local imports)
+profile_outcome_model -> parent_intent_model, people_core
+profile_result -> parent_intent_model, people_core
+secondary_probe_action -> parent_probe, people_core
+source_details -> geni_upload, plan_report
+visual_plan -> (no local imports)
+workflow_content_contract -> people_core
+```
