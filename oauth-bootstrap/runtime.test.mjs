@@ -94,3 +94,6 @@ import './intent-local-runtime.test.mjs';
 
 // Fixed-issuer trust boundary uses mocked fetch and synthetic signing keys only.
 import './trusted-workload-jwks.test.mjs';
+
+// Keep unconnected approval-boundary regressions inside the existing CI entrypoint.
+import './approval-admission.test.mjs';

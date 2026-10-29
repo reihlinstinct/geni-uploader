@@ -67,3 +67,6 @@ keep the expected approval hashes equal to the invalid same-person/evidence
 record, so adjacent expected-value checks cannot mask distinctness. Equivalent
 JSON with added whitespace isolates byte identity. A stalled second read proves
 the stream bound stops immediately, independently of the parser byte bound.
+
+The existing runtime.test.mjs CI entry point imports this synthetic test suite;
+no workflow trigger, permission, environment or job-step edit is needed.
