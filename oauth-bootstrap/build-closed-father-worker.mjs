@@ -16,6 +16,7 @@ export async function buildClosedFatherWorker(){
  // No caller options, plugins, injected aliases, defines or source replacement.
  const result=await build({absWorkingDir:dir,entryPoints:['father-intent-service.mjs'],bundle:true,format:'esm',platform:'browser',target:'es2022',conditions:['workerd','browser'],external:['node:crypto'],write:false,metafile:true,legalComments:'none',charset:'utf8',logLevel:'silent'});
  const inputs=Object.keys(result.metafile.inputs).sort(),inventory={};
+ const expectedBytes=await readFile(new URL('./closed-father-expected-modules.json',import.meta.url)),expected=JSON.parse(expectedBytes);need(Array.isArray(expected)&&JSON.stringify(inputs)===JSON.stringify(expected));
  for(const input of inputs){
   need(!input.startsWith('/')&&!input.split('/').includes('..')&&!/ZZ-|\.test\.|wrangler|build-closed|private-release-issuer|no-write-workload-probe|protected-job-entrypoint/.test(input));
   const path=new URL(input,new URL('.',import.meta.url));
@@ -23,10 +24,10 @@ export async function buildClosedFatherWorker(){
   inventory[input]=hash(await readFile(path));
   for(const edge of result.metafile.inputs[input].imports)if(edge.external)need(edge.path==='node:crypto');
  }
- const tracked=['oauth-bootstrap/package.json','oauth-bootstrap/package-lock.json',...inputs.filter(x=>!x.startsWith('node_modules/')).map(x=>'oauth-bootstrap/'+x)];
+ const tracked=['oauth-bootstrap/closed-father-expected-modules.json','oauth-bootstrap/package.json','oauth-bootstrap/package-lock.json',...inputs.filter(x=>!x.startsWith('node_modules/')).map(x=>'oauth-bootstrap/'+x)];
  git(['diff','--exit-code',source,'--',...tracked]);
  const actual=git(['ls-files','-z','--',...tracked]).split('\0').filter(Boolean);need(actual.length===tracked.length);
  need(inputs.includes('father-release-gate.mjs')&&inputs.includes('durable-father-executor.mjs')&&inputs.includes('father-intent-service.mjs'));
  need(result.outputFiles.length===1);const bytes=Buffer.from(result.outputFiles[0].contents);need(bytes.length>0&&bytes.length<=2097152&&bytes.includes(Buffer.from('father live executor unreleased'))&&!bytes.includes(Buffer.from('ZZ-test-only-release')));
- return{bytes,inventory:{schema_version:1,mode:'offline_closed_father_bundle',source_sha:source,esbuild_version:version,compatibility_date:'2026-10-01',compatibility_flags:['nodejs_compat'],package_sha256:hash(packageBytes),lockfile_sha256:hash(lockBytes),inputs:inventory,bundle_sha256:hash(bytes),production_enabled:false,post_permitted:false}};
+ return{bytes,inventory:{schema_version:1,mode:'offline_closed_father_bundle',source_sha:source,esbuild_version:version,compatibility_date:'2026-10-01',compatibility_flags:['nodejs_compat'],package_sha256:hash(packageBytes),lockfile_sha256:hash(lockBytes),expected_modules_sha256:hash(expectedBytes),inputs:inventory,bundle_sha256:hash(bytes),production_enabled:false,post_permitted:false}};
 }
