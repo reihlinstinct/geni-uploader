@@ -1,6 +1,7 @@
 // Unreleased authenticated service composition. No Geni endpoint or deployment.
 import {OfflineCreateIntentCandidate} from './create-intent-candidate.mjs';
 import {verifyTrustedWorkload} from './trusted-workload-jwks.mjs';
+import {bindUploadedDescriptors} from './bounded-upload-descriptors.mjs';
 import {verifyProtectedApprovalContent} from './protected-approval-service.mjs';
 const need=x=>{if(!x)throw Error('father intent service blocked');};
 const exact=(x,ks)=>need(x&&Object.getPrototypeOf(x)===Object.prototype&&Object.keys(x).sort().join(',')===[...ks].sort().join(','));
@@ -32,11 +33,13 @@ export default {async fetch(request,env){
   const reader=request.body?.getReader();need(reader);const chunks=[];let size=0;
   try{for(;;){const v=await reader.read();if(v.done)break;size+=v.value.length;need(size<=32768);chunks.push(v.value);}}finally{await reader.cancel().catch(()=>{});reader.releaseLock();}
   const body=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));
-  exact(body,['workload_token','plan_hash']);need(body.plan_hash===c.plan);
+  exact(body,['workload_token','plan_hash','uploads']);need(body.plan_hash===c.plan);
   need(Math.floor(Date.now()/1000)<c.expires_at);
   await verifyTrustedWorkload(body.workload_token,c.workload_pins);
   need(Math.floor(Date.now()/1000)<c.expires_at);
-  await verifyProtectedApprovalContent(env,{...binding(c),run_id:c.approved_run});
+  const approvedBinding={...binding(c),run_id:c.approved_run};
+  const readbackEnv=bindUploadedDescriptors(env,body.uploads,approvedBinding);
+  await verifyProtectedApprovalContent(readbackEnv,approvedBinding);
   need(Math.floor(Date.now()/1000)<c.expires_at);
   need(env.FATHER_OWNER_INTENTS&&typeof env.FATHER_OWNER_INTENTS.idFromName==='function');
   const stub=env.FATHER_OWNER_INTENTS.get(env.FATHER_OWNER_INTENTS.idFromName('father-owner:'+c.owner));
