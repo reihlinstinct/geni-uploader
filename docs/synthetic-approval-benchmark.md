@@ -29,3 +29,8 @@ counts, current account/product/quota evidence, reviewed no-public-ingress
 invocation method, exact version correlation/CPU observation and independent
 source/settings readback. Those remain missing. No resource/key/credential,
 route/domain, namespace or deployment is created by this component.
+
+Tests also pin literal reviewed module/bundle/content hashes, not only repeat-build
+comparison. An intentional source or compiler change requires a reviewed pin
+update. A valid altered fixture changes its known hash and fails comparison
+against the fixed expected fixture. These are regression pins, not authority.
