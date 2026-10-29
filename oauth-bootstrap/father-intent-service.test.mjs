@@ -1,0 +1,68 @@
+import{ownerFixture}from'./ZZ-owner-preflight-fixture.mjs';
+import{uploadFixture}from'./ZZ-upload-fixture.mjs';
+import{joinedSetup as approvalFixture}from'./ZZ-joined-fixture.mjs';
+import test from'node:test';import assert from'node:assert/strict';import{generateKeyPair,exportJWK,SignJWT}from'jose';import service,{FatherOwnerIntent}from'./father-intent-service.mjs';import{PIN_CLAIMS}from'./intent-workload-verifier.mjs';
+const pair=await generateKeyPair('RS256'),jwk={...await exportJWK(pair.publicKey),kid:'ZZ-key',alg:'RS256',use:'sig'};
+function fixture(){const p={iss:'https://token.actions.githubusercontent.com',aud:'ZZ-father-intent',sub:'ZZ-reviewed',repository:'ZZ-org/ZZ-repo',repository_id:'999001',repository_owner_id:'999002',workflow_ref:'ZZ-org/ZZ-repo/.github/workflows/ZZ.yml@refs/heads/master',workflow_sha:'a'.repeat(40),sha:'b'.repeat(40),ref:'refs/heads/master',environment:'ZZ-gate',event_name:'workflow_dispatch',actor_id:'999003',run_id:'999004',run_attempt:'1',runner_environment:'github-hosted',kid:'ZZ-key'};const c={mode:'unreleased_father_intent_service',production_enabled:false,workload_pins:p,owner:'profile-999005',connection:'ZZ-secondary',plan:'1'.repeat(64),payload:'2'.repeat(64),artifact:'3'.repeat(64),policy:'4'.repeat(64),expires_at:Math.floor(Date.now()/1000)+300,approved_run:p.run_id};return c;}
+async function token(p){const now=Math.floor(Date.now()/1000);return new SignJWT({...Object.fromEntries(PIN_CLAIMS.map(k=>[k,p[k]])),iat:now-1,nbf:now-1,exp:now+60,jti:'ZZ-id'}).setProtectedHeader({alg:'RS256',typ:'JWT',kid:p.kid}).sign(pair.privateKey);}
+let uploads;
+const req=(tok,plan)=>new Request('https://service.invalid/consume',{method:'POST',body:JSON.stringify({workload_token:tok,plan_hash:plan,uploads:uploads??{}})});
+function withEvidence(env,c){const preliminary=ownerFixture({owner:'profile-999001',connection:'ZZ-secondary',plan:'1'.repeat(64)});const x=approvalFixture(preliminary.graph_hash);const b=x.f.binding;Object.assign(c,{owner:b.owner,connection:b.connection,plan:b.plan,payload:b.payload,artifact:b.artifact,policy:b.policy,approved_run:b.run_id});c.workload_pins.run_id=b.run_id;env.FATHER_INTENT_CONFIG=JSON.stringify(c);Object.assign(env,x.env);uploads=uploadFixture(env);const owner=ownerFixture(b);Object.assign(env,owner.env);x.urls.push(...owner.urls);x.bodies.push(...owner.bodies);return x;}
+function local(env){const data=new Map();let queue=Promise.resolve();const storage={transaction:fn=>{const work=queue.then(()=>fn({get:async k=>structuredClone(data.get(k)),put:async(k,v)=>data.set(k,structuredClone(v))}));queue=work.catch(()=>{});return work;}};const object=new FatherOwnerIntent({storage},env);const names=[];env.FATHER_OWNER_INTENTS={idFromName:n=>(names.push(n),n),get:()=>({fetch:r=>object.fetch(r)})};return{data,names};}
+test('signature + fixed config + canonical owner routes to permanent consume',async t=>{const c=fixture(),env={FATHER_INTENT_CONFIG:JSON.stringify(c),FATHER_SERVICE_LOCAL_REHEARSAL:'local-only-no-geni'},l=local(env),f=withEvidence(env,c);t.mock.method(globalThis,'fetch',async(u)=>{if(u==='https://token.actions.githubusercontent.com/.well-known/jwks')return Response.json({keys:[jwk]});return Response.json(f.bodies[f.urls.indexOf(u)])});const tok=await token(c.workload_pins),responses=await Promise.all(Array.from({length:10},()=>service.fetch(req(tok,c.plan),env)));assert.equal(responses.filter(r=>r.status===200).length,1);assert.equal(l.data.get('intent').phase,'consumed');assert.ok(l.names.every(n=>n==='father-owner:'+c.owner));const out=await responses.find(r=>r.status===200).json();assert.equal(out.post_permitted,false);});
+test('without explicit local-only deployment mode route closed before JWT fetch',async t=>{const c=fixture();let n=0;t.mock.method(globalThis,'fetch',()=>{n++;throw Error()});const r=await service.fetch(req('ZZ',c.plan),{FATHER_INTENT_CONFIG:JSON.stringify(c)});assert.equal(r.status,403);assert.equal(n,0);});
+test('wrong plan or tampered signature never consumes',async t=>{const c=fixture(),env={FATHER_INTENT_CONFIG:JSON.stringify(c),FATHER_SERVICE_LOCAL_REHEARSAL:'local-only-no-geni'},l=local(env);t.mock.method(globalThis,'fetch',async()=>Response.json({keys:[jwk]}));const tok=await token(c.workload_pins);assert.equal((await service.fetch(req(tok,'0'.repeat(64)),env)).status,403);assert.equal((await service.fetch(req(tok.slice(0,-4)+'AAAA',c.plan),env)).status,403);assert.equal(l.data.size,0);});
+
+test('real local SQLite DO with signed JWT survives service restart', {timeout:45000},async()=>{
+ const{Miniflare,convertV4MiniflareOptions}=await import('miniflare');const{build}=await import('esbuild');const{mkdtemp,rm}=await import('node:fs/promises');const{tmpdir}=await import('node:os');const{join}=await import('node:path');
+ const c=fixture(),ee={},f=withEvidence(ee,c),dir=await mkdtemp(join(tmpdir(),'ZZ-integrated-intent-'));const built=await build({entryPoints:[new URL('./father-intent-service.mjs',import.meta.url).pathname],bundle:true,format:'esm',platform:'browser',external:['node:crypto'],conditions:['workerd','browser'],packages:'bundle',write:false});let mf;const outbound=[];
+ const start=()=>new Miniflare({...convertV4MiniflareOptions({name:'ZZ-integrated',modules:true,script:built.outputFiles[0].text,compatibilityDate:'2026-10-01',compatibilityFlags:['nodejs_compat'],bindings:{FATHER_INTENT_CONFIG:JSON.stringify(c),FATHER_SERVICE_LOCAL_REHEARSAL:'local-only-no-geni',...ee},durableObjects:{FATHER_OWNER_INTENTS:{className:'FatherOwnerIntent',useSQLite:true}},outboundService:r=>{outbound.push(r.url);if(r.url==='https://token.actions.githubusercontent.com/.well-known/jwks')return Response.json({keys:[jwk]});const i=f.urls.indexOf(r.url);if(i>=0)return Response.json(f.bodies[i]);throw Error('unexpected external URL');}}),resourcePersistencePath:dir,isolatedResourcePersistencePath:dir});
+ try{mf=start();const tok=await token(c.workload_pins);const send=()=>mf.dispatchFetch('https://service.invalid/consume',{method:'POST',body:JSON.stringify({workload_token:tok,plan_hash:c.plan,uploads})});const rs=await Promise.all(Array.from({length:8},send));assert.equal(rs.filter(r=>r.status===200).length,1);await mf.dispose();mf=start();assert.equal((await send()).status,409);assert.ok(outbound.length>=9);assert.ok(outbound.every(u=>u==='https://token.actions.githubusercontent.com/.well-known/jwks'||f.urls.includes(u)));}finally{if(mf)await mf.dispose();await rm(dir,{recursive:true,force:true});}
+});
+test('valid JWT but wrong immutable evidence or credential never consumes',async t=>{
+ const c=fixture(),env={FATHER_INTENT_CONFIG:JSON.stringify(c),FATHER_SERVICE_LOCAL_REHEARSAL:'local-only-no-geni'},l=local(env),f=withEvidence(env,c);env.GENI_SECONDARY_ACCESS_TOKEN='ZZchanged';let git=0;
+ t.mock.method(globalThis,'fetch',async u=>{if(u==='https://token.actions.githubusercontent.com/.well-known/jwks')return Response.json({keys:[jwk]});git++;return Response.json(f.bodies[f.urls.indexOf(u)]);});
+ const tok=await token(c.workload_pins);assert.equal((await service.fetch(req(tok,c.plan),env)).status,403);assert.equal(git,0);assert.equal(l.data.size,0);
+});
+test('expired deployment config blocks before JWKS network',async t=>{
+ const c=fixture();c.expires_at=Math.floor(Date.now()/1000)-1;
+ const env={FATHER_INTENT_CONFIG:JSON.stringify(c),FATHER_SERVICE_LOCAL_REHEARSAL:'local-only-no-geni'};let calls=0;
+ t.mock.method(globalThis,'fetch',()=>{calls++;throw Error('unexpected network');});
+ assert.equal((await service.fetch(req(await token(c.workload_pins),c.plan),env)).status,403);assert.equal(calls,0);
+});
+test('authenticated approval and evidence but wrong token-self blocks before durable consume',async t=>{
+ const c=fixture(),env={FATHER_INTENT_CONFIG:JSON.stringify(c),FATHER_SERVICE_LOCAL_REHEARSAL:'local-only-no-geni'},l=local(env),f=withEvidence(env,c);
+ t.mock.method(globalThis,'fetch',async u=>{if(u==='https://token.actions.githubusercontent.com/.well-known/jwks')return Response.json({keys:[jwk]});const i=f.urls.indexOf(u),body=structuredClone(f.bodies[i]);if(u.startsWith('https://www.geni.com/api/profile?'))body.id='profile-999099';return Response.json(body);});
+ const tok=await token(c.workload_pins);assert.equal((await service.fetch(req(tok,c.plan),env)).status,403);assert.equal(l.data.size,0);
+});
+
+test('authenticated execute route still hits unconditional release gate before intent or vendor POST',async t=>{
+ const c=fixture(),env={FATHER_INTENT_CONFIG:JSON.stringify(c),FATHER_SERVICE_LOCAL_REHEARSAL:'local-only-no-geni',FATHER_EXECUTOR_PAYLOAD_JSON:JSON.stringify({ZZ:'synthetic'})},l=local(env),f=withEvidence(env,c);let posts=0;
+ t.mock.method(globalThis,'fetch',async(u,o)=>{if(o?.method==='POST')posts++;if(u==='https://token.actions.githubusercontent.com/.well-known/jwks')return Response.json({keys:[jwk]});return Response.json(f.bodies[f.urls.indexOf(u)]);});
+ const r=await service.fetch(new Request('https://service.invalid/execute',{method:'POST',body:JSON.stringify({workload_token:await token(c.workload_pins),plan_hash:c.plan,uploads})}),env);
+ assert.equal(r.status,409);assert.equal(l.data.size,0);assert.equal(posts,0);
+});
+
+test('signed completion route verifies fixed immutable postwrite bytes then accounts without vendor call',async t=>{
+ const{fixture:postFixture}=await import('./ZZ-prewrite-fixture.mjs');const{OfflineCreateIntentCandidate}=await import('./create-intent-candidate.mjs');const{accountEvidence}=await import('./durable-father-executor.mjs');const{createHash}=await import('node:crypto');const hash=x=>createHash('sha256').update(x).digest('hex');
+ const f=postFixture(),c=fixture(),bb=f.binding;c.owner=bb.owner;c.connection=bb.connection;c.plan=bb.plan;c.payload=bb.payload;c.artifact=bb.artifact;c.policy=bb.policy;c.approved_run=bb.run_id;c.workload_pins.run_id=bb.run_id;
+ const{run_id,...b}=bb,d={...f.c.descriptor,stage:'readback'}, {commit,...source}=f.c.source;
+ const policy={mode:'unreleased_fixed_postwrite_policy',production_enabled:false,source,binding:bb,recipient:d.recipient,credential_sha256:f.c.credential_sha256},raw=JSON.stringify(policy);
+ const env={FATHER_INTENT_CONFIG:JSON.stringify(c),FATHER_SERVICE_LOCAL_REHEARSAL:'local-only-no-geni',FATHER_POSTWRITE_POLICY_JSON:raw,FATHER_POSTWRITE_POLICY_SHA256:hash(raw),GENI_SECONDARY_ACCESS_TOKEN:'ZZtoken',PRIVATE_GIT_CREDENTIAL:'ZZprivate'},l=local(env);
+ const storage={transaction:async fn=>fn({get:async k=>structuredClone(l.data.get(k)),put:async(k,v)=>l.data.set(k,structuredClone(v))})};const store=new OfflineCreateIntentCandidate(storage,b.owner);await store.consume(b,0);await accountEvidence(storage,b,{sha256:'e'.repeat(64),byte_length:100,stage:'pre_write',operation_binding:b.plan,run_id,recipient:d.recipient});await store.advance(b,1,'uncertain','f'.repeat(64));
+ let calls=0;t.mock.method(globalThis,'fetch',async u=>{if(u==='https://token.actions.githubusercontent.com/.well-known/jwks')return Response.json({keys:[jwk]});const i=f.urls.indexOf(u);assert.ok(i>=0);calls++;return Response.json(f.bodies[i]);});
+ const tok=await token(c.workload_pins),send=()=>service.fetch(new Request('https://service.invalid/complete',{method:'POST',body:JSON.stringify({workload_token:tok,plan_hash:c.plan,descriptor:d})}),env);
+ const reserve=await service.fetch(new Request('https://service.invalid/reserve',{method:'POST',body:JSON.stringify({workload_token:tok,plan_hash:c.plan})}),env);assert.equal(reserve.status,200);assert.equal((await reserve.json()).byte_limit,1048576);
+ const response=await send();assert.equal(response.status,200);const out=await response.json();assert.equal(out.intent_verified,false);assert.equal(out.phase,'ciphertext_receipt_accounted_reconciliation_required');assert.equal(l.data.get('intent').phase,'uncertain');assert.equal(l.data.get('evidence-ledger').total_bytes,100+d.byte_length);assert.equal(calls,4);assert.deepEqual(l.data.get('postwrite-receipt').immutable.source,f.c.source);assert.equal((await send()).status,409);
+});
+
+test('authenticated read-only recovery remains release-gated before vendor calls',async t=>{
+ const c=fixture(),env={FATHER_INTENT_CONFIG:JSON.stringify(c),FATHER_SERVICE_LOCAL_REHEARSAL:'local-only-no-geni'},l=local(env);let n=0;t.mock.method(globalThis,'fetch',async u=>{assert.equal(u,'https://token.actions.githubusercontent.com/.well-known/jwks');n++;return Response.json({keys:[jwk]});});
+ const r=await service.fetch(new Request('https://service.invalid/recover',{method:'POST',body:JSON.stringify({workload_token:await token(c.workload_pins),plan_hash:c.plan})}),env);assert.equal(r.status,409);assert.equal(n,1);assert.equal(l.data.size,0);
+});
+
+test('signed receipt-only journal starts before consume, reads privately, rejects duplicate',async t=>{
+ const c=fixture(),env={FATHER_INTENT_CONFIG:JSON.stringify(c),FATHER_SERVICE_LOCAL_REHEARSAL:'local-only-no-geni'},l=local(env);let n=0;t.mock.method(globalThis,'fetch',async u=>{assert.equal(u,'https://token.actions.githubusercontent.com/.well-known/jwks');n++;return Response.json({keys:[jwk]});});
+ const tok=await token(c.workload_pins),entry={sequence:1,previous:'0'.repeat(64),event:{stage:'start',receipt:{execute_attempted:false}}};const send=(route,extra={})=>service.fetch(new Request('https://service.invalid'+route,{method:'POST',body:JSON.stringify({workload_token:tok,plan_hash:c.plan,...extra})}),env);
+ assert.equal((await send('/journal',{entry})).status,200);assert.equal((await send('/journal',{entry})).status,409);const read=await send('/journal-read');assert.equal(read.status,200);assert.equal((await read.json()).journal.entries.length,1);assert.equal(l.data.has('intent'),false);assert.ok(n>=1);
+});

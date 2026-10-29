@@ -7,13 +7,20 @@ layout: null
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-53EiKaPtrXTxgIPRFyLhO5f0M1xpLFnegFXlep7sha4='; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-yRAwsv35LvEsfjQlj6Pe7X6F8u2p7d7vn7Gtm1mC9ao='; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
 <script>
 'use strict';
 const fields = new URLSearchParams(location.hash.slice(1));
-const token = fields.get('access_token') || '';
-// Fixed booleans only: never display arbitrary keys, values or the address.
 const query = new URLSearchParams(location.search);
+// Read only access_token values, never other query values or arbitrary keys.
+const fragmentTokens = fields.getAll('access_token');
+const queryTokens = query.getAll('access_token');
+const conflict = fragmentTokens.length + queryTokens.length > 1;
+const candidate = fragmentTokens[0] || queryTokens[0] || '';
+const invalid = /\s/.test(candidate);
+const token = conflict || invalid ? '' : candidate;
+const tokenFromQuery = queryTokens.length > 0;
+// Other response fields are presence-only diagnostics.
 const diagnostics = {
   code: query.has('code'),
   queryToken: query.has('access_token'),
@@ -21,24 +28,38 @@ const diagnostics = {
   fragmentError: fields.has('error') || fields.has('status'),
   fragmentPresent: location.hash.length > 1
 };
-history.replaceState(null, '', location.pathname);
+let cleared = false;
+try {
+  history.replaceState(null, '', location.pathname);
+  cleared = true;
+} catch {
+  // Fixed failure only; never display the uncleared token.
+}
 document.addEventListener('DOMContentLoaded', () => {
   const output = document.getElementById('token');
   const copy = document.getElementById('copy');
   const status = document.getElementById('status');
+  if (!cleared) {
+    status.textContent = 'Could not clear the response URL. No token is displayed. Close this tab and ask for setup help without sharing the address.';
+    return;
+  }
   if (!token) {
     let detail = 'No recognized response fields were found. If this page was refreshed or reopened, its earlier response was already cleared. Do not share the address.';
-    if (diagnostics.code) detail = 'An authorization-code field was present. This page does not exchange codes. Stop and check the authorization flow.';
-    else if (diagnostics.queryToken) detail = 'A token field was present in the query, not the fragment. This page does not read query token values. Stop and check the authorization flow.';
+    if (invalid) detail = 'Unsupported whitespace in the returned token. No token is displayed. Stop and ask for setup help.';
+    else if (conflict) detail = 'Multiple or conflicting token fields were present. No token is displayed. Stop and ask for setup help without sharing the address.';
+    else if (diagnostics.code) detail = 'An authorization-code field was present. This page does not exchange codes. Stop and check the authorization flow.';
+    else if (diagnostics.queryToken) detail = 'An empty token field was present in the query. Stop and check the authorization flow.';
     else if (diagnostics.queryError || diagnostics.fragmentError) detail = 'An error or status field was present. Its value is not shown. Stop and check the authorization flow.';
     else if (diagnostics.fragmentPresent) detail = 'A fragment was present without an access-token value. Stop and check the authorization flow.';
-    status.textContent = 'No access token was found in the URL fragment. ' + detail;
+    status.textContent = 'No access token was found in the URL. ' + detail;
     return;
   }
   output.value = token;
   output.hidden = false;
   copy.hidden = false;
-  status.textContent = 'Token read locally. The visible URL has been cleared.';
+  status.textContent = tokenFromQuery
+    ? 'Token read locally from query. This URL was already sent to the hosting service before the page loaded and may be retained in hosting logs or browser history. The visible URL has been cleared.'
+    : 'Token read locally from fragment. The visible URL has been cleared.';
   copy.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(output.value);
@@ -49,11 +70,20 @@ document.addEventListener('DOMContentLoaded', () => {
       output.select();
     }
   });
-  document.getElementById('clear').addEventListener('click', () => {
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+      output.value = '';
+      output.hidden = true;
+      copy.hidden = true;
+      status.textContent = 'Restored page cleared. Close this tab; do not authorize again just to test.';
+    }
+  });
+  document.getElementById('clear').addEventListener('click', async () => {
     output.value = '';
     output.hidden = true;
     copy.hidden = true;
     status.textContent = 'Token display cleared. Close this tab and clear your clipboard. Prior copies are not erased.';
+    try { await navigator.clipboard.writeText(''); } catch { /* manual clear still needed */ }
   });
 });
 </script>
@@ -69,13 +99,15 @@ button {padding: .6rem 1rem; margin: .5rem .5rem .5rem 0; font: inherit; cursor:
 <body>
 <h1>Copy your Geni token locally</h1>
 <p class="notice">This token grants account access. Paste it only into the secure vault form agreed with you. Never paste it into chat, email, a public issue or a screenshot.</p>
-<p id="status" role="status">Reading the URL fragment locally...</p>
+<p id="status" role="status">Reading the URL locally...</p>
 <textarea id="token" aria-label="Sensitive Geni access token" readonly hidden autocomplete="off" spellcheck="false"></textarea>
 <button id="copy" type="button" hidden>Copy token</button>
 <button id="clear" type="button">Clear token display</button>
-<p>This page reads token values only from the URL fragment in your browser. It also
-checks for a fixed set of response-field names without reading their query values,
-clears the visible address, and does not send or store the token. Copy uses your system clipboard,
+<p>This page reads only access_token values from the URL fragment or query in your browser,
+clears the visible address, and makes no further network requests or storage writes.
+A query token was already sent to the hosting service in the initial page request
+and may remain in hosting logs or browser history. Clearing this page cannot undo that.
+Other response fields are checked only for presence, never read by value. Copy uses your system clipboard,
 which may be available to clipboard history, sync or other apps. Clear it after
 pasting. Refreshing or reopening the cleared address cannot recover a token. Close this tab when finished. Clearing the display cannot erase prior
 copies, browser history or hosting logs. Do not authorize again just to test.</p>

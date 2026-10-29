@@ -1,0 +1,69 @@
+{
+  "schema_version": 2,
+  "mode": "single_human_approval_content",
+  "assurance": "single_human_owner_agent_dispatch_independent_agent_review",
+  "human_count": 1,
+  "production_enabled": false,
+  "pins": {
+    "owner": "profile-999001",
+    "connection_id": "ZZ-secondary",
+    "operation": "single_father_add_parent",
+    "payload_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "graph_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "data_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "artifact_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "policy_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "recipient": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "nonce": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "executor_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "workflow_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "service_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "run_id": "999002",
+    "run_attempt": 1,
+    "issued_at": 100,
+    "expires_at": 500
+  },
+  "exclusions": [
+    "add_child",
+    "add_mother",
+    "add_partner",
+    "delete",
+    "fact_cite",
+    "marriage",
+    "merge",
+    "profile_update",
+    "retry",
+    "source_upload",
+    "tag",
+    "union_update"
+  ],
+  "risk_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "sources": {
+    "owner_grant": {
+      "kind": "protected_environment_exact_payload_approval",
+      "principal_id": "999003",
+      "source_ref": "1111111111111111111111111111111111111111111111111111111111111111",
+      "content_hash": "5555555555555555555555555555555555555555555555555555555555555555"
+    },
+    "protected_review": {
+      "kind": "protected_environment_human_action",
+      "principal_id": "999003",
+      "source_ref": "1111111111111111111111111111111111111111111111111111111111111111",
+      "content_hash": "5555555555555555555555555555555555555555555555555555555555555555"
+    },
+    "dispatch": {
+      "kind": "designated_agent_workflow_dispatch",
+      "principal_id": "999005",
+      "source_ref": "3333333333333333333333333333333333333333333333333333333333333333",
+      "content_hash": "7777777777777777777777777777777777777777777777777777777777777777"
+    },
+    "code_review": {
+      "kind": "independent_agent_exact_head_review",
+      "principal_id": "999006",
+      "source_ref": "4444444444444444444444444444444444444444444444444444444444444444",
+      "content_hash": "8888888888888888888888888888888888888888888888888888888888888888"
+    }
+  },
+  "reviewed_executor_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "revocation_epoch": 0
+}
