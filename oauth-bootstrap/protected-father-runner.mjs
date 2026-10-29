@@ -51,10 +51,12 @@ export async function runProtectedFatherJob(env,approvalBytes,prewriteBytes,onPr
   const preEnv=storageEnv(env,c.prewrite_storage,approval.source.commit);
   const pre=await persistProtectedJobEvidence(preEnv,prewriteBytes,x=>onProgress({stage:'pre_write',receipt:x}));
   // The only service request that can reach the dormant create route.
+  await onProgress({stage:'execute_attempt',receipt:{execute_attempted:true}});
   executeAttempted=true;
   const result=await service(env,c,'/execute',{uploads:{approval:{commit:approval.source.commit,blob_sha:approval.source.blob_sha,content_sha256:approval.source.content_sha256},prewrite:pre.descriptor}});
   const postEnv=storageEnv(env,c.postwrite_storage,pre.descriptor.commit,pre.descriptor.byte_length);
   const persisted=await persistPostWriteHandoff(postEnv,result,x=>onProgress({stage:'readback',receipt:x}));
+  await onProgress({stage:'completion_attempt',receipt:{execute_attempted:true}});
   const completion=await service(env,c,'/complete',{descriptor:persisted.descriptor});
   need(completion.phase==='ciphertext_receipt_accounted_reconciliation_required'&&completion.intent_verified===false&&completion.retry_allowed===false&&completion.production_enabled===false);
   return{phase:'protected_job_receipt_accounted_reconciliation_required',created_id:persisted.created_id,descriptor:persisted.descriptor,intent_verified:false,retry_allowed:false,production_enabled:false};
