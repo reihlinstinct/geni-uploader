@@ -2,7 +2,7 @@
 import json
 import re
 
-from people_core import Blocked, exact, require
+from geni_uploader.core.people import Blocked, exact, require
 
 LIMIT = 1024 * 1024
 RELEASE_GAPS = ('trusted_https_provenance_and_freshness', 'immutable_workflow_content',

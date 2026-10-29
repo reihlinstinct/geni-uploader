@@ -12,8 +12,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from geni_uploader.core.people import Blocked, digest, exact, require
 from github_review_evidence import inspect, requests
-from people_core import Blocked, digest, exact, require
 from single_human_approval_record import validate
 
 

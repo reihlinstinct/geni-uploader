@@ -2,3 +2,7 @@ __pycache__/
 *.pyc
 .coverage
 coverage.json
+
+build/
+dist/
+*.egg-info/

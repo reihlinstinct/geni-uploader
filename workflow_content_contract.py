@@ -4,7 +4,7 @@ import hashlib
 import json
 import re
 
-from people_core import Blocked, exact, require
+from geni_uploader.core.people import Blocked, exact, require
 
 LIMIT = 256 * 1024
 RESPONSE_LIMIT = 1024 * 1024

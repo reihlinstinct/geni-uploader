@@ -7,3 +7,14 @@ dependencies = ["PyYAML==6.0.3"]
 
 [tool.ruff]
 line-length = 100
+
+[build-system]
+requires = ["setuptools==84.2.1", "wheel==0.48.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["geni_uploader", "geni_uploader.core", "geni_offline"]
+
+[tool.setuptools.package-dir]
+geni_uploader = "src/geni_uploader"
+geni_offline = "geni_offline"

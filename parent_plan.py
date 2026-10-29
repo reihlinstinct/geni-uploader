@@ -7,10 +7,10 @@ import os
 import re
 from pathlib import Path
 
+from geni_uploader.core.people import Blocked, digest, exact, require, validate, warnings
 from human_parent_gate import require_production_release
 from parent_probe import protected_file
 from parent_runner import payloads
-from people_core import Blocked, digest, exact, require, validate, warnings
 
 BLOCKERS = ('owner_connection_identity_not_verified', 'exact_owner_create_approval_not_verified',
             'hidden_parent_completeness_unproved', 'add_parent_slot_semantics_unproved',

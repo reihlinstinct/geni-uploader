@@ -1,6 +1,6 @@
 # Offline parent core
 
-`people_core.py` is a synthetic, local-only prototype for #184, based on the
+`src/geni_uploader/core/people.py` (temporary `people_core` identity facade) is a synthetic, local-only prototype for #184, based on the
 v0.5 design in #144. It is not imported into the source uploader, copied into
 its image or wired to a workflow. There is no Geni HTTP client, token input,
 account setup, service deployment or executable create command. Calling the
@@ -27,6 +27,7 @@ journal transition by itself authorizes no write. Unknown-intent retries remain
 out of scope. SQLite file permissions, encryption, backup/recovery and production
 OIDC/service authentication belong to later reviewed integration work.
 
+Install the checkout first with `python -m pip install -r requirements-dev.txt`.
 Run synthetic tests with `python -m pytest tests/test_people_core.py`. They cover
 schema mutations, every receipt binding, expiry, CAS races, durable crash/restart,
 changed-manifest attempts to evade an old intent, acknowledged GET-only resume

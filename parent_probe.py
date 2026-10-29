@@ -12,7 +12,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from people_core import Blocked, exact, require, text
+from geni_uploader.core.people import Blocked, exact, require, text
 
 BASE = 'https://www.geni.com/api/'
 LIMIT = 1024 * 1024
