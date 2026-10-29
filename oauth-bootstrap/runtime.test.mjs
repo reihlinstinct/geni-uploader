@@ -94,3 +94,9 @@ import './intent-local-runtime.test.mjs';
 
 // Fixed-issuer trust boundary uses mocked fetch and synthetic signing keys only.
 import './trusted-workload-jwks.test.mjs';
+
+// Isolate writer mocks from concurrent Workers runtime checks.
+test('private ciphertext writer synthetic suite', async () => {
+ const {execFileSync}=await import('node:child_process');
+ execFileSync(process.execPath,['--test','ciphertext-private-writer.test.mjs'],{cwd:new URL('.',import.meta.url),timeout:30000,stdio:'pipe'});
+});
