@@ -30,8 +30,8 @@ async function fixedRequest(method,route,token,body){
   const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>{active=false;ctl.abort();reject(Error('vendor request uncertain'));},10000);});return await Promise.race([work(),deadline]);
  }finally{active=false;ctl.abort();clearTimeout(timer);}
 }
-export async function executeDurableFather(storage,binding,approvedPayload,token,prewrite){
- requireFatherRelease(); // ALWAYS throws in shipped code, before state or network.
+export async function executeDurableFather(storage,binding,approvedPayload,token,prewrite,releaseEnv,approvedRun){
+ await requireFatherRelease(releaseEnv,binding,approvedRun,storage,'execute'); // ALWAYS throws in shipped code, before state or network.
  payload(approvedPayload,binding);need(typeof token==='string'&&/^[A-Za-z0-9._~-]{8,4096}$/.test(token));
  const store=new OfflineCreateIntentCandidate(storage,binding.owner);await store.consume(binding,0);
  let version=1,created=null;const evidence={schema_version:1,mode:'private_post_write_evidence',binding:structuredClone(binding),acknowledgment:null,profile:null,family:null,union:null};
@@ -89,8 +89,8 @@ export async function reservePostwriteBudget(storage,binding,runId){
  * parent observed after lost acknowledgment is never assigned as created_id.
  * Returned evidence is private and still needs encryption/persistence.
  */
-export async function collectDurableFatherRecovery(storage,binding,token){
- requireFatherRelease(); // unchanged unconditional production barrier
+export async function collectDurableFatherRecovery(storage,binding,token,releaseEnv,approvedRun){
+ await requireFatherRelease(releaseEnv,binding,approvedRun,storage,'recover'); // unchanged unconditional production barrier
  const snapshot=await storage.transaction(async tx=>{
   const intent=await tx.get('intent');need(intent&&canonical(intent.binding)===canonical(binding)&&['consumed','acknowledged','uncertain'].includes(intent.phase)&&intent.production_enabled===false);
   return{intent,ledger:await tx.get('evidence-ledger'),receipt:await tx.get('postwrite-receipt')??null};
