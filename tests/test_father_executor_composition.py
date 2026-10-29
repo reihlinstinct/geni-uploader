@@ -120,3 +120,71 @@ def test_bad_payload_pin_and_expiry_block_before_consumption():
         with pytest.raises(Blocked):
             execute_fixture(plan, b, 201)
         assert not b.consumed
+
+
+def test_production_flag_must_be_false():
+    plan, b = fixture()
+    plan['production_enabled'] = True
+    with pytest.raises(Blocked):
+        execute_fixture(plan, b, 201)
+    assert not b.consumed
+
+
+def test_post_method_itself_requires_consumed_owner():
+    plan, b = fixture()
+    with pytest.raises(Blocked):
+        b.post(plan['pins']['owner'], plan['payload'])
+    assert b.posts == 0
+
+
+def test_now_type_guard_independent_of_time_range():
+    plan, b = fixture()
+    with pytest.raises(Blocked):
+        execute_fixture(plan, b, 201.0)
+    assert not b.consumed
+
+
+def test_result_shape_must_validate_before_consumption():
+    plan, b = fixture()
+    b.observed['profile_url'] = 'https://ZZ.invalid/ZZ'
+    with pytest.raises(Blocked):
+        execute_fixture(plan, b, 201)
+    assert not b.consumed and b.posts == 0
+
+
+def test_ack_mismatch_even_if_readback_parent_matches_ack():
+    plan, b = fixture()
+    b.observed['parents'] = ['profile-999009']
+    b.post = lambda owner, proposed: {'id': 'profile-999009'}
+    assert execute_fixture(plan, b, 201)['phase'] == 'fixture_consumed_uncertain'
+    assert not any(stage == 'readback' for stage, _ in b.saved)
+
+
+def test_extra_readback_key_blocks_after_post():
+    plan, b = fixture()
+    b.observed['unapproved'] = 'ZZextra'
+    assert execute_fixture(plan, b, 201)['phase'] == 'fixture_consumed_uncertain'
+    assert b.posts == 1
+
+
+def test_final_result_validation_rejects_equal_evidence_refs():
+    plan, b = fixture()
+    original = b.store
+    def store(stage, value):
+        ref = original(stage, value)
+        if stage == 'readback':
+            return digest({'id': b.observed['profile_id']})
+        return ref
+    b.store = store
+    assert execute_fixture(plan, b, 201)['phase'] == 'fixture_consumed_uncertain'
+    assert not any(stage == 'result' for stage, _ in b.saved)
+
+
+def test_fixture_constructor_copies_observed_nested_data():
+    _, existing = fixture()
+    observed = existing.observed
+    b = FixtureBoundaries(observed)
+    observed['payload']['names']['en']['first_name'] = 'ZZchanged'
+    observed['parents'].append('profile-999009')
+    assert b.observed['payload']['names']['en']['first_name'] == 'ZZFather'
+    assert b.observed['parents'] == ['profile-999002']

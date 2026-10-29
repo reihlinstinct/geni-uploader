@@ -1,7 +1,8 @@
 # Fixture-only father composition (#297)
 
 `execute_fixture(plan, boundaries, now)` accepts an EXACT FixtureBoundaries type,
-not callbacks, subclasses, URLs or tokens. It has no HTTP, process, credential or
+not subclasses, URLs or tokens. The fixture holder can monkeypatch attributes
+(including methods); this is a test seam, NOT a security sandbox for hostile Python. It has no HTTP, process, credential or
 private-writer access. `execute_production()` always calls the unchanged closed
 gate. The artifact is an ordering/failure rehearsal, NOT a runnable create tool.
 
@@ -28,9 +29,11 @@ permanent owner-global DO, encryption/writer and final private status integratio
 still need composition. These deliberate gaps must not be hidden by a successful
 fixture. No Geni operation, environment, dispatch, release or deployment occurs.
 
-32tests cover14boundary faults (including lost consume/POST/store outcome),
+40tests cover14boundary faults (including lost consume/POST/store outcome),
 readback identity/payload/parent mismatch, source provenance, fresh graph/time,
-owner replay and gate closure. Full Python2834tests plus7subtests pass. Eight
-individual guard-removal mutants executed/killed: male, freshness, origin,
-owner, parent set, payload readback, child and replay. The expected result
+owner replay and gate closure. Full Python2842tests plus7subtests pass. Sixteen
+individual guard-removal mutants executed/killed (eight original plus eight review): male, freshness, origin,
+owner, parent set, payload readback, child and replay; production flag, direct post
+consumption, now exact type, pre-consumption result validation, ack identity,
+readback exact keys, final result validation and copied observed nested data. The expected result
 profile URL comes from fixture/vendor input, never built from API profile ID.

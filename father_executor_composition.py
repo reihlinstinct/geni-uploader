@@ -49,7 +49,11 @@ class FixtureBoundaries:
 
 
 def execute_fixture(plan, boundaries, now):
-    """Only exact fixture class accepted; no injected callable can perform live work.
+    """Only exact fixture class accepted; this is NOT a hostile-code sandbox.
+
+    A Python holder can monkeypatch attributes/methods, as the fault tests do.
+    The unmodified fixture contains no external I/O, but type checks are not
+    isolation against a caller who already executes arbitrary Python.
 
     Preserve consumed/uncertain after all post-consumption faults. No automatic
     retry, reset, refresh, source upload or remedial write ever occurs.
