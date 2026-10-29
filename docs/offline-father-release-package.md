@@ -42,3 +42,14 @@ prove that an arbitrary matching bundle actually implements the source. A later
 installable workflow/issuer package still needs pinned tooling, credentials,
 private inputs, durable handoff and exact installation actions. Nothing here
 opens the shipped rejecting gate or turns a merge into a deployment.
+
+## Review guard regressions (#392-#395)
+
+Runtime fixture code is explicitly excluded from archive selection. The Geni-call
+count must be the integer `0`, never boolean `False`. Missing required manifest,
+inventory or bundle members produce the fixed ValueError before indexing.
+Tests reject top-level unknown fields and symlink archive members without
+extracting anything. These checks remain offline consistency checks, not install
+or dispatch authority.
+
+Manifest schema version also requires exact integer `1`, never boolean `True` (#401).

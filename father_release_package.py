@@ -26,9 +26,9 @@ def _hex(value, length):
 def validate_manifest(m, source_sha):
     _exact(m, ['schema_version', 'phase', 'source_sha', 'free_only', 'max_cost_usd',
                'activate_workflows', 'dispatch', 'geni_calls', 'service', 'issuer', 'actions'])
-    _need(m['schema_version'] == 1 and m['source_sha'] == source_sha)
+    _need(type(m['schema_version']) is int and m['schema_version'] == 1 and m['source_sha'] == source_sha)
     _need(m['free_only'] is True and type(m['max_cost_usd']) is int and m['max_cost_usd'] == 0)
-    _need(m['activate_workflows'] is False and m['dispatch'] is False and m['geni_calls'] == 0)
+    _need(m['activate_workflows'] is False and m['dispatch'] is False and type(m['geni_calls']) is int and m['geni_calls'] == 0)
     _need(m['phase'] in ['closed_provisioning', 'verified_release_candidate'])
     s, i = m['service'], m['issuer']
     _exact(s, ['new_worker_name', 'new_namespace_class', 'namespace_id', 'bundle_sha256'])
@@ -82,7 +82,7 @@ def package_release(root: Path, manifest: dict, output: Path, worker_bundle: Pat
             'docs/father-run-workflow-draft.yml'] or (
             len(p.parts) == 2 and p.parts[0] == 'oauth-bootstrap' and p.suffix == '.mjs' and
             not p.name.startswith('ZZ-') and not p.name.endswith('.test.mjs') and
-            p.name not in ['test.mjs', 'runtime.test.mjs'])
+            p.name not in ['test.mjs', 'runtime.test.mjs', 'runtime-fixture.mjs'])
         if selected:
             _need(not p.is_absolute() and '..' not in p.parts)
             f = root / p
@@ -130,6 +130,8 @@ def inspect_package(path: Path):
             _need(m.isfile() and not Path(m.name).is_absolute() and
                   '..' not in Path(m.name).parts and m.size <= 2097152)
             files[m.name] = archive.extractfile(m).read()
+    _need(all(p in files for p in ['sha256-inventory.json', 'release-manifest.json',
+                                  'worker-bundle.mjs']))
     inventory = json.loads(files.pop('sha256-inventory.json'))
     _need(inventory == {p: hashlib.sha256(b).hexdigest() for p, b in files.items()})
     manifest = json.loads(files['release-manifest.json'])

@@ -47,7 +47,8 @@ def test_repeatable_and_exclusive(tmp_path):
 
 @pytest.mark.parametrize('field,value', [('source_sha', 'f' * 40), ('free_only', False),
                          ('dispatch', True), ('activate_workflows', True), ('max_cost_usd', 1),
-                         ('actions', ['create']), ('geni_calls', 1)])
+                         ('schema_version', True),
+                         ('actions', ['create']), ('geni_calls', 1), ('geni_calls', False)])
 def test_wrong_scope(field, value):
     m = manifest()
     head = m['source_sha']
@@ -126,3 +127,52 @@ def test_verified_manifest_has_exact_key_digest():
     m['issuer']['key_id'] = 'f' * 64
     with pytest.raises(ValueError):
         validate_manifest(m, m['source_sha'])
+
+
+
+def test_top_level_unknown_field():
+    m = manifest()
+    m['unexpected'] = 'ZZ'
+    with pytest.raises(ValueError):
+        validate_manifest(m, m['source_sha'])
+
+
+@pytest.mark.parametrize('missing', ['sha256-inventory.json', 'release-manifest.json',
+                                     'worker-bundle.mjs'])
+def test_missing_archive_members_value_error(tmp_path, missing):
+    path = tmp_path / 'missing.tar'
+    import json
+    files = {'release-manifest.json': json.dumps(manifest()).encode(),
+             'worker-bundle.mjs': b'// ZZ bundle'}
+    inventory = {k: hashlib.sha256(v).hexdigest() for k, v in files.items()}
+    files['sha256-inventory.json'] = json.dumps(inventory).encode()
+    with tarfile.open(path, 'w') as archive:
+        for name, data in files.items():
+            if name != missing:
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                archive.addfile(info, io.BytesIO(data))
+    with pytest.raises(ValueError, match='father release package blocked'):
+        inspect_package(path)
+
+
+def test_symlink_archive_member_rejected(tmp_path):
+    path = tmp_path / 'symlink.tar'
+    with tarfile.open(path, 'w') as archive:
+        info = tarfile.TarInfo('ZZlink')
+        info.type = tarfile.SYMTYPE
+        info.linkname = 'ZZtarget'
+        archive.addfile(info)
+    with pytest.raises(ValueError):
+        inspect_package(path)
+
+
+def test_runtime_fixture_excluded(tmp_path):
+    m = manifest()
+    bundle = tmp_path / 'bundle.mjs'
+    bundle.write_bytes(b'// ZZ synthetic bundle')
+    m['service']['bundle_sha256'] = hashlib.sha256(bundle.read_bytes()).hexdigest()
+    path = tmp_path / 'package.tar'
+    package_release(ROOT, m, path, bundle)
+    with tarfile.open(path, 'r:') as archive:
+        assert 'oauth-bootstrap/runtime-fixture.mjs' not in archive.getnames()
