@@ -3,8 +3,8 @@ from copy import deepcopy
 
 from geni_uploader.core.parent_contract import payload
 from geni_uploader.core.people import Blocked, digest, exact, require
+from geni_uploader.evidence.profile_result import validate as result_validate
 from human_parent_gate import require_production_release
-from profile_result import validate as result_validate
 
 
 class FixtureBoundaries:
