@@ -19,7 +19,7 @@ const slot='permanent-issuance-attempt';
  * This function does not prove that provenance. The canonical owner DO must
  * check actual namespace and issuer JWT/approval before calling it.
  */
-export async function reserveSqliteIssuance(storage,pins){
+async function reserve(storage,pins){
  const fixed=checked(pins),receipt=hash(canonical(fixed));need(storage&&typeof storage.transaction==='function');
  return storage.transaction(async tx=>{
   need(await tx.get(slot)===undefined);
@@ -29,11 +29,20 @@ export async function reserveSqliteIssuance(storage,pins){
  });
 }
 /** Read-only inspection, never a reset/resume/second-issuance operation. */
-export async function inspectSqliteIssuance(storage,pins){
+async function inspect(storage,pins){
  const fixed=checked(pins);need(storage&&typeof storage.transaction==='function');
  return storage.transaction(async tx=>{
   const r=await tx.get(slot);need(r);exact(r,['schema_version','phase','pins','receipt_sha256','production_enabled','post_permitted']);
   need(r.schema_version===1&&r.phase==='permanent_issuance_attempt_reserved'&&r.production_enabled===false&&r.post_permitted===false&&canonical(r.pins)===canonical(fixed)&&r.receipt_sha256===hash(canonical(fixed)));
   return Object.freeze({phase:'permanent_issuance_attempt_inspected_read_only',receipt_sha256:r.receipt_sha256,production_enabled:false,post_permitted:false,retry_allowed:false});
  });
+}
+
+// Await inside the boundary: synchronous and rejected transaction errors must
+// never carry storage values, causes or provider diagnostics to a caller.
+export async function reserveSqliteIssuance(storage,pins){
+ try{return await reserve(storage,pins);}catch{throw Error('sqlite issuance reservation blocked');}
+}
+export async function inspectSqliteIssuance(storage,pins){
+ try{return await inspect(storage,pins);}catch{throw Error('sqlite issuance reservation blocked');}
 }
