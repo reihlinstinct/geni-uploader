@@ -19,3 +19,22 @@ as authoritative. No code or namespace is deployed by this PR. Revocation must
 preserve all permanent slots. Cloudflare admins can delete namespaces: no claim
 of tamper-proof state against provider/account administrators. Actual identity
 pinning and credential restrictions remain required before an approved release.
+
+## Value-free boundaries and remaining wrapper work (#408)
+
+Exported reserve and inspect await all validation and storage work inside a fixed
+error boundary. No raw storage error, cause, value or provider diagnostic escapes.
+A rejection does not prove rollback: a lost response may follow commit. There is
+no internal retry, and read-only inspection never authorizes another issuance.
+Tests cover synchronous throw, rejected transaction, get/put failure, committed
+response loss, validation proxies and inspection's no-write behavior. Real SQLite
+tests reject changed plan and issuer/namespace pins after a persisted reservation
+and verify the original receipt survives another restart.
+
+No authenticated wrapper is implemented here. Before wiring these exports, the
+wrapper must verify the actual installed namespace and distinct issuer against
+independent provider readback plus complete approval/source evidence. Merely
+matching env namespace strings or caller-provided pins is not that verification.
+The separate Worker design (#407) must replace legacy GitHub issuer identity
+fields through a reviewed versioned schema before integration. Until then no
+route/caller is installed and the release gate remains closed.
