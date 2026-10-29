@@ -235,7 +235,7 @@ filenames, not a claim that destinations already exist. Repeat at each move.
 approval_record -> people_core
 ciphertext_evidence -> people_core
 father_executor_composition -> human_parent_gate, parent_adapter_contract, people_core, profile_result
-father_release_package -> people_core (local import; filesystem inventory also requires review)
+father_release_package -> (no local project imports; filesystem inventory requires review)
 protected_father_job -> github_review_evidence, people_core, single_human_approval_record
 single_human_approval_record -> approval_record, people_core
 father_once_simulation -> parent_adapter_contract, parent_intent_model, people_core
