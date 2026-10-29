@@ -26,3 +26,19 @@ jobs:
         working-directory: oauth-bootstrap
       - run: node --test transport.test.mjs
         working-directory: oauth-bootstrap
+      - name: Rehearse real age encryption and private persistence with synthetic key
+        env:
+          AGE_VERSION: v1.3.2
+          AGE_SHA256: cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/FiloSottile/age/releases/download/${AGE_VERSION}/age-${AGE_VERSION}-linux-amd64.tar.gz" -o "$RUNNER_TEMP/ZZ-age.tgz"
+          echo "${AGE_SHA256}  $RUNNER_TEMP/ZZ-age.tgz" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/ZZ-age"
+          tar -xzf "$RUNNER_TEMP/ZZ-age.tgz" -C "$RUNNER_TEMP/ZZ-age"
+          export PATH="$RUNNER_TEMP/ZZ-age/age:$PATH"
+          export ZZ_TEST_AGE_KEY="$RUNNER_TEMP/ZZ-age/test-key"
+          trap 'rm -f "$ZZ_TEST_AGE_KEY"' EXIT
+          age-keygen -o "$ZZ_TEST_AGE_KEY"
+          node --test oauth-bootstrap/protected-job-evidence.test.mjs
