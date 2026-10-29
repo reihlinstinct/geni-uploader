@@ -55,3 +55,8 @@ test('signed completion route verifies fixed immutable postwrite bytes then acco
  const reserve=await service.fetch(new Request('https://service.invalid/reserve',{method:'POST',body:JSON.stringify({workload_token:tok,plan_hash:c.plan})}),env);assert.equal(reserve.status,200);assert.equal((await reserve.json()).byte_limit,1048576);
  const response=await send();assert.equal(response.status,200);const out=await response.json();assert.equal(out.intent_verified,false);assert.equal(out.phase,'ciphertext_receipt_accounted_reconciliation_required');assert.equal(l.data.get('intent').phase,'uncertain');assert.equal(l.data.get('evidence-ledger').total_bytes,100+d.byte_length);assert.equal(calls,4);assert.deepEqual(l.data.get('postwrite-receipt').immutable.source,f.c.source);assert.equal((await send()).status,409);
 });
+
+test('authenticated read-only recovery remains release-gated before vendor calls',async t=>{
+ const c=fixture(),env={FATHER_INTENT_CONFIG:JSON.stringify(c),FATHER_SERVICE_LOCAL_REHEARSAL:'local-only-no-geni'},l=local(env);let n=0;t.mock.method(globalThis,'fetch',async u=>{assert.equal(u,'https://token.actions.githubusercontent.com/.well-known/jwks');n++;return Response.json({keys:[jwk]});});
+ const r=await service.fetch(new Request('https://service.invalid/recover',{method:'POST',body:JSON.stringify({workload_token:await token(c.workload_pins),plan_hash:c.plan})}),env);assert.equal(r.status,409);assert.equal(n,1);assert.equal(l.data.size,0);
+});
