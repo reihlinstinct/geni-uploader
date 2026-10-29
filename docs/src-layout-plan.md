@@ -1,12 +1,12 @@
 # Source package layout and migration
 
-Status: design proposal, issue #291. No file moves or behavior changes in this
+Status: staged migration design, issues #291 and #455. Updated 2026-10-29. No file moves or behavior changes in this
 PR. Creation release work remains higher priority. A layout change does not
 satisfy an authentication, storage, deployment or human-run release gate.
 
 ## Why change
 
-The current tree has 25 top-level Python modules, an intentional test-enforced `geni_offline/` package (#93),
+The current tree has 29 top-level Python modules, an intentional test-enforced `geni_offline/` package (#93),
 and a separate Node Worker project. This grew through small feature PRs without
 a package boundary. Root scripts now mix source upload, offline parent models,
 network candidates, evidence validation, rendering and workflow adapters.
@@ -38,6 +38,7 @@ src/geni_uploader/
     probe.py            # parent_probe.py (human read-only collector)
     closed_parent.py    # parent_http_candidate.py, gate remains always closed
   evidence/             # content contracts, not authenticated authority
+    single_human.py     # single_human_approval_record.py
     approval.py         # approval_record.py
     ciphertext.py       # ciphertext_evidence.py
     github_review.py    # github_review_evidence.py
@@ -46,6 +47,9 @@ src/geni_uploader/
     parent.py           # parent_evidence.py
     envelope.py         # parent_envelope.py
   workflow/             # small workflow-facing glue, not domain decisions
+    release_package.py  # father_release_package.py, reviewed file packaging
+    protected_job.py    # protected_father_job.py, composes protected evidence
+    father_executor.py  # father_executor_composition.py, still closed
     secondary_probe.py  # secondary_probe_action.py
     release_gate.py     # human_parent_gate.py, includes always-closed gate
     consumption.py      # parent_consumption.py (local prototype; composes evidence)
@@ -179,6 +183,48 @@ layout is not an authority boundary by itself; the current offline models and
 closed transport remain offline/closed after moving. Real profile creation
 requires the separate implementation, approval, deployment and human-run work.
 
+## Current pin and source identity constraints (#455)
+
+The first implementation slice adds explicit setuptools package discovery for
+`src/geni_uploader` plus the intentionally separate `geni_offline` package. Do
+not replace or accidentally omit the latter. No runtime install/path change is
+made by the design. Prove wheel import outside checkout with isolated Python;
+no `.pth` injection, data-repo search path or `sys.path` workaround in production.
+
+Move `people_core.py` first only after packaging is independently green. It has
+no sibling imports, but contains SQLite/journal behavior and must be moved intact,
+not labeled a trivial data module. A temporary root compatibility alias must
+preserve module object/class identity and monkeypatch propagation in both import
+orders. Source/AST guards must inspect the authoritative package implementation,
+not the facade. If an isolated script caller cannot import the installed package,
+stop rather than dropping `-I` or importing untrusted checkout code.
+
+Current callers also include `father_executor_composition`,
+`father_release_package`, `protected_father_job` and
+`single_human_approval_record`. Keep their release/transport/evidence graph intact;
+no extraction that reclassifies a composing network boundary as pure core.
+`father_release_package` uses local imports and filesystem/source inventory, so
+its dependency map must include function-local imports and file path strings.
+
+The closed Worker builder, fixed expected-module inventory and literal synthetic
+benchmark module/bundle/record hashes are source identity contracts. Keep the
+Node package intact in this Python migration. Python parity harness module paths,
+Node subprocess cwd, package lock and source SHA pins must still execute. Any
+later Node move needs a separate reviewed inventory/hash update, not an automatic
+search-and-replace or regenerated expected output.
+
+`tools/image_provenance.py` checks Docker COPY paths, image descriptor files and
+engine revision. The existing image must not be declared compatible merely
+because a root facade exists. A client/presentation move changes the baked import
+closure and needs explicit Docker/path/descriptor tests, followed by a separately
+approved image build/pin. Coverage filters and per-file floor still measure real
+implementations, not compatibility facades. No workflow trigger, permission,
+actor, environment or secret change is permitted as part of path updates.
+
+No package move is bundled with #453 OAuth custody. Finish/rebase active root
+module PRs before moving their source. Every implementation slice is independently
+reviewed at its exact green head; docs approval alone is not blanket move review.
+
 ## Current local import graph (AST inventory)
 
 Generated from root modules using Python ast Import/ImportFrom (including local
@@ -188,6 +234,10 @@ filenames, not a claim that destinations already exist. Repeat at each move.
 ```text
 approval_record -> people_core
 ciphertext_evidence -> people_core
+father_executor_composition -> human_parent_gate, parent_adapter_contract, people_core, profile_result
+father_release_package -> (no local project imports; filesystem inventory requires review)
+protected_father_job -> github_review_evidence, people_core, single_human_approval_record
+single_human_approval_record -> approval_record, people_core
 father_once_simulation -> parent_adapter_contract, parent_intent_model, people_core
 geni_upload -> plan_report, visual_plan
 github_review_evidence -> people_core
