@@ -1,0 +1,141 @@
+{
+ "version": 1,
+ "findings": [
+  {
+   "path": ".github/workflows/scorecard.yml",
+   "rule": "job-write",
+   "scope": "analysis",
+   "evidence": "security-events: write",
+   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
+   "reason": "Approved job-scoped SARIF upload to GitHub code scanning; no code or secrets write."
+  },
+  {
+   "path": ".github/workflows/ci.yml",
+   "rule": "unpinned-action",
+   "scope": "test",
+   "evidence": "actions/checkout@v7",
+   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
+   "reason": "Pre-existing action ref pinned by tag/branch, not commit SHA; tracked for SHA pinning in this issue."
+  },
+  {
+   "path": ".github/workflows/ci.yml",
+   "rule": "unpinned-action",
+   "scope": "test",
+   "evidence": "actions/setup-python@v7",
+   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
+   "reason": "Pre-existing action ref pinned by tag/branch, not commit SHA; tracked for SHA pinning in this issue."
+  },
+  {
+   "path": ".github/workflows/ci.yml",
+   "rule": "unpinned-action",
+   "scope": "test",
+   "evidence": "actions/upload-artifact@v7",
+   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
+   "reason": "Pre-existing action ref pinned by tag/branch, not commit SHA; tracked for SHA pinning in this issue."
+  },
+  {
+   "path": ".github/workflows/ci.yml",
+   "rule": "unpinned-action",
+   "scope": "coverage",
+   "evidence": "actions/checkout@v7",
+   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
+   "reason": "Pre-existing action ref pinned by tag/branch, not commit SHA; tracked for SHA pinning in this issue."
+  },
+  {
+   "path": ".github/workflows/ci.yml",
+   "rule": "unpinned-action",
+   "scope": "coverage",
+   "evidence": "actions/setup-python@v7",
+   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
+   "reason": "Pre-existing action ref pinned by tag/branch, not commit SHA; tracked for SHA pinning in this issue."
+  },
+  {
+   "path": ".github/workflows/ci.yml",
+   "rule": "unhashed-pip-install",
+   "scope": "dependencies",
+   "evidence": "pip install -r requirements-dev.txt",
+   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
+   "reason": "Pre-existing pip install without --require-hashes; resolves unhashed dependencies; tracked for hash pinning in this issue."
+  },
+  {
+   "path": ".github/workflows/oauth-bootstrap-test.yml",
+   "rule": "unhashed-pip-install",
+   "scope": "dependencies",
+   "evidence": "python -m pip install -r requirements-dev.txt",
+   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
+   "reason": "Pre-existing pip install without --require-hashes; resolves unhashed dependencies; tracked for hash pinning in this issue."
+  },
+  {
+   "path": ".github/workflows/publish-image.yml",
+   "rule": "top-level-write",
+   "scope": "workflow",
+   "evidence": "packages: write",
+   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
+   "reason": "Pre-existing workflow-level write permission; tracked for job-level scoping in this issue."
+  },
+  {
+   "path": "Dockerfile",
+   "rule": "unhashed-pip-install",
+   "scope": "dependencies",
+   "evidence": "pip install --no-cache-dir \"PyYAML==6.0.3\"",
+   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
+   "reason": "Pre-existing pip install without --require-hashes; resolves unhashed dependencies; tracked for hash pinning in this issue."
+  },
+  {
+   "path": "requirements-dev.txt",
+   "rule": "unhashed-requirement",
+   "scope": "dependencies",
+   "evidence": "PyYAML==6.0.3",
+   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
+   "reason": "Pre-existing requirement entry without exact version and sha256 hash; tracked for hash pinning in this issue."
+  },
+  {
+   "path": "requirements-dev.txt",
+   "rule": "unhashed-requirement",
+   "scope": "dependencies",
+   "evidence": "pytest>=9.1.1",
+   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
+   "reason": "Pre-existing requirement entry without exact version and sha256 hash; tracked for hash pinning in this issue."
+  },
+  {
+   "path": "requirements-dev.txt",
+   "rule": "unhashed-requirement",
+   "scope": "dependencies",
+   "evidence": "ruff>=0.17.1",
+   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
+   "reason": "Pre-existing requirement entry without exact version and sha256 hash; tracked for hash pinning in this issue."
+  },
+  {
+   "path": "requirements-dev.txt",
+   "rule": "unhashed-requirement",
+   "scope": "dependencies",
+   "evidence": "coverage==7.17.0",
+   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
+   "reason": "Pre-existing requirement entry without exact version and sha256 hash; tracked for hash pinning in this issue."
+  },
+  {
+   "path": "requirements-dev.txt",
+   "rule": "unhashed-requirement",
+   "scope": "dependencies",
+   "evidence": "setuptools==84.2.1",
+   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
+   "reason": "Pre-existing requirement entry without exact version and sha256 hash; tracked for hash pinning in this issue."
+  },
+  {
+   "path": "requirements-dev.txt",
+   "rule": "unhashed-requirement",
+   "scope": "dependencies",
+   "evidence": "wheel==0.48.0",
+   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
+   "reason": "Pre-existing requirement entry without exact version and sha256 hash; tracked for hash pinning in this issue."
+  },
+  {
+   "path": "requirements-dev.txt",
+   "rule": "unhashed-requirement",
+   "scope": "dependencies",
+   "evidence": "-e .",
+   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
+   "reason": "Pre-existing requirement entry without exact version and sha256 hash; tracked for hash pinning in this issue."
+  }
+ ]
+}
