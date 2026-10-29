@@ -119,3 +119,11 @@ export function admitSingleHumanApproval({approvalBytes,expectedRecord,authentic
   return {phase:'private_single_human_content_admitted_only',record_provenance_verified:true,content_consistent:true,human_count:1,two_humans_verified:false,owner_approval_verified:false,protected_human_action_verified:false,post_permitted:false,production_enabled:false,record_sha256:hash(receipt.bytes)};
  }catch{fail();}
 }
+/** Private immutable fetch and v2 admission stay in the same module. Raw bytes
+ * and module-owned receipt never cross the service request boundary.
+ */
+export async function fetchAndAdmitSingleHuman({source,credential,expectedRecord}){
+ const receipt=await fetchPrivateApproval({source,credential});
+ const stored=receipts.get(receipt);need(stored);
+ return admitSingleHumanApproval({approvalBytes:stored.bytes,expectedRecord,authenticatedRecord:receipt});
+}
