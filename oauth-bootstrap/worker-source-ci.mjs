@@ -8,7 +8,8 @@ export async function inspectWorkerSourceCI(env,fetcher=fetch){let transport;try
  const raw=env.FATHER_SOURCE_CI_JSON;need(typeof raw==='string'&&raw.length<=16384&&await hash(raw)===env.FATHER_SOURCE_CI_SHA256);
  const c=JSON.parse(raw);need(JSON.stringify(c)===raw);exact(c,['mode','production_enabled','owner','repo','source_sha','checks']);
  need(c.mode==='unreleased_exact_source_ci'&&c.production_enabled===false);
- for(const k of ['owner','repo'])need(typeof c[k]==='string'&&/^[A-Za-z0-9][A-Za-z0-9_-]{0,99}(?![\s\S])/.test(c[k]));
+ need(typeof c.owner==='string'&&/^[A-Za-z0-9][A-Za-z0-9_-]{0,99}(?![\s\S])/.test(c.owner));
+ need(typeof c.repo==='string'&&/^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}(?![\s\S])/.test(c.repo)&&!c.repo.includes('..'));
  need(typeof c.source_sha==='string'&&/^[a-f0-9]{40}(?![\s\S])/.test(c.source_sha));
  need(Array.isArray(c.checks)&&c.checks.length>0&&c.checks.length<=16);const names=new Set();
  for(const check of c.checks){exact(check,['name','app_id']);need(typeof check.name==='string'&&/^[A-Za-z0-9 ()_.-]{1,100}(?![\s\S])/.test(check.name)&&!names.has(check.name));names.add(check.name);id(check.app_id);}
