@@ -34,8 +34,15 @@ mutations remove signature/head/App/success comparisons individually; each then
 accepts a hostile fixture that the original rejects. No Node compatibility in
 the bundled module, no external network or production keys used.
 
-## Official sources checked2026-10-29
+## Official sources checked 2026-10-29
 
 - https://docs.github.com/en/rest/commits/commits
 - https://docs.github.com/en/rest/checks/runs
 - https://docs.github.com/en/rest/pulls/reviews
+
+## Follow-up regression controls (#427)
+
+Individual test-only removals of status, reason, total_count and combined name-selection/set-membership
+checks accept their dedicated hostile fixture; production rejects it. Dotted
+repository names are accepted, while traversal/double-dot, slash, leading-dot
+and malformed-name inputs remain blocked. No live repository is used in tests.
