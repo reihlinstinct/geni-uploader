@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {fetchPrivateApproval,admitApproval} from './approval-admission.mjs';
+import {fetchPrivateApproval,admitApproval,admitSingleHumanApproval} from './approval-admission.mjs';
 const hash=(x,alg='sha256')=>createHash(alg).update(x).digest('hex');
 const now=()=>Math.floor(Date.now()/1000);
 const pins=()=>({owner:'profile-999001',connection_id:'ZZ-secondary',operation:'single_father_add_parent',payload_hash:'a'.repeat(64),graph_hash:'b'.repeat(64),data_hash:'c'.repeat(64),executor_sha:'d'.repeat(40),workflow_sha:'e'.repeat(40),artifact_hash:'f'.repeat(64),service_sha:'1'.repeat(40),policy_hash:'2'.repeat(64),recipient:'3'.repeat(64),run_id:'999002',run_attempt:1,nonce:'4'.repeat(64),issued_at:now()-1,expires_at:now()+300});
@@ -17,7 +17,7 @@ function fixture(change=()=>{},rawChange=x=>x){
 }
 function mock(t,f,alter=(b)=>b,options={}){
  let count=0;t.mock.method(globalThis,'fetch',async(url,opts)=>{
-  assert.equal(url,'https://api.github.com'+f.paths[count]);assert.equal(opts.redirect,'error');assert.ok(opts.signal instanceof AbortSignal);
+  assert.equal(url,'https://api.github.com'+f.paths[count]);assert.equal(opts.redirect,'manual');assert.ok(opts.signal instanceof AbortSignal);
   assert.equal(opts.headers.Authorization,'Bearer ZZsynthetic');assert.equal(opts.headers.Accept,'application/vnd.github+json');
   const b=structuredClone(f.bodies[count]);const index=count++;return Response.json(alter(b,index),options);
  });return()=>count;
@@ -119,3 +119,12 @@ for(const [field,value]of [['type','blob'],['mode','100644']])test('intermediate
  const f=fixture();f.source.path='ZZ-dir/'+f.source.path;f.paths.splice(3,0,'/repos/ZZ-owner/ZZ-private/git/trees/'+'b'.repeat(40));
  f.bodies.splice(2,0,{sha:'a'.repeat(40),truncated:false,tree:[{path:'ZZ-dir',type:'tree',mode:'040000',sha:'b'.repeat(40)}]});f.bodies[3].sha='b'.repeat(40);f.bodies[2].tree[0][field]=value;mock(t,f);await assert.rejects(get(f));
 });
+
+function v2(change=()=>{}){return fixture(r=>{
+ delete r.approvals;Object.assign(r,{schema_version:2,mode:'single_human_approval_content',assurance:'single_human_owner_agent_dispatch_independent_agent_review',human_count:1,risk_hash:'5'.repeat(64),reviewed_executor_sha:r.pins.executor_sha,revocation_epoch:0,sources:{owner_grant:{kind:'protected_environment_exact_payload_approval',principal_id:'999004',source_ref:'6'.repeat(64),content_hash:'7'.repeat(64)},protected_review:{kind:'protected_environment_human_action',principal_id:'999004',source_ref:'6'.repeat(64),content_hash:'7'.repeat(64)},dispatch:{kind:'designated_agent_workflow_dispatch',principal_id:'999005',source_ref:'8'.repeat(64),content_hash:'9'.repeat(64)},code_review:{kind:'independent_agent_exact_head_review',principal_id:'999006',source_ref:'a'.repeat(64),content_hash:'b'.repeat(64)}}});change(r);
+});}
+const admit2=(f,r,expected=f.record)=>admitSingleHumanApproval({approvalBytes:f.bytes,expectedRecord:expected,authenticatedRecord:r});
+test('v2 immutable private receipt content admits exactly one human without consent claim',async t=>{const f=v2();mock(t,f);const r=await get(f),out=admit2(f,r);assert.equal(out.human_count,1);assert.equal(out.owner_approval_verified,false);assert.equal(out.post_permitted,false);assert.throws(()=>admit2(f,{...r}));const e=structuredClone(f.record);e.risk_hash='0'.repeat(64);assert.throws(()=>admit2(f,r,e));});
+for(const [label,change]of [
+ ['two humans',r=>r.human_count=2],['production',r=>r.production_enabled=true],['wrong schema',r=>r.schema_version=1],['epoch',r=>r.revocation_epoch=-1],['reviewed head',r=>r.reviewed_executor_sha='0'.repeat(40)],['expired',r=>{r.pins.issued_at=now()-100;r.pins.expires_at=now()-1;}],['exclusions',r=>r.exclusions.pop()],['same dispatcher',r=>r.sources.dispatch.principal_id=r.sources.owner_grant.principal_id],['same reviewer agent',r=>r.sources.code_review.principal_id=r.sources.dispatch.principal_id],['distinct human',r=>r.sources.protected_review.principal_id='1'],['other human action',r=>r.sources.protected_review.source_ref='0'.repeat(64)],['other human content',r=>r.sources.protected_review.content_hash='0'.repeat(64)],['shared source',r=>r.sources.code_review.source_ref=r.sources.dispatch.source_ref],['extra',r=>r.extra=true]
+])test('v2 immutable invalid record '+label+' rejects even when expected matches',async t=>{const f=v2(change);mock(t,f);const r=await get(f);assert.throws(()=>admit2(f,r));});
