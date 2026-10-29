@@ -2,9 +2,9 @@
 from copy import deepcopy
 from threading import Lock
 
+from geni_uploader.core.intent import advance, binding_hash, consume, validate
+from geni_uploader.core.parent_contract import classify_create, describe
 from geni_uploader.core.people import Blocked, digest, require
-from parent_adapter_contract import classify_create, describe
-from parent_intent_model import advance, binding_hash, consume, validate
 
 
 class SyntheticOwnerStore:
