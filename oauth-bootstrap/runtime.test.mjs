@@ -97,8 +97,10 @@ import './trusted-workload-jwks.test.mjs';
 
 // Isolate global fetch/clock mocks from concurrent Workers runtime checks.
 for (const suite of ['approval-admission.test.mjs','ciphertext-private-writer.test.mjs','reviewed-release-boundary.test.mjs']) {
- test(suite+' runs in an isolated process', async () => {
-  const {execFileSync}=await import('node:child_process');
-  execFileSync(process.execPath,['--test',suite],{cwd:new URL('.',import.meta.url),timeout:30000,stdio:'pipe'});
+ test(suite+' runs in an isolated process',{timeout:65000}, async () => {
+  const {runIsolatedSuite}=await import('./isolated-test-runner.mjs');
+  runIsolatedSuite(suite);
  });
 }
+
+import './isolated-test-runner.test.mjs';
