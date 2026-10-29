@@ -137,3 +137,12 @@ https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-depl
 Reusable workflows add job_workflow_ref and can change the claims that must be
 pinned. This design does not silently switch the public job to a reusable workflow:
 https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-with-reusable-workflows
+
+## Reviewer account assurance (#415)
+
+The selected one-approval ceremony is GitHub account approval plus account2FA,
+not proof of interactive human presence. Preserve all fixed reviewer/User/id,
+exact-run, no-self-review and no-admin-bypass pins. No automation may hold or use
+the reviewer's PAT/OAuth/session for this ceremony. No extra challenge is added.
+See [github-reviewer-account-assurance.md](github-reviewer-account-assurance.md)
+for token attribution, review-payload limits and the remaining assurance boundary.
