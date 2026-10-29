@@ -152,3 +152,12 @@ exact approval. No money, settings changes or live Geni call follows this file.
 - https://developers.cloudflare.com/workers/runtime-apis/web-crypto/
 - https://developers.cloudflare.com/durable-objects/platform/pricing/
 - https://docs.github.com/en/actions/reference/security/oidc
+
+## Reviewer account assurance (#415)
+
+The selected one-approval ceremony is GitHub account approval plus account2FA,
+not proof of interactive human presence. Preserve all fixed reviewer/User/id,
+exact-run, no-self-review and no-admin-bypass pins. No automation may hold or use
+the reviewer's PAT/OAuth/session for this ceremony. No extra challenge is added.
+See [github-reviewer-account-assurance.md](github-reviewer-account-assurance.md)
+for token attribution, review-payload limits and the remaining assurance boundary.
