@@ -40,3 +40,14 @@ stream cap without Content-Length, duplicate JSON/kid, invalid key/header/algori
 unknown key, redirects, malformed data and fixed errors. The existing runtime
 test entry point imports these tests, so CI runs them without workflow changes.
 No real identity token or live key request is used in the test suite.
+
+## Isolated bound regression (#298)
+
+Valid-JSON declared oversize uses a small valid body with an excessive declared
+length, isolating the header bound from streaming. Streamed oversize is valid
+JWKS JSON plus whitespace, so JSON parsing cannot mask the byte guard.
+Oversized modulus and exponent3 fixtures sign matching JWTs with their own RSA
+private keys, so signature verification cannot mask rejection of the key policy.
+The17-key fixture includes the valid pinned key. Removing each of those five
+bounds independently fails its named regression (five mutants killed).
+All keys are generated synthetic test keys; no workload token is retrieved.
