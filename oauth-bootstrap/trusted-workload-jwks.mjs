@@ -54,7 +54,7 @@ export async function verifyTrustedWorkload(token, pins) {
   const operation=async()=>{
     const kid=headerKid(token);
     check(pins&&pins.kid===kid);
-    const response=await fetch(URL,{redirect:'error',signal:controller.signal,
+    const response=await fetch(URL,{redirect:'manual',signal:controller.signal,
       headers:{Accept:'application/json'}});
     const jwks=parseUnique(await bounded(response));
     check(jwks&&Object.keys(jwks).join(',')==='keys'&&Array.isArray(jwks.keys)

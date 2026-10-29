@@ -12,7 +12,7 @@ const token=await new SignJWT(claims).setProtectedHeader({alg:'RS256',typ:'JWT',
 test('fixed issuer key verifies only workload, no authority',async t=>{
   let calls=0;t.mock.method(globalThis,'fetch',async(url,options)=>{
     calls++;assert.equal(url,'https://token.actions.githubusercontent.com/.well-known/jwks');
-    assert.equal(options.redirect,'error');assert.ok(options.signal instanceof AbortSignal);
+    assert.equal(options.redirect,'manual');assert.ok(options.signal instanceof AbortSignal);
     assert.equal(options.headers.Accept,'application/json');return Response.json({keys:[jwk]});});
   const result=await verify(token,pins);assert.equal(calls,1);assert.equal(result.workload_verified,true);
   assert.equal(result.production_enabled,false);assert.equal(result.owner_approval_verified,false);
@@ -30,7 +30,7 @@ for(const [label,raw] of [
   await assert.rejects(verify(token,pins),{message:'trusted workload verification blocked'});assert.equal(calls,1);
  });
 }
-test('redirect error and non200 are never followed/retried',async t=>{
+test('redirect and non200 are never followed/retried',async t=>{
  let calls=0;t.mock.method(globalThis,'fetch',async()=>{calls++;return new Response(JSON.stringify({keys:[jwk]}),{status:302,headers:{Location:'https://zz.invalid'}});});
  await assert.rejects(verify(token,pins));assert.equal(calls,1);
 });
