@@ -49,6 +49,34 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           docker push "$TAG"
           docker inspect --format='digest: {{index .RepoDigests 0}}' "$TAG"
+      # Release descriptor (#100): hashes are taken inside the pushed image,
+      # then checked against the repo at GITHUB_SHA by tools/image_descriptor.py
+      # (every image_provenance check except the IMAGE pin, which the next pin
+      # PR adds together with this exact descriptor).
+      - name: Emit release descriptor from the built image
+        run: |
+          set -euo pipefail
+          REF="$(docker inspect --format='{{index .RepoDigests 0}}' "$TAG")"
+          mapfile -t DESTS < <(python3 tools/image_descriptor.py --list-destinations)
+          docker run --rm --network none --entrypoint sha256sum "$TAG" "${DESTS[@]}" \
+            > "$RUNNER_TEMP/baked.sha256"
+          mkdir -p "$RUNNER_TEMP/descriptor"
+          python3 tools/image_descriptor.py --image "$REF" --revision "$GITHUB_SHA" \
+            --hashes "$RUNNER_TEMP/baked.sha256" \
+            --out "$RUNNER_TEMP/descriptor/image-release.json"
+          {
+            echo '### Image release descriptor'
+            echo '```json'
+            cat "$RUNNER_TEMP/descriptor/image-release.json"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload release descriptor
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: image-release-descriptor
+          path: ${{ runner.temp }}/descriptor/image-release.json
+          if-no-files-found: error
+          retention-days: 90
 
   summary:
     permissions:
