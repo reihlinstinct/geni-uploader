@@ -12,7 +12,9 @@ call is added or approved here.
 `createEnvironmentSecretCustody(config, { fetch, seal, setTimeout, clearTimeout })` takes a closed
 registry from trusted construction config only. Each slot fixes the canonical
 owner, repository owner/name, numeric repository ID, environment name and secret
-name. Two slots cannot share one destination. A callback, query or request body
+name. Two slots cannot share one destination. A repository owner or name of
+`.` or `..` is rejected, because URL resolution would collapse that path
+segment (#497). A callback, query or request body
 can choose only a slot name that already exists. It can never choose a
 repository, environment, secret, owner or URL. The registry is copied and frozen
 at construction, so later mutation of the config object cannot redirect a write.
@@ -33,7 +35,10 @@ call makes exactly two requests to the fixed origin `https://api.github.com`:
    exactly the sealed-box size (message + 48 bytes). Then one
    `PUT /repos/{owner}/{repo}/environments/{environment_name}/secrets/{secret_name}`
    with `{encrypted_value, key_id}`, `redirect: manual`. Only 201 (created) or
-   204 (updated) counts as stored.
+   204 (updated) counts as stored. The PUT response body is never read: it is
+   cancelled on every status, best effort, so a missing body or a cancel that
+   throws or rejects changes nothing (#497). The ciphertext is base64-encoded in
+   fixed 32 KiB chunks rather than spread into one call (#497).
 
 There is no raw access-token route and no second secret: the stored value is
 always the complete versioned bundle.
@@ -119,6 +124,12 @@ endpoints are not stated on the page and remain to be verified.
 - the bounded stream: cancelled at the cap without pulling the next chunk, split
   chunks, exactly 4096 bytes, missing or non-stream body, non-byte chunks and
   invalid UTF-8;
+- `.` and `..` as repository owner or name are rejected at construction, while
+  dotted names such as `.zz` still work (#497);
+- the PUT body is cancelled unread on 201, 204 and failing statuses, and a
+  throwing, rejecting or missing body never changes the result (#497);
+- the ciphertext base64 equals an independent encoding just below, at and above
+  the 32 KiB chunk boundary and at the largest accepted bundle (#497);
 - a public-key timeout and a PUT timeout: the signal is aborted, there is no
   retry, the timers are cleared, and the slot stays busy until an abandoned PUT
   settles.

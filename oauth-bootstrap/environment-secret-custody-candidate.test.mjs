@@ -273,3 +273,60 @@ test('PUT timeout is write_state_unknown, is never retried, and keeps the slot b
   assert.equal((await h.custody.storeBundle({ slot: 'secondary', bundleJson: bundleJson() })).status, 'stored_created');
   assert.equal(h.trace.filter((t) => t.method === 'PUT').length, 2); // One per accepted call, none automatic.
 });
+
+test('#497: "." and ".." repository path segments are rejected at construction; dotted names still work', async () => {
+  for (const key of ['repository_owner', 'repository_name']) {
+    for (const value of ['.', '..']) {
+      const c = config(); c.destinations.secondary[key] = value;
+      assert.throws(() => createEnvironmentSecretCustody(c, harness().deps));
+    }
+  }
+  const c = config(); c.destinations.secondary.repository_owner = '.zz'; c.destinations.secondary.repository_name = 'zz..repo';
+  const h = harness();
+  const custody = createEnvironmentSecretCustody(c, h.deps);
+  assert.equal((await custody.storeBundle({ slot: 'secondary', bundleJson: bundleJson() })).status, 'stored_created');
+  assert.equal(h.trace[0].url, 'https://api.github.com/repos/.zz/zz..repo/environments/ZZ-father/secrets/public-key');
+});
+
+test('#497: the PUT response body is cancelled unread on every status, and a failing cancel changes nothing', async () => {
+  for (const [status, expected] of [[201, 'stored_created'], [204, 'stored_updated'], [200, 'write_state_unknown'],
+    [403, 'write_state_unknown'], [422, 'write_state_unknown'], [500, 'write_state_unknown']]) {
+    const log = [];
+    const h = harness({ put: respond(status, '', { body: streamOf(['ZZ-PROVIDER-TEXT-SENTINEL'], log) }) });
+    const r = await h.custody.storeBundle({ slot: 'secondary', bundleJson: bundleJson() });
+    assert.equal(r.status, expected);
+    await new Promise((res) => setImmediate(res));
+    assert.deepEqual(log, ['cancelled'], `status ${status}`); // Cancelled, and no chunk was ever pulled.
+    noSentinel(r);
+  }
+  const throwing = { cancel() { throw Error('ZZ-CANCEL-SENTINEL'); } };
+  const rejecting = { cancel: () => Promise.reject(Error('ZZ-CANCEL-SENTINEL')) };
+  for (const body of [throwing, rejecting, null, undefined, {}]) {
+    for (const [status, expected] of [[201, 'stored_created'], [500, 'write_state_unknown']]) {
+      const h = harness({ put: respond(status, '', { body }) });
+      const r = await h.custody.storeBundle({ slot: 'secondary', bundleJson: bundleJson() });
+      assert.equal(r.status, expected);
+      noSentinel(r);
+    }
+  }
+});
+
+test('#497: ciphertext base64 is chunked and matches the reference encoding at and across the chunk boundary', async () => {
+  const withTokens = (a, b) => { const o = bundleObject(); o.access_token = 'Z'.repeat(a); o.refresh_token = 'Y'.repeat(b); return bundleJson(o); };
+  const base = withTokens(0, 0).length; // Tokens are ASCII, so length is the byte count.
+  const sizes = [];
+  for (const cipherLen of [0x8000 - 1, 0x8000, 0x8000 + 1]) sizes.push(cipherLen - 48 - base - 16384);
+  sizes.push(16384); // The largest bundle the validator accepts: two maximal tokens.
+  for (const b of sizes) {
+    const raw = withTokens(16384, b);
+    const pattern = (n) => Uint8Array.from({ length: n }, (_, i) => (i * 131 + 7) & 255);
+    const h = harness({ seal: async (message) => pattern(message.length + 48) });
+    assert.equal((await h.custody.storeBundle({ slot: 'secondary', bundleJson: raw })).status, 'stored_created');
+    const expected = Buffer.from(pattern(raw.length + 48)).toString('base64');
+    assert.equal(JSON.parse(h.trace[1].body).encrypted_value, expected, `ciphertext ${raw.length + 48} bytes`);
+  }
+  // Source guard: the whole ciphertext is never spread into one call.
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('./environment-secret-custody-candidate.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(src, /fromCharCode\(\.\.\./);
+});
