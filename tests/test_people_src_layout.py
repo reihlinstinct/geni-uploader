@@ -56,3 +56,19 @@ def test_existing_offline_cli_from_outside_checkout(tmp_path):
                                 check=False, cwd=tmp_path, capture_output=True, text=True)
         assert result.returncode == 0, result.stderr
         assert "usage:" in result.stdout.lower()
+
+
+def test_offline_node_parity_workflow_installs_project_before_subprocesses():
+    import yaml
+    workflow = yaml.safe_load((ROOT / ".github/workflows/oauth-bootstrap-test.yml").read_text())
+    assert workflow["permissions"] == {"contents": "read"}
+    steps = workflow["jobs"]["offline"]["steps"]
+    setup = next(i for i, step in enumerate(steps)
+                 if step.get("uses", "").startswith("actions/setup-python@"))
+    install = next(i for i, step in enumerate(steps)
+                   if step.get("run") == "python -m pip install -r requirements-dev.txt")
+    runtime = next(i for i, step in enumerate(steps)
+                   if step.get("run") == "node --test runtime.test.mjs")
+    assert steps[setup]["with"]["python-version"] == "3.12"
+    assert setup < install < runtime
+    assert "-e ." in (ROOT / "requirements-dev.txt").read_text().splitlines()

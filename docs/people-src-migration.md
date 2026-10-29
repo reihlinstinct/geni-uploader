@@ -22,7 +22,11 @@ installed. A source inventory is not authenticated authority or a deploy.
 Docker still carries only the existing source-upload scripts, which do not
 import people core. Its COPY and entrypoints are unchanged and guarded by a
 regression. Existing coverage targets remain the same two production uploader
-files. No workflows, secrets, permissions, image publication, production gate,
+files. The offline Node-test workflow now explicitly installs Python3.12 and the
+project before its Python parity/validator subprocesses. It previously relied
+on root-module imports, so Python suites alone could not catch that path gap.
+All66isolated runtime suites remain required. Workflow permissions and Node
+commands are unchanged. No secrets, permission changes, image publication, production gate,
 Geni operation or deployment changes in this slice.
 
 The temporary facade leaves one root filename until downstream entrypoints and
