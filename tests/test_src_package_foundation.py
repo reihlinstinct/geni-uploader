@@ -30,11 +30,13 @@ def test_wheel_is_explicit_and_imports_outside_checkout_without_network(tmp_path
         "geni_uploader/evidence/__init__.py",
         "geni_uploader/evidence/approval.py",
         "geni_uploader/evidence/ciphertext.py",
+        "geni_uploader/evidence/envelope.py",
         "geni_uploader/evidence/github_review.py",
         "geni_uploader/evidence/parent.py",
         "geni_uploader/evidence/profile_result.py",
         "geni_uploader/evidence/single_human_approval.py",
         "geni_uploader/evidence/workflow_content.py",
+        "geni_uploader/workflow/__init__.py", "geni_uploader/workflow/consumption.py",
 
     ]
     installed = tmp_path / "environment"
@@ -61,6 +63,7 @@ import geni_uploader.core.people
 import geni_uploader.core.proof_requirements, geni_uploader.core.proposal_review
 import geni_uploader.core.intent, geni_uploader.core.parent_contract
 import geni_uploader.core.snapshot, geni_uploader.core.outcome
+import geni_uploader.evidence.envelope, geni_uploader.workflow.consumption
 import geni_uploader.evidence.approval
 import geni_uploader.evidence.ciphertext
 import geni_uploader.evidence.github_review

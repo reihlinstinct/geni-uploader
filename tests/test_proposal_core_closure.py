@@ -66,6 +66,6 @@ def test_recursive_proposal_import_closure_excludes_io_and_upward_layers():
     # sqlite is an existing people module dependency, not a call at import-time.
     assert seen == {'geni_uploader.core.proposal_review', 'geni_uploader.core.people',
                     'geni_uploader.core.proof_requirements'}
-    tree = ast.parse((ROOT / 'parent_envelope.py').read_text())
+    tree = ast.parse((ROOT / 'src/geni_uploader/evidence/envelope.py').read_text())
     assert all(not isinstance(node, ast.ImportFrom) or node.module not in
                {'parent_plan', 'parent_runner', 'human_parent_gate'} for node in ast.walk(tree))
