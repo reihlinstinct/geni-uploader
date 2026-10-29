@@ -31,7 +31,7 @@ src/geni_uploader/
     father_once.py      # father_once_simulation.py
     parent_contract.py  # parent_adapter_contract.py, PURE wire descriptors
     proof_requirements.py # pure PROOFS constants, separated before envelope move
-    proposal_review.py  # pure verify_proposal, extracted before envelope move
+    proposal_review.py  # pure verify_proposal + proposal + payloads + BLOCKERS closure
   client/               # explicit network boundary; never imported by pure core
     upload.py           # geni_upload.py, initially moved intact
     source_details.py   # source_details.py, initially moved intact
@@ -107,14 +107,25 @@ not part of this Python migration. No private family data enters this tree.
    small dependency-ordered PRs, not a whole-repo rename.
 4. Move shared core/model modules as small dependency clusters. Before moving
    parent_envelope into evidence, extract pure PROOFS from human_parent_gate into
-   core/proof_requirements and pure verify_proposal from parent_plan into
-   core/proposal_review. Preserve gate behavior and caller compatibility; then
+   core/proof_requirements and the COMPLETE pure proposal closure into core/proposal_review:
+   verify_proposal and proposal and BLOCKERS from parent_plan, plus payloads from
+   parent_runner. verify_proposal reconstructs via proposal(), which calls
+   payloads(); moving only the first function would retain upward imports.
+   Their remaining imports are copy/re plus pure people_core validation, digest,
+   exact/require/warnings. No protected_file, CLI/render, simulation/transport or
+   require_production_release moves into core. Keep parent_plan and parent_runner
+   callers/re-exports compatible and prove recursive local imports are pure.
+   Defer the envelope move until this ENTIRE closure is extracted and verified.
+   Preserve gate behavior and caller compatibility; then
    evidence/envelope imports only those pure core modules, never workflow or CLI. Update packaged
    resource resolution using `importlib.resources`, including the always-closed
    gate fixture; test missing/drifted package resources still block.
 5. Move workflow glue explicitly: secondary_probe_action to workflow/secondary_probe
    and human_parent_gate to workflow/release_gate, updating read-only workflow
    script paths and imports in a separately independently reviewed path-only PR.
+   workflow/secondary_probe may import client/probe for bounded read-only
+   collection; this is composition toward a network adapter, never core -> client.
+   Keep its temporary compatibility import until client/probe moves in stage7.
    Move parent_runner and parent_consumption into workflow in this same stage:
    runner imports require_production_release from release_gate; consumption imports
    evidence/envelope.review. These are composition, not pure core. Do not move
