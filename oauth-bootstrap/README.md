@@ -1,11 +1,19 @@
-# Gated OAuth bootstrap (not deployed)
+# Gated OAuth bootstrap: observed landing page and release boundaries
 
 Tracking: #162
 
-Draft implementation only. No real credential, host URL, identity, deployment or
-live OAuth test belongs in this directory. Existing local-copy callback is unchanged.
-This worker must not be deployed until independent security review and human
-approval, then verified identity-gate/logging/secrets setup.
+Observed on 2026-10-29: the existing OAuth landing page at
+https://oauth-bootstrap.reihlinstinct.workers.dev/ displays the GitHub-login
+"Identity check" page. This is evidence of that landing page, not verification of
+the deployed source revision, namespace bindings, variables, credential validity
+or a complete live OAuth flow. Runtime account configuration was not inspected.
+
+The father intent service/executor described in this directory remains
+unreleased and is blocked by its unconditional create release gate. A live OAuth
+landing page does not mean the father service is deployed or a create run is
+authorized. Deployment/configuration changes and live calls require separate
+explicit approval after independent review and verified release setup. Never
+commit real credentials, private identities or raw OAuth responses here.
 
 Current additions: see [CONNECTIONS.md](CONNECTIONS.md) for isolated owner pins
 and the explicitly gated discovery-only mode. The original setup description
