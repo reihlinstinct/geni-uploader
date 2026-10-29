@@ -3,7 +3,7 @@ import copy
 import json
 import re
 
-from people_core import Blocked, digest, exact, require, text
+from geni_uploader.core.people import Blocked, digest, exact, require, text
 
 LIMIT = 1024 * 1024
 

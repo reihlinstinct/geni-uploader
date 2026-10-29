@@ -6,10 +6,10 @@ and HTTPSConnection with fixtures; no real Geni request is part of development.
 import http.client
 import json
 
+from geni_uploader.core.people import require
 from human_parent_gate import require_production_release
 from parent_adapter_contract import LIMIT, classify_create, payload
 from parent_intent_model import _id
-from people_core import require
 
 
 class ClosedParentHTTP:

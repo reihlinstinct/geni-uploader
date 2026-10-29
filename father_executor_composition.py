@@ -1,9 +1,9 @@
 """Fixture-only one-father composition. No live route, HTTP, token or grant."""
 from copy import deepcopy
 
+from geni_uploader.core.people import Blocked, digest, exact, require
 from human_parent_gate import require_production_release
 from parent_adapter_contract import payload
-from people_core import Blocked, digest, exact, require
 from profile_result import validate as result_validate
 
 

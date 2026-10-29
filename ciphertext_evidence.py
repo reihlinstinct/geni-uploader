@@ -21,7 +21,7 @@ import hashlib
 import re
 from copy import deepcopy
 
-from people_core import exact, require
+from geni_uploader.core.people import exact, require
 
 OBJECT_CAP = 1024 * 1024
 OPERATION_CAP = 8 * 1024 * 1024

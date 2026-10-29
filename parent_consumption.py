@@ -4,8 +4,8 @@ import sqlite3
 import stat
 from pathlib import Path
 
+from geni_uploader.core.people import Blocked, require
 from parent_envelope import review
-from people_core import Blocked, require
 
 
 class LocalSyntheticLedger:

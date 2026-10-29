@@ -1,7 +1,7 @@
 """Offline review of already supplied parent-evidence snapshots. No transport."""
 import re
 
-from people_core import Blocked, exact, require
+from geni_uploader.core.people import Blocked, exact, require
 
 
 def node(value):

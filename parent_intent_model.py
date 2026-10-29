@@ -5,7 +5,7 @@ A reviewed shared backend must enforce atomic CAS and authenticated callers.
 """
 from copy import deepcopy
 
-from people_core import Blocked, digest, exact, require
+from geni_uploader.core.people import Blocked, digest, exact, require
 
 BINDINGS = ('owner', 'connection_id', 'operation', 'plan_hash', 'payload_hash',
             'artifact_hash', 'policy_hash')

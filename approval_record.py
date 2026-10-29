@@ -12,7 +12,7 @@ docs/intent-service-auth-design.md). No clock is read; the caller passes `now`.
 import re
 from copy import deepcopy
 
-from people_core import digest, exact, require
+from geni_uploader.core.people import digest, exact, require
 
 PIN_KEYS = ('owner', 'connection_id', 'operation', 'payload_hash', 'graph_hash', 'data_hash',
             'executor_sha', 'workflow_sha', 'artifact_hash', 'service_sha', 'policy_hash',

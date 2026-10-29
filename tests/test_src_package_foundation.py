@@ -21,7 +21,10 @@ def test_wheel_is_explicit_and_imports_outside_checkout_without_network(tmp_path
     wheel, = wheels.glob("*.whl")
     with zipfile.ZipFile(wheel) as archive:
         modules = sorted(name for name in archive.namelist() if not ".dist-info/" in name)
-    assert modules == ["geni_offline/__init__.py", "geni_uploader/__init__.py"]
+    assert modules == [
+        "geni_offline/__init__.py", "geni_uploader/__init__.py",
+        "geni_uploader/core/__init__.py", "geni_uploader/core/people.py",
+    ]
     installed = tmp_path / "environment"
     venv.EnvBuilder(with_pip=True).create(installed)
     python = installed / "bin/python"
@@ -42,7 +45,8 @@ def audit(event, args):
         raise RuntimeError('ZZ network forbidden')
 sys.addaudithook(audit)
 import geni_uploader, geni_offline
-print(json.dumps({'paths':[geni_uploader.__file__,geni_offline.__file__],
+import geni_uploader.core.people
+print(json.dumps({'paths':[geni_uploader.__file__,geni_offline.__file__,geni_uploader.core.people.__file__],
                   'blocked':blocked}))
 '''
     result = subprocess.run(

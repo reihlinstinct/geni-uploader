@@ -1,7 +1,7 @@
 """Offline supplied evidence parser. No network, provenance or write authority."""
 import re
 
-from people_core import Blocked, digest, require
+from geni_uploader.core.people import Blocked, digest, require
 
 
 def identifier(value, kind='profile'):

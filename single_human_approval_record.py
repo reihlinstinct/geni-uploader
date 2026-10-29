@@ -3,7 +3,7 @@ import re
 from copy import deepcopy
 
 from approval_record import EXCLUDED_ACTIONS, _pins, _time
-from people_core import digest, exact, require
+from geni_uploader.core.people import digest, exact, require
 
 ASSURANCE = 'single_human_owner_agent_dispatch_independent_agent_review'
 SOURCE_KEYS = ('kind', 'principal_id', 'source_ref', 'content_hash')

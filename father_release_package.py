@@ -77,7 +77,9 @@ def package_release(root: Path, manifest: dict, output: Path, worker_bundle: Pat
             continue
         path = raw.decode()
         p = Path(path)
-        selected = (len(p.parts) == 1 and p.suffix == '.py') or path in [
+        selected = (len(p.parts) == 1 and p.suffix == '.py') or (
+            len(p.parts) >= 3 and p.parts[:2] == ('src', 'geni_uploader') and
+            p.suffix == '.py') or path in [
             'pyproject.toml', 'oauth-bootstrap/package.json', 'oauth-bootstrap/package-lock.json',
             'docs/father-run-workflow-draft.yml'] or (
             len(p.parts) == 2 and p.parts[0] == 'oauth-bootstrap' and p.suffix == '.mjs' and
@@ -86,7 +88,8 @@ def package_release(root: Path, manifest: dict, output: Path, worker_bundle: Pat
         if selected:
             _need(not p.is_absolute() and '..' not in p.parts)
             f = root / p
-            _need(not f.is_symlink() and f.is_file() and f.stat().st_size <= 2097152)
+            _need(not any(part.is_symlink() for part in [f, *f.parents] if part != root)
+                  and f.is_file() and f.stat().st_size <= 2097152)
             paths.append(path)
     _need(all(p in paths for p in ['oauth-bootstrap/father-intent-service.mjs',
           'oauth-bootstrap/private-release-issuer.mjs', 'oauth-bootstrap/no-write-workload-probe-cli.mjs',

@@ -2,9 +2,9 @@
 import copy
 import re
 
+from geni_uploader.core.people import digest, exact, require, text
 from human_parent_gate import PROOFS
 from parent_plan import verify_proposal
-from people_core import digest, exact, require, text
 
 BINDING_KEYS = ('owner', 'connection_id', 'operator', 'consent_refs', 'manifest_hash',
                 'payload_hashes', 'graph_hash', 'proof_refs', 'data_sha', 'executor_sha',

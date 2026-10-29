@@ -11,8 +11,8 @@ only and must never be written to upload-status.yaml or any public artifact.
 import re
 from copy import deepcopy
 
+from geni_uploader.core.people import Blocked, digest, exact, require
 from parent_intent_model import validate as validate_intent
-from people_core import Blocked, digest, exact, require
 
 KINDS = ('source_upload', 'tag', 'fact_cite')
 STAGE_PHASES = ('approved', 'consumed', 'acknowledged', 'uncertain', 'verified', 'unsupported')
