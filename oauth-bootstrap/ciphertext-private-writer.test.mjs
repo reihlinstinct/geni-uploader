@@ -20,3 +20,7 @@ test('stream cap stops before subsequent stalled read',async t=>{const f=fixture
 
 test('tree cannot add unrelated entries',async t=>{const f=fixture(),c=mock(t,f,(b,i)=>{if(i===5)b.tree.push({path:'ZZ-extra',type:'blob',mode:'100644',sha:'0'.repeat(40)});return b});await assert.rejects(persistCiphertext(f));assert.equal(c().n,6);});
 test('created commit cannot have second parent',async t=>{const f=fixture(),c=mock(t,f,(b,i)=>{if(i===6)b.parents.push({sha:'0'.repeat(40)});return b});await assert.rejects(persistCiphertext(f));assert.equal(c().n,7);});
+
+test('object cap pins an otherwise consistent oversize descriptor',async t=>{
+ const f=fixture();f.bytes=Buffer.alloc(1048577,255);f.descriptor.byte_length=f.bytes.length;f.descriptor.sha256=sha(f.bytes);f.descriptor.blob_id=sha(Buffer.concat([Buffer.from('blob '+f.bytes.length+'\0'),f.bytes]),'sha1');const c=mock(t,f);await assert.rejects(persistCiphertext(f));assert.equal(c().n,0);
+});

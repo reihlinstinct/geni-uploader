@@ -23,7 +23,8 @@ commit/tree, no truncation or existing destination. Then one blob, one add-only
 tree preserving ALL old entries and no unrelated additions, one commit with
 exactly one expected parent, immutable commit inspection, force:false ref update,
 exact blob byte/hash/base64 readback and final exact ref inspection. Fixed generic
-commit message contains no private values.11requests,10second deadline,
+commit message contains no private values. Normal path11requests, hard ceiling12,
+10second deadline,
 2MiB/response declared+stream bound, depth12. No redirects/pagination/retries,
 refresh/reset/delete/force or plaintext fallback. No response URLs followed.
 Deadline stops late abort-ignoring responses from issuing subsequent writes.
