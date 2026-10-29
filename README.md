@@ -202,6 +202,8 @@ See [docs/DURABLE_RESUME.md](docs/DURABLE_RESUME.md) and [docs/usage.md § 7](do
 
 ## Development
 
+Every CI workflow except the protected `geni-upload.yml` ends with a `Run summary` job that writes a summary to the top of the run page: which jobs ran, their result and duration, what was skipped and why, the commits and files the run changed, and which checks cover those changes (`.github/ci-coverage-map.json` declares the coverage; files matching no mapping are flagged). The script is `scripts/ci/run_summary.py`. `geni-upload.yml` keeps `contents: none` by design, so no summary job is added there.
+
 **Tests:** Install dev dependencies and run the test suite:
 
 ```bash
