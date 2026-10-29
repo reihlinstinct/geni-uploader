@@ -179,13 +179,26 @@ def _commit_available(root: Path, rev: str) -> bool:
     return proc.returncode == 0
 
 
-def check(root: Path, descriptor_path: Path, allow_missing_revision: bool = False) -> list[str]:
-    """Raise ProvenanceError on the first mismatch; return value-free notes on success."""
+def check(
+    root: Path,
+    descriptor_path: Path,
+    allow_missing_revision: bool = False,
+    *,
+    check_pin: bool = True,
+) -> list[str]:
+    """Raise ProvenanceError on the first mismatch; return value-free notes on success.
+
+    ``check_pin=False`` is only for publish-image, which describes an image
+    that is not pinned yet; every other check still runs.
+    """
     desc = load_descriptor(descriptor_path)
     copies, entrypoint = dockerfile_layout((root / "Dockerfile").read_text(encoding="utf-8"))
     workflow = (root / WORKFLOW).read_text(encoding="utf-8")
 
-    if workflow_image(workflow) != desc["image"]:
+    notes = []
+    if not check_pin:
+        notes.append("IMAGE pin NOT checked (image not pinned yet)")
+    elif workflow_image(workflow) != desc["image"]:
         raise ProvenanceError("workflow IMAGE pin differs from the descriptor digest")
 
     listed, copied = set(desc["files"]), set(copies)
@@ -215,7 +228,6 @@ def check(root: Path, descriptor_path: Path, allow_missing_revision: bool = Fals
     if sum(line.count("--entrypoint") for line in _uncommented(workflow)) != in_runs:
         raise ProvenanceError("--entrypoint may only appear literally on a docker run line")
 
-    notes = []
     rev = desc["engine_revision"]
     if _commit_available(root, rev):
         for dest, src in sorted(copies.items()):

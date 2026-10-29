@@ -50,16 +50,33 @@ Matching cases pass, and each refusal above has a failing case. A further test r
 the routing half against the shipped `Dockerfile` and `geni-upload.yml`. A local
 mutation run that disables each guard in turn was killed by the suite every time.
 
-## Limits and follow-ups (not in this change)
+## Emitting the descriptor (publish-image)
 
-- **No descriptor is committed for the currently pinned digest.** Its baked file hashes
-  can't be established offline without pulling or building that image, so the full
-  check doesn't run against the live pin yet. Only the routing half does.
-- The intended follow-up is for `publish-image.yml` to emit the descriptor from the
-  image it just built, using `docker run --entrypoint sha256sum` over each `COPY`
-  destination. The descriptor would then be committed with the next `IMAGE` pin PR,
-  and CI would run the check. Both are workflow changes and need their own review.
+After the push, `publish-image.yml` runs `tools/image_descriptor.py`:
+
+1. `--list-destinations` prints every Dockerfile `COPY` destination.
+2. `docker run --rm --network none --entrypoint sha256sum "$TAG" <destinations>` hashes
+   those files **inside the pushed image**.
+3. The tool builds a schema-1 descriptor from the pushed digest (`RepoDigests`),
+   `GITHUB_SHA` and those hashes, and runs every check above except the `IMAGE` pin
+   (`check_pin=False`), because the new image isn't pinned yet. It refuses a hash list
+   that misses, repeats or adds a destination, any line that isn't `sha256sum` output,
+   and baked files that differ from the repo at `GITHUB_SHA`. A refused descriptor is
+   not written.
+4. The descriptor goes to the step summary and to the `image-release-descriptor`
+   artifact (90 days).
+
+The next `IMAGE` pin PR commits that exact descriptor. The strict CLI then also checks
+the pin. `tests/test_image_descriptor.py` covers each refusal and the workflow step.
+
+## Limits
+
+- **No descriptor is committed for the currently pinned digest.** That image predates
+  the emitting step, so the full check doesn't run against the live pin yet. Only the
+  routing half does. Committing a descriptor and running the strict check in CI comes
+  with the next pin PR and needs a published image first.
 - Verifying the digest itself, meaning that the registry serves those bytes under that
-  digest, needs registry access and stays out of offline CI.
-- No change to `geni_upload.py`, the Dockerfile, `entrypoint.sh` or any workflow.
-  No Geni, dispatch, token or publishing.
+  digest, needs registry access and stays out of offline CI. The emitting step trusts
+  the digest Docker reports right after its own push.
+- No change to `geni_upload.py`, the Dockerfile or `entrypoint.sh`. No Geni, dispatch,
+  token or publishing in tests.
