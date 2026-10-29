@@ -2,7 +2,7 @@
 const fail=()=>{throw Error('credential custody state blocked');};
 const need=x=>{if(!x)fail();};
 const exact=(x,keys)=>need(x&&Object.getPrototypeOf(x)===Object.prototype&&Object.keys(x).sort().join(',')===[...keys].sort().join(','));
-const number=x=>need(Number.isSafeInteger(x)&&x>=0&&x<2**40-1);
+const number=x=>need(Number.isSafeInteger(x)&&x>=0&&x<2**40);
 const hex=x=>need(typeof x==='string'&&/^[a-f0-9]{64}(?![\s\S])/.test(x));
 const key='credential-generation-state-v1';
 const fields=['schema','owner','slot','generation','revocation_epoch','phase','connection_id','bundle_sha256'];
@@ -24,7 +24,7 @@ async function tx(storage,raw,callback){
 export async function beginCredentialGeneration(storage,pinsJson,requestJson){try{
  need(typeof requestJson==='string'&&requestJson.length<1024);const r=JSON.parse(requestJson);need(JSON.stringify(r)===requestJson);
  exact(r,['expected_generation','expected_epoch','connection_id','bundle_sha256']);
- number(r.expected_generation);number(r.expected_epoch);hex(r.connection_id);hex(r.bundle_sha256);
+ number(r.expected_generation);number(r.expected_epoch);need(r.expected_generation<2**40-1);hex(r.connection_id);hex(r.bundle_sha256);
  return await tx(storage,pinsJson,async(t,p)=>{
   const old=await t.get(key);
   if(old===undefined)need(r.expected_generation===0&&r.expected_epoch===0);
@@ -48,7 +48,7 @@ export async function revokeCredentialGeneration(storage,pinsJson,requestJson){t
  need(typeof requestJson==='string'&&requestJson.length<512);const r=JSON.parse(requestJson);need(JSON.stringify(r)===requestJson);
  exact(r,['expected_generation','expected_epoch']);number(r.expected_generation);number(r.expected_epoch);
  return await tx(storage,pinsJson,async(t,p)=>{
-  const old=checked(await t.get(key),p);need(old.generation===r.expected_generation&&old.revocation_epoch===r.expected_epoch&&old.phase!=='revoked');
+  const old=checked(await t.get(key),p);need(old.generation===r.expected_generation&&old.revocation_epoch===r.expected_epoch&&old.phase!=='revoked'&&old.revocation_epoch<2**40-1);
   const next={...old,phase:'revoked',revocation_epoch:old.revocation_epoch+1};await t.put(key,next);
   return Object.freeze({phase:'local_credential_revoked_not_provider_erasure',...descriptor(next),write_permitted:false});
  });
