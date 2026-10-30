@@ -67,11 +67,11 @@
   },
   {
    "path": ".github/workflows/publish-image.yml",
-   "rule": "top-level-write",
-   "scope": "workflow",
+   "rule": "job-write",
+   "scope": "build",
    "evidence": "packages: write",
-   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
-   "reason": "Pre-existing workflow-level write permission; tracked for job-level scoping in this issue."
+   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/513",
+   "reason": "Existing manual image-push authority narrowed from workflow default to existing build job only; no effective new capability. Explicit owner approval required before merge."
   },
   {
    "path": "Dockerfile",

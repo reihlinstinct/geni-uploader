@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Short per-command `--help` explanations for every shipped command, sourced from the new `cli_spec.py` single source of truth (#515)
+- Linux man pages for every shipped command in `man/man1/`, generated from `cli_spec.py` by `tools/build_man_pages.py`, with drift tests, a host install script and tarball packaging (#515)
 - Comprehensive README with architecture diagram, CLI documentation, and usage examples
 - ARCHITECTURE.md with detailed design and data flow documentation
 - CHANGELOG.md

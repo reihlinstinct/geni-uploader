@@ -35,6 +35,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+import cli_spec
 import plan_report
 import visual_plan
 
@@ -1450,33 +1451,43 @@ def cmd_listing_shape(args):
 
 
 def main():
+    # All user-facing text comes from cli_spec, the single source of truth that
+    # also feeds the man pages (issue #515). Only parser mechanics live here.
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--token-file", help="file outside the repo holding the access token")
+    ap.add_argument("--token-file", help=cli_spec.TOKEN_FILE.help)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    p = sub.add_parser("auth-url"); p.add_argument("--client-id", required=True)
+    p = sub.add_parser("auth-url", help=cli_spec.UPLOAD_COMMANDS["auth-url"].summary,
+                       description=cli_spec.UPLOAD_COMMANDS["auth-url"].summary)
+    p.add_argument("--client-id", required=True,
+                   help=cli_spec.upload_opt("auth-url", "--client-id").help)
     p.add_argument("--redirect-uri", default=None,
-                   help="only if your app settings define a callback URL; the "
-                        "desktop flow (default) needs none")
+                   help=cli_spec.upload_opt("auth-url", "--redirect-uri").help)
     p.set_defaults(fn=cmd_auth_url)
-    p = sub.add_parser("whoami"); p.set_defaults(fn=cmd_whoami)
+    p = sub.add_parser("whoami", help=cli_spec.UPLOAD_COMMANDS["whoami"].summary,
+                       description=cli_spec.UPLOAD_COMMANDS["whoami"].summary)
+    p.set_defaults(fn=cmd_whoami)
     for name, fn in (("plan", cmd_plan), ("run", cmd_run),
                      ("contrast", cmd_contrast), ("guidmap", cmd_guidmap),
                      ("pguid", cmd_pguid), ("listing-shape", cmd_listing_shape)):
-        p = sub.add_parser(name); p.add_argument("--manifest", required=True)
+        p = sub.add_parser(name, help=cli_spec.UPLOAD_COMMANDS[name].summary,
+                           description=cli_spec.UPLOAD_COMMANDS[name].summary)
+        p.add_argument("--manifest", required=True,
+                       help=cli_spec.upload_opt(name, "--manifest").help)
         p.set_defaults(fn=fn)
-    sub.choices["run"].add_argument("--confirm", default="")
+    sub.choices["run"].add_argument(
+        "--confirm", default="", help=cli_spec.upload_opt("run", "--confirm").help)
     for name in ("plan", "run"):
         sub.choices[name].add_argument(
-            "--log", default=None,
-            help="diagnostic log file (run default: geni-upload-run.log next to "
-                 "the state file; plan default: stdout only)")
+            "--log", default=None, help=cli_spec.upload_opt(name, "--log").help)
     for name in ("plan", "run"):
-        sub.choices[name].add_argument("--state", default=STATE_DEFAULT)
+        sub.choices[name].add_argument(
+            "--state", default=STATE_DEFAULT,
+            help=cli_spec.upload_opt(name, "--state").help)
     sub.choices["run"].add_argument("--smoke", action="store_true",
-                                    help="upload only the first item, then stop")
-    sub.choices["run"].add_argument("--no-repo-sync", action="store_true",
-                                    help="do not commit/push upload-status.yaml "
-                                         "back to the repo")
+                                    help=cli_spec.upload_opt("run", "--smoke").help)
+    sub.choices["run"].add_argument(
+        "--no-repo-sync", action="store_true",
+        help=cli_spec.upload_opt("run", "--no-repo-sync").help)
     args = ap.parse_args()
     try:
         return args.fn(args)
