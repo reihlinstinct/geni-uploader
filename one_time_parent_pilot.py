@@ -183,7 +183,7 @@ def preflight(client, config):
     unknown = []
     for route in ('profile', owner):
         p = get_profile(client, route)
-        require(p.get('id') == owner)
+        require(p.get('id') == owner and ('unions' not in p or p['unions'] == []))
         unknown.append(merge_clear(p, config['allow_unknown_merge']))
         names = ' '.join(p.get(k, '') for k in ('first_name', 'middle_name', 'last_name'))
         require(all(w.casefold() in names.casefold().split() for w in config['expect_name'].split()))

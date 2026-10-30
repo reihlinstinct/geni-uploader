@@ -46,6 +46,8 @@ class Client:
         root = {'id': OWNER, 'first_name': 'ZZ-Root', 'last_name': 'ZZ-Family'}
         if self.change == 'wrong_owner':
             root['id'] = FATHER
+        if self.change == 'root_union':
+            root['unions'] = [UNION]
         if self.change == 'merge':
             root['merge_pending'] = True
         if self.change == 'partial_merge':
@@ -99,7 +101,7 @@ def test_full_profile_response_persisted_before_readback_and_verified():
     assert reports[-1]['create_response']['ZZ-extra-provider-field'] == 'ZZ-SENTINEL'
 
 
-@pytest.mark.parametrize('change', ['wrong_owner', 'merge', 'partial_merge', 'duplicate'])
+@pytest.mark.parametrize('change', ['wrong_owner', 'merge', 'partial_merge', 'duplicate', 'root_union'])
 def test_preflight_blocks_observed_adverse_evidence(change):
     with pytest.raises(Blocked):
         run(change)
