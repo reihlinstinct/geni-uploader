@@ -3,6 +3,7 @@
 - Work on a branch or fork and open a PR. One focused change per PR, tests included; `ruff check .` and `pytest` must pass.
 - Never push to `master` and never merge your own PR.
 - `geni_upload.py` is byte-synced with a reviewed private copy: changes to it are synced to both repos identically and pinned in a new reviewed image.
+  `source_details.py` and `cli_spec.py` are part of the same reviewed unit (`geni_upload.py` and `source_details.py` import `cli_spec.py` at module load): sync all three files identically and pin them in the same new image. The release descriptor hashes every Dockerfile `COPY` destination, including `/opt/source_details.py` and `/opt/cli_spec.py`.
 - No personal data, real names, profile IDs, tokens or GEDCOM content in any file, issue or PR. Use invented examples.
 
 ## Issues: labels, milestones and order

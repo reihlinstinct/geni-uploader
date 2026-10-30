@@ -65,6 +65,26 @@ Show each profile's resolved API identifier.
 
 See [docs/guid-resolution.md](docs/guid-resolution.md) for the guid resolution mechanism.
 
+### Command help and man pages
+
+Every shipped command explains itself: `--help` prints a short summary and its
+options (`podman run --rm <image> plan --help`, or `python geni_upload.py plan
+--help` from a checkout), and each command has a Linux man page with the full
+details: `man geni-uploader` for the overview, then one page per command
+(`geni-uploader-plan`, `geni-uploader-run`, `geni-uploader-details-repair`, ...).
+
+The pages live in `man/man1/` and are generated from `cli_spec.py`, the same
+source that feeds `--help`; `tests/test_cli_docs.py` fails if the two ever
+drift. After editing `cli_spec.py`, regenerate with
+`python tools/build_man_pages.py`; check drift without writing via
+`python tools/build_man_pages.py --check`, and `--dir DIR` targets a
+different man1 directory. Install on a host with
+`tools/install_man_pages.sh` (`PREFIX="$HOME/.local"` for a user install), or
+build a distributable package with
+`python tools/build_man_pages.py --tarball dist/geni-uploader-man.tar.gz`.
+The runtime container image stays lean and carries no man reader; install the
+pages on the host.
+
 ## Usage: Local (podman)
 
 ### Dry run (plan mode, read-only)

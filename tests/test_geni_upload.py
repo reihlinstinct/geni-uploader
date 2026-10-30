@@ -1832,7 +1832,8 @@ class WorkflowModeAlignmentTest(unittest.TestCase):
         options = {x.strip() for x in m.group(1).split(",")}
         with open(os.path.join(root, "geni_upload.py"), encoding="utf-8") as f:
             src = f.read()
-        registered = (set(re.findall(r'add_parser\("([a-z-]+)"\)', src))
+        # add_parser("name" (help/description kwargs follow since #515)
+        registered = (set(re.findall(r'add_parser\("([a-z-]+)"', src))
                       | set(re.findall(r'\("([a-z-]+)", cmd_', src)))
         workflow_only = {"selftest", "details-plan", "details-repair"}  # entrypoint routes
         cli_only = {"auth-url"}       # local helper, never dispatched
