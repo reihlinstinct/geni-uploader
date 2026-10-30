@@ -148,7 +148,8 @@ Rules enforced by the loader (it fails loudly, before any network call):
 Set `GENI_PLAN_REPORT` to a file path to also write a value-free,
 machine-readable plan report (counts and check statuses only, never
 manifest values); a new run deletes any stale report at that path first,
-and a failed plan leaves none.
+and a failed plan writes a report with `complete: false`. Only a report
+that itself fails validation or cannot be written is removed.
 
 `plan` performs only GET requests: it loads the manifest, checks every
 referenced file, fetches each profile and its document/photo listings,
@@ -248,6 +249,26 @@ status-file push back to the repo failed (the next run retries the sync);
 - `PUSH FAILED` / exit 5 - uploads are verified on Geni; only the repo
   status commit failed (read-only GitHub token or a moved remote). The
   next run retries the sync.
+
+## Diagnostic subcommands
+
+Read-only diagnostics, run directly against the pinned uploader in the image
+(or a checkout). All take the global `--token-file`; all but `auth-url` and
+`whoami` require `--manifest`:
+
+```
+python geni_upload.py --token-file <private-file> auth-url --client-id <app-id>
+python geni_upload.py --token-file <private-file> whoami
+python geni_upload.py --token-file <private-file> contrast --manifest <file>
+python geni_upload.py --token-file <private-file> guidmap --manifest <file>
+python geni_upload.py --token-file <private-file> pguid --manifest <file>
+python geni_upload.py --token-file <private-file> listing-shape --manifest <file>
+```
+
+`auth-url` prints the OAuth authorization URL (`--redirect-uri` only when your
+app settings define a callback URL). `whoami` prints the token's user shape.
+`contrast`, `guidmap`, `pguid` and `listing-shape` are read-only diagnostics
+for the allowlisted listing endpoints.
 
 ## 9. Revoking access when you are done
 
