@@ -391,6 +391,15 @@ def test_stage_transition_inventory_on_verified_run():
     ('after_deadline', 'response_deadline')])
 def test_exact_transport_failure_codes_and_deadline_branches(monkeypatch, kind, code):
     reads, closed = [], []
+    appended = []
+    import inspect
+    import sys
+    lines, first_line = inspect.getsourcelines(p.HTTPS.request)
+    append_line = first_line + next(i for i, line in enumerate(lines) if 'chunks.append(chunk)' in line)
+    def trace(frame, event, arg):
+        if event == 'line' and frame.f_code is p.HTTPS.request.__code__ and frame.f_lineno == append_line:
+            appended.append(True)
+        return trace
     ticks = iter([0, 0, 31] if kind == 'before_deadline' else
                  [0, 0, 1, 31] if kind == 'after_deadline' else [0] * 100)
     monkeypatch.setattr(p.time, 'monotonic', lambda: next(ticks, 1))
@@ -416,14 +425,19 @@ def test_exact_transport_failure_codes_and_deadline_branches(monkeypatch, kind, 
         def close(self):
             closed.append(True)
     monkeypatch.setattr(p.http.client, 'HTTPSConnection', Connection)
-    with pytest.raises(p.TransportStop) as exc:
-        p.HTTPS('www.geni.com', 'ZZ-token').request('GET', '/api/profile')
+    old_trace = sys.gettrace()
+    try:
+        sys.settrace(trace)
+        with pytest.raises(p.TransportStop) as exc:
+            p.HTTPS('www.geni.com', 'ZZ-token').request('GET', '/api/profile')
+    finally:
+        sys.settrace(old_trace)
     assert exc.value.code == code
     assert closed == [True]
     if kind == 'before_deadline':
         assert reads == []
     if kind == 'after_deadline':
-        assert reads == [65536]
+        assert reads == [65536] and appended == []
 
 
 @pytest.mark.parametrize('change,stage', [('lost', 'send'), ('malformed', 'send'),
