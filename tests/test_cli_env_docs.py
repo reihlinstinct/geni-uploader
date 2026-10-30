@@ -1,10 +1,12 @@
-"""Two-way doc-vs-code check for CLI entry points and environment variables (#513).
+"""Two-way doc-vs-code check for CLI entry points and environment variables (#511).
 
-Every CLI flag, subcommand and positional of the repo's argparse entry points,
-and every environment variable the code reads, must be documented in its
-designated docs; every flag/env token the designated docs present must exist
-in the code. Scope is the CLI/env surface only: module-internal Python APIs are
-covered by their own pinned doc tests.
+Every CLI flag and subcommand/choice of the repo's argparse entry points, every
+entrypoint.sh container alias, and every environment variable the code reads
+must be documented in its designated docs; every flag, subcommand and env token
+the designated docs present in an invocation context must exist in the code.
+Scope is the CLI/env surface only: module-internal Python APIs are covered by
+their own pinned doc tests. Positional dest names are not a typed surface, so a
+positional-bearing script is instead required to show an invocation span.
 """
 import re
 import unittest
@@ -74,8 +76,8 @@ ENV_TOKEN = re.compile(
     r'|(?:SECONDARY_)?PROBE_[A-Z0-9_]+|ONE_TIME_[A-Z0-9_]+'
     r'|GITHUB_[A-Z0-9_]+|GH_TOKEN_FILE|TOKEN_PROBE_CREDENTIAL|FAMILY_TREE_PAT)\b')
 
-# Code spans are scanned for doc-side flags only after one of these markers;
-# the marker selects the entry point whose flags are valid there.
+# Command spans are scanned only after one of these markers; the marker
+# selects the entry point whose surface is valid there.
 MARKERS = {
     'geni_upload.py': 'geni_upload.py',
     'ghcr.io/reihlinstinct/geni-uploader@': 'geni_upload.py',
@@ -93,6 +95,7 @@ MARKERS = {
 }
 
 CODE_GLOBS = ['*.py', 'src/**/*.py', 'tools/**/*.py', 'scripts/**/*.py']
+SHELL_GLOBS = ['*.sh', 'scripts/**/*.sh', 'tools/**/*.sh']
 
 
 def allowlist():
@@ -117,37 +120,115 @@ def code_files():
     return [p for p in out if 'test' not in p.name]
 
 
-def cli_surface(script):
-    """Flags, subcommands and positionals of one argparse script."""
-    text = (ROOT / script).read_text(encoding='utf-8')
-    flags, subcommands, positionals = set(), set(), set()
-    # Multi-line tolerant: capture the first quoted argument of each call.
-    for match in re.finditer(r'add_argument\(\s*[\'"]([^\'"]+)[\'"]', text):
-        token = match.group(1)
-        (flags if token.startswith('-') else positionals).add(token)
-    for match in re.finditer(r'add_parser\(\s*[\'"]([^\'"]+)[\'"]', text):
-        subcommands.add(match.group(1))
-    # Loop-registered subcommands: ("plan", cmd_plan) fed to add_parser(name).
-    if re.search(r'add_parser\([a-z_]+\)', text):
+def shell_files():
+    out = []
+    for pattern in SHELL_GLOBS:
+        out.extend(ROOT.glob(pattern))
+    return sorted(set(out))
+
+
+def _call_body(text, open_paren):
+    """Return the argument body of a call, string-aware, from its '(' position."""
+    depth, quote, i = 0, None, open_paren
+    while i < len(text):
+        c = text[i]
+        if quote:
+            if c == '\\':
+                i += 1
+            elif c == quote:
+                quote = None
+        elif c in "'\"":
+            quote = c
+        elif c == '(':
+            depth += 1
+        elif c == ')':
+            depth -= 1
+            if depth == 0:
+                return text[open_paren + 1:i]
+        i += 1
+    return text[open_paren + 1:]
+
+
+def _quoted(body):
+    return [a or b for a, b in re.findall(r"'([^']*)'|\"([^\"]*)\"", body)]
+
+
+def cli_surface_text(text):
+    """The typed CLI surface of one argparse script."""
+    surface = {'flags': set(), 'bool_flags': set(), 'subcommands': set(),
+               'choices': set(), 'positionals': set()}
+    for match in re.finditer(r'add_argument\(', text):
+        body = _call_body(text, match.end() - 1)
+        tokens = _quoted(body)
+        flags = [t for t in tokens if t.startswith('-')]
+        boolean = re.search(r"action\s*=\s*['\"]store_(?:true|false)['\"]", body)
+        if flags:
+            surface['flags'].update(flags)
+            if boolean:
+                surface['bool_flags'].update(flags)
+        elif tokens:
+            surface['positionals'].add(tokens[0])
+        choices = re.search(r'choices\s*=\s*[\[\(]([^\]\)]*)', body)
+        if choices:
+            surface['choices'].update(_quoted(choices.group(1)))
+    for match in re.finditer(r'add_parser\(', text):
+        body = _call_body(text, match.end() - 1)
+        name = re.match(r'\s*[\'"]([a-z][a-z0-9-]*)[\'"]', body)
+        if name:
+            surface['subcommands'].add(name.group(1))
+    # Loop-registered subcommands: ("plan", cmd_plan) fed to add_parser(name),
+    # with or without extra arguments such as help=....
+    if re.search(r'add_parser\(\s*[a-z_]+\s*[,)]', text):
         for match in re.finditer(r"[\(]['\"]([a-z][a-z-]*)['\"]\s*,\s*cmd_", text):
-            subcommands.add(match.group(1))
-    # Indirect registrations: sub.choices["run"].add_argument(...) on one line.
-    for match in re.finditer(r'choices\[[\'"][a-z-]+[\'"]\]\.add_argument\(\s*[\'"]([^\'"]+)[\'"]',
-                             text):
-        flags.add(match.group(1))
-    return flags, subcommands, positionals
+            surface['subcommands'].add(match.group(1))
+    # Indirect registrations: sub.choices["run"].add_argument(...).
+    for match in re.finditer(r"choices\[['\"][a-z-]+['\"]\]\.add_argument\(", text):
+        body = _call_body(text, match.end() - 1)
+        flags = [t for t in _quoted(body) if t.startswith('-')]
+        surface['flags'].update(flags)
+        if re.search(r"action\s*=\s*['\"]store_(?:true|false)['\"]", body):
+            surface['bool_flags'].update(flags)
+    return surface
+
+
+def cli_surface(script):
+    return cli_surface_text((ROOT / script).read_text(encoding='utf-8'))
+
+
+def entrypoint_aliases():
+    """Container subcommand aliases from entrypoint.sh case arms."""
+    text = (ROOT / 'entrypoint.sh').read_text(encoding='utf-8')
+    out = set()
+    for arm in re.findall(r'(?m)^\s*([a-z0-9-]+(?:\|[a-z0-9-]+)*)\)', text):
+        out.update(arm.split('|'))
+    return out
+
+
+def python_env_reads(text):
+    out = set()
+    out |= set(re.findall(r"\benviron\w*\.(?:get|pop)\(\s*['\"]([A-Z_][A-Z_0-9]*)['\"]", text))
+    out |= set(re.findall(r"\benviron\w*\[\s*['\"]([A-Z_][A-Z_0-9]*)['\"]\s*\]", text))
+    out |= set(re.findall(r"\benv\.(?:get|pop)\(\s*['\"]([A-Z_][A-Z_0-9]*)['\"]", text))
+    out |= set(re.findall(r"\benv\[\s*['\"]([A-Z_][A-Z_0-9]*)['\"]\s*\]", text))
+    out |= set(re.findall(r"\b(?:os\.)?getenv\(\s*['\"]([A-Z_][A-Z_0-9]*)['\"]", text))
+    out |= set(re.findall(r"['\"]([A-Z_][A-Z_0-9]*)['\"]\s+in\s+[\w.]*environ\w*", text))
+    return out
+
+
+def shell_env_reads(text):
+    """Env reads in a shell script: $X/${X} references to names never assigned."""
+    assigned = set(re.findall(r'(?m)^\s*(?:export\s+)?([A-Z_][A-Z_0-9]*)=', text))
+    refs = set(re.findall(r'\$\{([A-Z_][A-Z_0-9]*)[^}]*\}', text))
+    refs |= set(re.findall(r'\$([A-Z_][A-Z_0-9]*)', text))
+    return refs - assigned
 
 
 def code_env_vars():
     out = set()
     for path in code_files():
-        text = path.read_text(encoding='utf-8')
-        out |= set(re.findall(r"\benviron\w*\.(?:get|pop)\(['\"]([A-Z_0-9]+)['\"]", text))
-        out |= set(re.findall(r"\benviron\w*\[['\"]([A-Z_0-9]+)['\"]\]", text))
-        out |= set(re.findall(r"\benv\.(?:get|pop)\(['\"]([A-Z_0-9]+)['\"]", text))
-        out |= set(re.findall(r"\benv\[['\"]([A-Z_0-9]+)['\"]\]", text))
-    entrypoint = (ROOT / 'entrypoint.sh').read_text(encoding='utf-8')
-    out |= set(re.findall(r'\$\{([A-Z_][A-Z_0-9]*)[:-]', entrypoint))
+        out |= python_env_reads(path.read_text(encoding='utf-8'))
+    for path in shell_files():
+        out |= shell_env_reads(path.read_text(encoding='utf-8'))
     return out
 
 
@@ -163,20 +244,73 @@ def code_spans(text):
     return spans
 
 
-def flags_in_spans(spans):
-    """Flags appearing in command spans after an entry-point marker."""
-    out = {}  # script -> set of flags
-    for span in spans:
-        best = None
-        for marker, script in MARKERS.items():
-            idx = span.find(marker)
-            if idx >= 0 and (best is None or idx < best[0]):
-                best = (idx, script)
-        if best is None:
+def _marker_at(span):
+    best = None
+    for marker, script in MARKERS.items():
+        idx = span.find(marker)
+        if idx >= 0 and (best is None or idx < best[0]):
+            best = (idx, script)
+    return best
+
+
+def walk_tokens(script, tokens, surface, allowed):
+    """Flags and subcommand candidates from one command token stream."""
+    stale_flags, stale_subcommands = [], []
+    known_words = surface['subcommands'] | surface['choices']
+    expect_value = False
+    for token in tokens:
+        token = token.rstrip('\\')
+        if not token:
             continue
-        idx, script = best
-        for flag in re.findall(r'(?<![\w-])--[a-z][a-z0-9-]*', span[idx:]):
-            out.setdefault(script, set()).add(flag)
+        if expect_value:
+            expect_value = False
+            continue
+        flag = re.search(r'(?<![\w-])--[a-z][a-z0-9-]*', token)
+        if token.startswith('-') and flag:
+            name = flag.group(0)
+            if name not in surface['flags'] and name not in allowed:
+                stale_flags.append(name)
+            elif '=' not in token and name not in surface['bool_flags']:
+                expect_value = True
+            continue
+        if re.match(r'^[A-Z_][A-Z_0-9]*=', token):
+            continue
+        if '<' in token:
+            expect_value = False
+            if not token.endswith('>'):
+                expect_value = True  # multi-word placeholder: skip through '>'
+            continue
+        if re.match(r'^([$/"\']|\d)', token):
+            continue
+        word = token.strip("`',;")
+        if not re.fullmatch(r'[a-z][a-z0-9-]*', word):
+            continue
+        if known_words and word not in known_words and word not in allowed:
+            stale_subcommands.append(word)
+    return stale_flags, stale_subcommands
+
+
+def stale_invocations(paths, surfaces, allowed):
+    """Docs->code walk over the designated docs."""
+    stale_flags, stale_subcommands = [], []
+    for path in sorted(paths):
+        for span in code_spans((ROOT / path).read_text(encoding='utf-8')):
+            for script, tokens in command_windows(span):
+                flags, subs = walk_tokens(script, tokens, surfaces[script], allowed)
+                stale_flags += [f'{path}: {f} (as {script})' for f in flags]
+                stale_subcommands += [f'{path}: {w} (as {script})' for w in subs]
+    return stale_flags, stale_subcommands
+
+
+def flags_in_spans(spans):
+    """Flags appearing on marker lines (and continuations) in command spans."""
+    out = {}
+    for span in spans:
+        for script, tokens in command_windows(span):
+            for token in tokens:
+                flag = re.search(r'(?<![\w-])--[a-z][a-z0-9-]*', token)
+                if flag:
+                    out.setdefault(script, set()).add(flag.group(0))
     return out
 
 
@@ -194,34 +328,94 @@ def documented_env_vars(paths):
     return out
 
 
+def documented_in_context(paths, token):
+    """True when token appears in a command span after that script's marker."""
+    for path in paths:
+        for span in code_spans((ROOT / path).read_text(encoding='utf-8')):
+            found = _marker_at(span)
+            if found and re.search(r'(?<![\w-])' + re.escape(token) + r'(?![\w-])',
+                                   span[found[0]:]):
+                return True
+    return False
+
+
+def command_windows(span):
+    """(script, tokens) per marker line in the span, with \\ continuations.
+
+    Only the line holding the marker and its backslash-continuation lines are
+    walked, so prose inside fences (tables, mermaid diagrams) is never read
+    as a command.
+    """
+    out = []
+    lines = span.splitlines()
+    i = 0
+    while i < len(lines):
+        found = _marker_at(lines[i])
+        if found is None:
+            i += 1
+            continue
+        script = found[1]
+        window = [lines[i]]
+        while window[-1].rstrip().endswith('\\') and i + 1 < len(lines):
+            i += 1
+            window.append(lines[i])
+        tokens = ' '.join(window).split()
+        # Drop everything through the marker token.
+        for pos, token in enumerate(tokens):
+            for marker, owner in MARKERS.items():
+                if owner == script and marker in token:
+                    tail = token[token.find(marker) + len(marker):]
+                    out.append((script, ([tail] if tail else []) + tokens[pos + 1:]))
+                    break
+            else:
+                continue
+            break
+        i += 1
+    return out
+
+
 class CliDocsTest(unittest.TestCase):
     def test_every_cli_token_is_documented(self):
         allowed = allowlist()
         missing = []
         for script, docs in ENTRY_POINTS.items():
             text = doc_text(docs)
-            flags, subcommands, positionals = cli_surface(script)
-            for token in sorted(flags | subcommands | positionals):
+            surface = cli_surface(script)
+            for token in sorted(surface['flags']):
                 if token in allowed:
                     continue
                 if not re.search(r'(?<![\w-])' + re.escape(token) + r'(?![\w-])', text):
                     missing.append(f'{script}: {token}')
+            # Subcommands and choices name common words: require an
+            # invocation context, not a bare-word mention.
+            for token in sorted(surface['subcommands'] | surface['choices']):
+                if token in allowed:
+                    continue
+                if not documented_in_context(docs, token):
+                    missing.append(f'{script}: {token} (no invocation context)')
+        for alias in sorted(entrypoint_aliases()):
+            if alias not in allowed and not re.search(
+                    r'(?<![\w-])' + re.escape(alias) + r'(?![\w-])',
+                    doc_text(ENTRY_POINTS['source_details.py'])):
+                missing.append(f'entrypoint.sh: {alias}')
         self.assertEqual(missing, [], f'CLI tokens missing from docs: {missing}')
 
-    def test_every_documented_flag_exists(self):
+    def test_every_entry_point_shows_an_invocation(self):
+        missing = []
+        for script, docs in ENTRY_POINTS.items():
+            if not any(_marker_at(span) for path in docs
+                       for span in code_spans((ROOT / path).read_text(encoding='utf-8'))):
+                missing.append(script)
+        self.assertEqual(missing, [], f'entry points with no invocation span: {missing}')
+
+    def test_documented_invocations_exist_in_code(self):
         allowed = allowlist()
-        stale = []
-        scripts = set(ENTRY_POINTS)
-        docs_by_script = {s: set(d) for s, d in ENTRY_POINTS.items()}
-        all_docs = sorted({d for docs in docs_by_script.values() for d in docs})
-        for script, flags in documented_flags(all_docs).items():
-            if script not in scripts:
-                continue
-            known = cli_surface(script)[0]
-            for flag in sorted(flags):
-                if flag not in known and flag not in allowed:
-                    stale.append(f'{script}: {flag}')
-        self.assertEqual(stale, [], f'documented flags missing from code: {stale}')
+        surfaces = {script: cli_surface(script) for script in ENTRY_POINTS}
+        docs = sorted({d for ds in ENTRY_POINTS.values() for d in ds})
+        stale_flags, stale_subcommands = stale_invocations(docs, surfaces, allowed)
+        self.assertEqual(stale_flags, [], f'documented flags missing from code: {stale_flags}')
+        self.assertEqual(stale_subcommands, [],
+                         f'documented subcommands missing from code: {stale_subcommands}')
 
     def test_every_argparse_script_is_covered(self):
         allowed = allowlist()
@@ -256,30 +450,75 @@ class CliDocsTest(unittest.TestCase):
         self.assertEqual(stale, [], f'documented env vars missing from code: {stale}')
 
     def test_allowlist_entries_are_used(self):
-        allowed = allowlist()
+        allowed = set(allowlist())
         used = set()
         for path in code_files():
             rel = str(path.relative_to(ROOT))
             if rel in allowed:
                 used.add(rel)
-        used |= code_env_vars() & set(allowed)
-        docs = sorted({d for ds in ENV_DOCS.values() for d in ds} | {'docs/one-time-parent-pilot.md'})
-        used |= documented_env_vars(docs) & set(allowed)
-        unused = sorted(set(allowed) - used)
+        used |= code_env_vars() & allowed
+        for script in ENTRY_POINTS:
+            surface = cli_surface(script)
+            used |= allowed & (surface['flags'] | surface['subcommands'] | surface['choices'])
+        docs = sorted({d for ds in ENV_DOCS.values() for d in ds})
+        used |= documented_env_vars(docs) & allowed
+        unused = sorted(allowed - used)
         self.assertEqual(unused, [], f'stale allowlist entries: {unused}')
+
+    def test_extraction_regressions(self):
+        # Loop subcommands survive extra add_parser arguments (#516 shape).
+        surface = cli_surface_text(
+            'p = sub.add_parser(name, help="x")\n'
+            'for name, fn in (("plan", cmd_plan), ("run", cmd_run)):\n'
+            '    p = sub.add_parser(name, help="x")\n')
+        self.assertIn('plan', surface['subcommands'])
+        # Long-form flags are extracted alongside short forms.
+        surface = cli_surface_text("p.add_argument('-q', '--quiet-mode')")
+        self.assertEqual({'-q', '--quiet-mode'}, surface['flags'])
+        # argparse choices are extracted.
+        surface = cli_surface_text(
+            'p.add_argument("mode", choices=["validate", "purge"])')
+        self.assertEqual({'validate', 'purge'}, surface['choices'])
+        # store_true marks a flag boolean.
+        surface = cli_surface_text('p.add_argument("--sync-state", action="store_true")')
+        self.assertIn('--sync-state', surface['bool_flags'])
+        # env read forms: getenv, membership, shell $X/${X} minus locals.
+        self.assertIn('NEW', python_env_reads('os.getenv("NEW")'))
+        self.assertIn('NEW', python_env_reads('if "NEW" in os.environ:'))
+        self.assertIn('NEW', shell_env_reads('echo $NEW\necho ${NEW}\nLOCAL=1\necho $LOCAL'))
+        self.assertNotIn('LOCAL', shell_env_reads('LOCAL=1\necho $LOCAL'))
 
     def test_doc_scan_catches_fake_tokens(self):
         # A fake flag after a marker is attributed to that entry point...
         found = flags_in_spans(['python geni_upload.py --totally-fake-flag value'])
         self.assertEqual({'geni_upload.py': {'--totally-fake-flag'}}, found)
         # ...and is not part of its real surface, so the two-way test fails on it.
-        self.assertNotIn('--totally-fake-flag', cli_surface('geni_upload.py')[0])
+        self.assertNotIn('--totally-fake-flag', cli_surface('geni_upload.py')['flags'])
         # No marker in the span: nothing is attributed (wrapper flags excluded).
         self.assertEqual({}, flags_in_spans(['podman run --rm --totally-fake-flag x']))
-        # Loop-registered subcommands are extracted.
-        self.assertIn('plan', cli_surface('geni_upload.py')[1])
+        # A documented nonexistent subcommand after a marker is caught.
+        surfaces = {'geni_upload.py': cli_surface('geni_upload.py')}
+        _, stale = _stale_from_spans(['python geni_upload.py frobnicate'], surfaces, set())
+        self.assertEqual(['frobnicate (as geni_upload.py)'], stale)
+        # A boolean flag does not swallow a following real subcommand.
+        _, stale = _stale_from_spans(
+            ['python source_details.py repair --sync-state --manifest x'], surfaces | {
+                'source_details.py': cli_surface('source_details.py')}, set())
+        self.assertEqual([], stale)
+        # Loop-registered subcommands are extracted from the real script.
+        self.assertIn('plan', cli_surface('geni_upload.py')['subcommands'])
         # A fake env-shaped token is caught by the env scanner.
         self.assertIn('PILOT_TOTALLY_FAKE', ENV_TOKEN.findall('PILOT_TOTALLY_FAKE=1'))
+
+
+def _stale_from_spans(spans, surfaces, allowed):
+    stale_flags, stale_subcommands = [], []
+    for span in spans:
+        for script, tokens in command_windows(span):
+            flags, subs = walk_tokens(script, tokens, surfaces[script], allowed)
+            stale_flags += flags
+            stale_subcommands += [f'{w} (as {script})' for w in subs]
+    return stale_flags, stale_subcommands
 
 
 if __name__ == '__main__':
