@@ -27,6 +27,7 @@ ENTRY_POINTS = {
     'visual_plan.py': ['docs/private-visual-plan.md'],
     'tools/image_provenance.py': ['docs/image-release.md'],
     'tools/image_descriptor.py': ['docs/image-release.md'],
+    'tools/build_man_pages.py': ['README.md'],
 }
 
 # Environment variable -> designated docs that must mention it.
@@ -40,6 +41,7 @@ ENV_DOCS = {
     'GENI_UPLOAD_REPO': ['docs/usage.md', 'docs/geni-token.md', 'README.md'],
     'GENI_UPLOAD_EXPECT_SHA': ['docs/usage.md', 'README.md'],
     'GH_TOKEN_FILE': ['docs/usage.md'],
+    'HOME': ['README.md'],
     'FATHER_JOB_READ_TOKEN': ['docs/protected-father-job.md'],
     'FATHER_JOB_RELEASE_JSON': ['docs/protected-father-job.md'],
     'FATHER_JOB_RELEASE_SHA256': ['docs/protected-father-job.md'],
@@ -92,6 +94,7 @@ MARKERS = {
     'visual_plan.py': 'visual_plan.py',
     'image_provenance.py': 'tools/image_provenance.py',
     'image_descriptor.py': 'tools/image_descriptor.py',
+    'build_man_pages.py': 'tools/build_man_pages.py',
 }
 
 CODE_GLOBS = ['*.py', 'src/**/*.py', 'tools/**/*.py', 'scripts/**/*.py']

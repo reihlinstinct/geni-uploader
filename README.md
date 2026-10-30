@@ -76,7 +76,9 @@ details: `man geni-uploader` for the overview, then one page per command
 The pages live in `man/man1/` and are generated from `cli_spec.py`, the same
 source that feeds `--help`; `tests/test_cli_docs.py` fails if the two ever
 drift. After editing `cli_spec.py`, regenerate with
-`python tools/build_man_pages.py`. Install on a host with
+`python tools/build_man_pages.py`; check drift without writing via
+`python tools/build_man_pages.py --check`, and `--dir DIR` targets a
+different man1 directory. Install on a host with
 `tools/install_man_pages.sh` (`PREFIX="$HOME/.local"` for a user install), or
 build a distributable package with
 `python tools/build_man_pages.py --tarball dist/geni-uploader-man.tar.gz`.
