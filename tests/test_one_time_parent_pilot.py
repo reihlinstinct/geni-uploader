@@ -209,7 +209,7 @@ def test_consumed_marker_is_atomic_create_with_readback_no_delete_or_update():
 
 
 def test_main_never_prints_exception_or_raw_result(monkeypatch, capsys):
-    def fail(env):
+    def fail(env, progress):
         raise Blocked('ZZ-SENTINEL')
     monkeypatch.setattr(p, 'run', fail)
     assert p.main() == 1
@@ -249,7 +249,7 @@ def test_transport_fixed_host_bound_body_no_redirect_or_retry(monkeypatch, kind)
     if kind == 'normal':
         assert client.request('POST', '/api/' + OWNER + '/add-parent', BODY)['id'] == FATHER
     else:
-        with pytest.raises(Blocked, match='pilot transport unavailable'):
+        with pytest.raises(p.TransportStop):
             client.request('POST', '/api/' + OWNER + '/add-parent', BODY)
     assert len([x for x in seen if x[0] == 'request']) == 1 and closed == [True]
     with pytest.raises(Blocked):
@@ -293,3 +293,92 @@ def test_consumed_marker_blocks_second_execute_and_does_not_retry():
     with pytest.raises(Blocked):
         p.execute(copy.deepcopy(C), copy.deepcopy(M), client, store, save, lambda: 200)
     assert sum(x[0] == 'POST' for x in client.calls) == 1
+
+@pytest.mark.parametrize('stage', sorted(p.STAGES))
+def test_fixed_stage_diagnostics_never_print_private_exception(monkeypatch, capsys, stage):
+    def fail(env, progress):
+        progress.enter(stage)
+        raise AttributeError('ZZ-PRIVATE-SENTINEL')
+    monkeypatch.setattr(p, 'run', fail)
+    assert p.main() == 1
+    out = capsys.readouterr().out
+    assert 'stopped at ' + stage + ';' in out and 'ZZ-PRIVATE-SENTINEL' not in out
+
+
+def test_malformed_post_object_retains_consumption_and_final_evidence():
+    client = Client()
+    original = client.request
+    def request(method, route, body=None):
+        if method == 'POST':
+            client.calls.append((method, route, body))
+            raise AttributeError('ZZ-PRIVATE-SENTINEL')
+        return original(method, route, body)
+    client.request = request
+    store = Store(client)
+    reports = []
+    def save(report):
+        reports.append(copy.deepcopy(report))
+        return b'age-encryption.org/v1\nZZciphertext'
+    assert p.execute(copy.deepcopy(C), copy.deepcopy(M), client, store, save,
+                     lambda: 200) == 'UNCERTAIN'
+    assert store.consumed and store.receipts == ['before', 'final']
+    assert reports[-1]['stopped_stage'] == 'send'
+    assert reports[-1]['failure_code'] == 'validation_or_storage'
+    assert 'ZZ-PRIVATE-SENTINEL' not in str(reports)
+    assert sum(x[0] == 'POST' for x in client.calls) == 1
+
+
+def test_oversize_response_retains_only_fixed_diagnostic_and_acknowledged_status():
+    client = Client()
+    original = client.request
+    def request(method, route, body=None):
+        if route.startswith('/api/' + FATHER):
+            raise p.TransportStop('response_oversize')
+        return original(method, route, body)
+    client.request = request
+    store = Store(client)
+    reports = []
+    def save(report):
+        reports.append(copy.deepcopy(report))
+        return b'age-encryption.org/v1\nZZciphertext'
+    assert p.execute(copy.deepcopy(C), copy.deepcopy(M), client, store, save,
+                     lambda: 200) == 'ACKNOWLEDGED_NOT_VERIFIED'
+    assert store.consumed and reports[-1]['object_id'] == FATHER
+    assert reports[-1]['failure_code'] == 'response_oversize'
+    assert reports[-1]['stopped_stage'] == 'readback'
+
+
+def test_transport_malformed_response_object_closes_without_leaking(monkeypatch):
+    closed = []
+    class Connection:
+        def __init__(self, *a, **kw):
+            pass
+        def request(self, *a, **kw):
+            pass
+        def getresponse(self):
+            return object()
+        def close(self):
+            closed.append(True)
+    monkeypatch.setattr(p.http.client, 'HTTPSConnection', Connection)
+    client = p.HTTPS('www.geni.com', 'ZZ-token')
+    with pytest.raises(p.TransportStop, match='transport_unavailable'):
+        client.request('GET', '/api/profile')
+    assert closed == [True]
+
+
+def test_stage_transition_inventory_on_verified_run():
+    class Progress(p.Progress):
+        def __init__(self):
+            super().__init__()
+            self.seen = []
+        def enter(self, stage):
+            super().enter(stage)
+            self.seen.append(stage)
+    progress = Progress()
+    client = Client()
+    store = Store(client)
+    assert p.execute(copy.deepcopy(C), copy.deepcopy(M), client, store,
+                     lambda _: b'age-encryption.org/v1\nZZciphertext', lambda: 200,
+                     progress) == 'VERIFIED'
+    assert progress.seen == ['setup', 'preflight', 'preflight_evidence', 'consume',
+                             'send', 'ack', 'readback', 'final']
