@@ -1,4 +1,9 @@
 # Isolated secondary read-only evidence run
+The workflow hands the probe its settings as environment variables:
+`PROBE_CONFIRM` (must be `READ_ONLY`), `PROBE_RUN_ATTEMPT` (must be `1`; a
+live attempt is never rerun), `SECONDARY_PROBE_CONNECTION_JSON` (private
+connection config), `SECONDARY_PROBE_TOKEN` (the secondary token),
+`PROBE_RECIPIENT`, `PROBE_MERGE_POLICY` and `PROBE_OUTPUT_DIR`.
 
 Preparation only. No live request is made by merging this PR. A separately
 approved operator may dispatch exactly one reviewed run after the release audit
