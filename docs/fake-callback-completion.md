@@ -46,10 +46,32 @@ commit; consumers must independently enforce live expiry/revocation before use.
 No consumer or atomic revocation-to-vendor-use boundary is changed by this PR.
 No provider revocation, remote secret deletion or historical erasure is claimed.
 
-15 tests cover actual adapter/seal trace, one-time state, duplicate callbacks,
+24 tests cover actual adapter/seal trace, one-time state, duplicate callbacks,
 wrong owner/merge, stale state/browser/subject/code, malformed/oversized responses,
 response loss, deadline, expiry and concurrent revoke. A real local workerd SQLite
 rehearsal preserves consumed state and inactive custody across restart; its exact
 import inventory is checked and outbound network denied. Existing suites remain.
 No real OAuth, credential, callback registration, settings, deployment, publication
 or tree action is performed or authorized.
+
+## Review hardening (#506)
+
+Rejected or late provider responses are cancelled unread, including status,
+redirect and link-header failures. Late response and late body-read regressions
+check that timed-out work cannot reach owner lookup, parsing or custody. The
+response byte cap is 49,152, consistent with both maximum accepted synthetic
+16,383-byte tokens plus canonical JSON fields. An oversized body still fails
+without retry after state consumption. A maximum-token regression persists the
+whole bundle through the actual adapter.
+
+Exact synthetic exchange/profile request shapes are asserted in tests. This is
+not live exchange parity: the fake request deliberately omits real client_id,
+client_secret and redirect_uri, and uses .invalid endpoints and a synthetic ZZ
+code. Those real provider/callback/client-auth contracts need separate grounded
+implementation and review before live integration. Nothing here claims provider
+consent or authenticates a principal.
+
+A same-object attempt regression first rejects wrong input without consuming the
+stored state, then proves the object cannot retry valid input. A fresh object can
+still consume that untouched state, making the object guard distinct from the
+durable consumed-state barrier. No reset route is added.
