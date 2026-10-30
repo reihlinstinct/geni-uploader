@@ -189,7 +189,8 @@ def test_cli_lists_destinations_and_reports_value_free_failure(repo, capsys):
 def test_shipped_dockerfile_destinations():
     assert idesc.destinations(ROOT) == sorted([
         "/opt/geni_upload.py", "/opt/source_details.py", "/opt/plan_report.py",
-        "/opt/visual_plan.py", "/usr/local/bin/geni-uploader-entrypoint",
+        "/opt/visual_plan.py", "/opt/cli_spec.py",
+        "/usr/local/bin/geni-uploader-entrypoint",
     ])
 
 
