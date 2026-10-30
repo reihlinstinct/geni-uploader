@@ -1,5 +1,14 @@
 # Source detail and private read support: proposed scope
 
+CLI: `python source_details.py <mode> --manifest <file>` with `<mode>` one of
+`validate`, `plan`, `repair` or `snapshot`. `validate` is offline; `plan` and
+`repair` need `--token-file` (plan requires the token for complete
+verification). `repair` additionally requires `--confirm YES` and
+`--state <durable-path>` for its flock-protected checkpoint journal;
+`--sync-state` commits the pending checkpoint to the private data branch
+before any mutation. `snapshot` requires `--output <private-file>` for the
+allowlisted-field export.
+
 Version: 0.1, 2026-10-25. Target: initial implementation by 2026-10-26.
 
 Status: design and offline implementation. No agent API calls, dispatch or data changes.
