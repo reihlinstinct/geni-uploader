@@ -44,6 +44,8 @@ class Client:
         if route.startswith('/api/' + UNION):
             return {'id': UNION, 'partners': [FATHER], 'children': [OWNER]}
         root = {'id': OWNER, 'first_name': 'ZZ-Root', 'last_name': 'ZZ-Family'}
+        if self.change == 'self_only_wrong' and route.startswith('/api/profile?'):
+            root['id'] = FATHER
         if self.change == 'wrong_owner':
             root['id'] = FATHER
         if self.change == 'root_union':
@@ -101,7 +103,7 @@ def test_full_profile_response_persisted_before_readback_and_verified():
     assert reports[-1]['create_response']['ZZ-extra-provider-field'] == 'ZZ-SENTINEL'
 
 
-@pytest.mark.parametrize('change', ['wrong_owner', 'merge', 'partial_merge', 'duplicate', 'root_union'])
+@pytest.mark.parametrize('change', ['wrong_owner', 'merge', 'partial_merge', 'duplicate', 'root_union', 'self_only_wrong'])
 def test_preflight_blocks_observed_adverse_evidence(change):
     with pytest.raises(Blocked):
         run(change)
@@ -225,6 +227,8 @@ def test_transport_fixed_host_bound_body_no_redirect_or_retry(monkeypatch, kind)
             if kind == 'timeout':
                 raise TimeoutError('ZZ-SENTINEL')
             if kind == 'oversize':
+                if len([x for x in seen if x[0] == 'read']) >= 18:
+                    return b''
                 return b' ' * size
             if len([x for x in seen if x[0] == 'read']) == 1:
                 return b'{"id":"profile-999002"}'
@@ -253,6 +257,7 @@ def test_transport_fixed_host_bound_body_no_redirect_or_retry(monkeypatch, kind)
         assert not any(x[0] == 'read' for x in seen)
     if kind == 'oversize':
         assert sum(x[1] for x in seen if x[0] == 'read') == p.LIMIT + 1
+        assert len([x for x in seen if x[0] == 'read']) == 17
 
 
 def test_receipts_are_ciphertext_only_and_exact_readback():
