@@ -98,3 +98,9 @@ An early stop can precede private evidence creation; its stage is diagnostic, no
 proof of an absent vendor write. Permanent-marker and receipt evidence determine
 whether a send was possible. No marker is reset and no attempt is rerun.
 This adds no request, retry, refresh, workflow permission or live-run authority.
+
+Review follow-up: preserve the original stopped stage after final evidence
+succeeds, distinguish config/manifest/output setup stages, and pin transport
+diagnostic codes plus both deadline branches and run transitions with fake-only
+regressions. A final evidence failure reports final. No added calls, permissions,
+retry or live action.

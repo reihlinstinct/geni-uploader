@@ -380,5 +380,136 @@ def test_stage_transition_inventory_on_verified_run():
     assert p.execute(copy.deepcopy(C), copy.deepcopy(M), client, store,
                      lambda _: b'age-encryption.org/v1\nZZciphertext', lambda: 200,
                      progress) == 'VERIFIED'
-    assert progress.seen == ['setup', 'preflight', 'preflight_evidence', 'consume',
+    assert progress.seen == ['config', 'manifest', 'preflight', 'preflight_evidence', 'consume',
                              'send', 'ack', 'readback', 'final']
+
+
+@pytest.mark.parametrize('kind,code', [('status', 'response_status'),
+    ('redirect', 'response_redirect'), ('link', 'response_redirect'),
+    ('oversize', 'response_oversize'), ('malformed', 'response_malformed'),
+    ('timeout', 'transport_unavailable'), ('before_deadline', 'response_deadline'),
+    ('after_deadline', 'response_deadline')])
+def test_exact_transport_failure_codes_and_deadline_branches(monkeypatch, kind, code):
+    reads, closed = [], []
+    ticks = iter([0, 0, 31] if kind == 'before_deadline' else
+                 [0, 0, 1, 31] if kind == 'after_deadline' else [0] * 100)
+    monkeypatch.setattr(p.time, 'monotonic', lambda: next(ticks, 1))
+    class Response:
+        status = 403 if kind == 'status' else 200
+        def getheader(self, name):
+            return 'ZZ' if (kind == 'redirect' and name == 'Location' or
+                            kind == 'link' and name == 'Link') else None
+        def read(self, size):
+            reads.append(size)
+            if kind == 'timeout':
+                raise TimeoutError('ZZprivate')
+            if kind == 'oversize':
+                return b' ' * size if len(reads) <= 17 else b''
+            return b'ZZbad' if len(reads) == 1 else b''
+    class Connection:
+        def __init__(self, *a, **kw):
+            pass
+        def request(self, *a, **kw):
+            pass
+        def getresponse(self):
+            return Response()
+        def close(self):
+            closed.append(True)
+    monkeypatch.setattr(p.http.client, 'HTTPSConnection', Connection)
+    with pytest.raises(p.TransportStop) as exc:
+        p.HTTPS('www.geni.com', 'ZZ-token').request('GET', '/api/profile')
+    assert exc.value.code == code
+    assert closed == [True]
+    if kind == 'before_deadline':
+        assert reads == []
+    if kind == 'after_deadline':
+        assert reads == [65536]
+
+
+@pytest.mark.parametrize('change,stage', [('lost', 'send'), ('malformed', 'send'),
+    ('ack', 'ack'), ('privacy', 'readback'), ('final', 'final')])
+def test_main_reports_original_stop_stage_unless_final_persistence_fails(monkeypatch, capsys,
+                                                                       change, stage):
+    def run(env, progress):
+        client = Client(change)
+        store = Store(client, change)
+        return p.execute(copy.deepcopy(C), copy.deepcopy(M), client, store,
+                         lambda _: b'age-encryption.org/v1\nZZ', lambda: 200, progress)
+    monkeypatch.setattr(p, 'run', run)
+    assert p.main() == 1
+    assert 'stopped at ' + stage + ';' in capsys.readouterr().out
+
+
+def pilot_environment(tmp_path):
+    c = dict(C, expires_at=2**39)
+    raw = p.canonical(c)
+    return {'PILOT_CONFIRM': 'CREATE_ONE_PRIVATE_PARENT', 'GITHUB_RUN_ATTEMPT': '1',
+            'GITHUB_EVENT_NAME': 'workflow_dispatch',
+            'GITHUB_REPOSITORY': 'reihlinstinct/geni-uploader',
+            'GITHUB_REF': 'refs/heads/master', 'GITHUB_ACTOR': 'reihlinstinct',
+            'GITHUB_TRIGGERING_ACTOR': 'reihlinstinct', 'GITHUB_SHA': 'b'*40,
+            'PILOT_EXECUTOR_SHA': 'b'*40, 'PILOT_CONFIG_SHA256': p.sha(raw),
+            'PILOT_CONFIG_JSON': raw.decode(), 'PILOT_OUTPUT_DIR': str(tmp_path/'out'),
+            'GITHUB_RUN_ID': '999004', 'FAMILY_TREE_PAT': 'ZZ-token',
+            'GENI_SECONDARY_ACCESS_TOKEN': 'ZZ-secondary'}
+
+
+@pytest.mark.parametrize('failure,stage', [('env', 'setup'), ('config', 'config'),
+    ('encryption', 'encryption'), ('github_credential', 'github_credential'),
+    ('private_source', 'private_source'), ('credential', 'credential'), ('output', 'output'),
+    ('manifest', 'manifest')])
+def test_real_run_transitions_report_distinct_fixed_stages(monkeypatch, tmp_path, capsys,
+                                                           failure, stage):
+    env = pilot_environment(tmp_path)
+    if failure == 'env':
+        env['GITHUB_RUN_ATTEMPT'] = '2'
+    if failure == 'config':
+        env['PILOT_CONFIG_SHA256'] = 'c'*64
+    if failure == 'output':
+        (tmp_path/'out').mkdir()
+    class FakeHTTPS:
+        def __init__(self, host, token, **kw):
+            if failure == 'github_credential' and host == 'api.github.com':
+                raise Blocked()
+            if failure == 'credential' and host == 'www.geni.com':
+                raise Blocked()
+        def request(self, *a, **kw):
+            pytest.fail('unexpected vendor call')
+    class FakeStore:
+        def __init__(self, *a):
+            pass
+        def load(self, path):
+            if failure == 'private_source':
+                raise Blocked()
+            return {} if failure == 'manifest' else copy.deepcopy(M)
+    def encrypt(*a):
+        if failure == 'encryption':
+            raise Blocked()
+        return b'age-encryption.org/v1\nZZ'
+    monkeypatch.setattr(p, 'HTTPS', FakeHTTPS)
+    monkeypatch.setattr(p, 'PrivateGit', FakeStore)
+    monkeypatch.setattr(p, 'encrypt', encrypt)
+    monkeypatch.setattr(p.os, 'environ', env)
+    assert p.main() == 1
+    out = capsys.readouterr().out
+    assert 'stopped at ' + stage + ';' in out
+
+
+def test_real_run_expiry_at_execute_is_config_not_env_setup(monkeypatch, tmp_path, capsys):
+    env = pilot_environment(tmp_path)
+    monkeypatch.setattr(p.os, 'environ', env)
+    ticks = iter([200, 2**39])
+    monkeypatch.setattr(p.time, 'time', lambda: next(ticks, 2**39))
+    monkeypatch.setattr(p, 'encrypt', lambda *a: b'age-encryption.org/v1\nZZ')
+    monkeypatch.setattr(p, 'HTTPS', lambda *a, **kw: object())
+    class Store:
+        def __init__(self, *a):
+            pass
+        def load(self, path):
+            return copy.deepcopy(M)
+    monkeypatch.setattr(p, 'PrivateGit', Store)
+    # execute's default clock binds the original function; inject the fake explicitly.
+    execute = p.execute
+    monkeypatch.setattr(p, 'execute', lambda *a, **kw: execute(*a, clock=p.time.time, **kw))
+    assert p.main() == 1
+    assert 'stopped at config;' in capsys.readouterr().out

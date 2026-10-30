@@ -15,7 +15,8 @@ from geni_uploader.core.people import Blocked, exact, require
 from parent_probe import encrypt
 
 LIMIT = 1024 * 1024
-STAGES = frozenset(('setup', 'encryption', 'private_source', 'credential', 'preflight',
+STAGES = frozenset(('setup', 'config', 'manifest', 'output', 'github_credential',
+                    'encryption', 'private_source', 'credential', 'preflight',
                     'preflight_evidence', 'consume', 'send', 'ack', 'readback', 'final'))
 
 
@@ -260,9 +261,10 @@ def verify(client, config, created_id, expected):
 def execute(config, manifest, client, store, save, clock=time.time, progress=None):
     """Tests inject all effects. The protected action supplies the only live wiring."""
     progress = progress or Progress()
-    progress.enter('setup')
+    progress.enter('config')
     config = configuration(config)
     require(clock() < config['expires_at'])
+    progress.enter('manifest')
     exact(manifest, ('kind', 'target', 'creation_enabled', 'payload'))
     require(manifest['kind'] == 'offline_father_only_data_proposal'
             and manifest['creation_enabled'] is False and manifest['target'] == config['owner'])
@@ -305,6 +307,8 @@ def execute(config, manifest, client, store, save, clock=time.time, progress=Non
         report['follow_up'] = 'GET-only reconciliation or separately approved repair; never retry create'
     progress.enter('final')
     store.receipt('final', save(report))
+    if 'stopped_stage' in report:
+        progress.enter(report['stopped_stage'])
     return report['phase']
 
 
@@ -316,6 +320,7 @@ def run(env, progress=None):
             and env.get('GITHUB_REF') == 'refs/heads/master'
             and env.get('GITHUB_ACTOR') == 'reihlinstinct'
             and env.get('GITHUB_TRIGGERING_ACTOR') == 'reihlinstinct')
+    progress.enter('config')
     config_raw = env.get('PILOT_CONFIG_JSON', '').encode()
     config = configuration(decode(config_raw))
     require(env.get('PILOT_CONFIG_SHA256') == sha(config_raw)
@@ -325,12 +330,14 @@ def run(env, progress=None):
     # Encryption preflight before GitHub reads, marker creation, or any vendor call.
     progress.enter('encryption')
     encrypt(config['recipient'], b'pilot preflight')
+    progress.enter('github_credential')
     github = HTTPS('api.github.com', env.get('FAMILY_TREE_PAT', ''), github=True)
     store = PrivateGit(github, config['data_repo'], config['data_sha'], config['owner'])
     progress.enter('private_source')
     manifest = store.load(config['data_path'])
     progress.enter('credential')
     client = HTTPS('www.geni.com', env.get('GENI_SECONDARY_ACCESS_TOKEN', ''))
+    progress.enter('output')
     output = Path(env['PILOT_OUTPUT_DIR'])
     require(output.is_absolute() and not output.exists())
     output.mkdir(mode=0o700)
