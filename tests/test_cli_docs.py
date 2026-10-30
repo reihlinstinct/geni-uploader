@@ -242,11 +242,18 @@ def test_dockerfile_ships_every_parser_dependency():
 def test_check_mode_accepts_fresh_and_refuses_stale(tmp_path):
     assert bmp.main(["--dir", str(tmp_path)]) == 0  # writes
     assert bmp.main(["--check", "--dir", str(tmp_path)]) == 0
+    fresh = (tmp_path / "geni-uploader.1").read_text(encoding="utf-8")
     stale = tmp_path / "geni-uploader.1"
-    stale.write_text(stale.read_text(encoding="utf-8") + "stale\n", encoding="utf-8")
+    stale.write_text(fresh + "stale\n", encoding="utf-8")
+    assert bmp.main(["--check", "--dir", str(tmp_path)]) == 1  # stale generated page
+    stale.write_text(fresh, encoding="utf-8")
+    # a stale page with our marker but no generator source fails --check
+    ghost = tmp_path / "geni-uploader-ghost.1"
+    ghost.write_text(bmp.HEADER_COMMENT + "\n.TH GHOST 1\n", encoding="utf-8")
     assert bmp.main(["--check", "--dir", str(tmp_path)]) == 1
-    (tmp_path / "geni-uploader-ghost.1").write_text(".TH GHOST 1\n", encoding="utf-8")
-    assert bmp.main(["--check", "--dir", str(tmp_path)]) == 1
+    # a marker-less page in our namespace is ignored, like write_pages
+    ghost.write_text(".TH GHOST 1\n", encoding="utf-8")
+    assert bmp.main(["--check", "--dir", str(tmp_path)]) == 0
 
 
 def test_write_pages_removes_only_marked_stale_pages(tmp_path):
@@ -261,9 +268,11 @@ def test_write_pages_removes_only_marked_stale_pages(tmp_path):
     assert not stale_generated.exists()
     assert any("ghost" in note for note in notes)
     assert foreign_ours.exists() and unrelated.exists()
-    # check ignores pages outside our namespace entirely
+    # check ignores pages outside our namespace entirely, and marker-less
+    # pages inside it (same scope as write_pages)
     problems = bmp.check_pages(bmp.render_all(), tmp_path)
     assert not any("ls.1" in problem for problem in problems)
+    assert not any("notes" in problem for problem in problems)
 
 
 def test_tarball_is_deterministic_and_complete(tmp_path):

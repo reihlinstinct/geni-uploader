@@ -201,7 +201,8 @@ def render_overview() -> str:
     lines += exit_status_section(cli_spec.COMMON_EXIT_STATUS[:2]
                                  + cli_spec.RUN_EXIT_STATUS)
     lines += [".PP",
-              text_line("Exit codes 3-6 are returned by the run command only.")]
+              text_line("Exit codes 3-6, and the refusal meaning of 2, are "
+                        "returned by the run command only.")]
     refs = [f"{cli_spec.PROGRAM}-{name}" for name in cli_spec.UPLOAD_COMMANDS]
     refs += [f"{cli_spec.PROGRAM}-details-{mode}" for mode in cli_spec.DETAILS_COMMANDS]
     lines += _see_also(*refs)
@@ -249,12 +250,14 @@ def write_pages(pages: dict[str, str], target: Path) -> list[str]:
 def check_pages(pages: dict[str, str], target: Path) -> list[str]:
     """Differences between committed pages and a fresh render; empty is clean.
 
-    Pages outside the geni-uploader namespace are ignored: --dir may point at
-    a shared man1 directory.
+    Like write_pages, only pages with the generated marker are managed:
+    pages outside the geni-uploader namespace and marker-less pages are
+    ignored, so --dir may point at a shared man1 directory.
     """
     problems = []
     on_disk = {p.name: p.read_text(encoding="utf-8")
-               for p in target.glob(PAGE_GLOB)}
+               for p in target.glob(PAGE_GLOB)
+               if _is_generated(p)}
     for name in sorted(set(on_disk) - set(pages)):
         problems.append(f"{name}: committed page has no generator source")
     for name in sorted(set(pages) - set(on_disk)):

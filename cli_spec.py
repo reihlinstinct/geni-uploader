@@ -122,8 +122,9 @@ UPLOAD_COMMANDS: dict[str, Command] = {c.name: c for c in (
         "probe manifest profile numbers against served IDs (verdicts only)",
         (("Bounded read-only diagnostic: compares each manifest target's "
           "profile number against served id and guid values in memory and "
-          "prints a per-target verdict (RESOLVED-MAPPED, AMBIGUOUS or "
-          "UNKNOWN). Identifiers are never printed. See "
+          "prints a per-target result (matched via id/guid with a "
+          "shape-only follow-up GET, AMBIGUOUS, or UNRESOLVED after "
+          "scanning). Identifiers are never printed. See "
           "docs/guid-resolution.md for the resolution mechanism."),),
         (_UPLOAD_MANIFEST,)),
     Command(
