@@ -42,6 +42,7 @@ ENV_DOCS = {
     'GENI_UPLOAD_EXPECT_SHA': ['docs/usage.md', 'README.md'],
     'GH_TOKEN_FILE': ['docs/usage.md'],
     'HOME': ['README.md'],
+    'PREFIX': ['README.md'],
     'FATHER_JOB_READ_TOKEN': ['docs/protected-father-job.md'],
     'FATHER_JOB_RELEASE_JSON': ['docs/protected-father-job.md'],
     'FATHER_JOB_RELEASE_SHA256': ['docs/protected-father-job.md'],
@@ -219,11 +220,17 @@ def python_env_reads(text):
 
 
 def shell_env_reads(text):
-    """Env reads in a shell script: $X/${X} references to names never assigned."""
+    """Env reads in a shell script: $X/${X} references to names never assigned.
+
+    A self-defaulting assignment (X="${X:-default}") is a read with a
+    fallback, not a local: the environment can override it.
+    """
     assigned = set(re.findall(r'(?m)^\s*(?:export\s+)?([A-Z_][A-Z_0-9]*)=', text))
+    self_defaulted = set(re.findall(
+        r'(?m)^\s*(?:export\s+)?([A-Z_][A-Z_0-9]*)=["\']?\$\{\1:-', text))
     refs = set(re.findall(r'\$\{([A-Z_][A-Z_0-9]*)[^}]*\}', text))
     refs |= set(re.findall(r'\$([A-Z_][A-Z_0-9]*)', text))
-    return refs - assigned
+    return refs - (assigned - self_defaulted)
 
 
 def code_env_vars():
@@ -406,8 +413,13 @@ class CliDocsTest(unittest.TestCase):
     def test_every_entry_point_shows_an_invocation(self):
         missing = []
         for script, docs in ENTRY_POINTS.items():
-            if not any(_marker_at(span) for path in docs
-                       for span in code_spans((ROOT / path).read_text(encoding='utf-8'))):
+            shown = False
+            for path in docs:
+                for span in code_spans((ROOT / path).read_text(encoding='utf-8')):
+                    found = _marker_at(span)
+                    if found and found[1] == script:
+                        shown = True
+            if not shown:
                 missing.append(script)
         self.assertEqual(missing, [], f'entry points with no invocation span: {missing}')
 
@@ -489,6 +501,8 @@ class CliDocsTest(unittest.TestCase):
         self.assertIn('NEW', python_env_reads('os.getenv("NEW")'))
         self.assertIn('NEW', python_env_reads('if "NEW" in os.environ:'))
         self.assertIn('NEW', shell_env_reads('echo $NEW\necho ${NEW}\nLOCAL=1\necho $LOCAL'))
+        # A self-defaulting assignment is a read, not a local.
+        self.assertIn('PREFIX', shell_env_reads('PREFIX="${PREFIX:-/usr/local}"'))
         self.assertNotIn('LOCAL', shell_env_reads('LOCAL=1\necho $LOCAL'))
 
     def test_doc_scan_catches_fake_tokens(self):
