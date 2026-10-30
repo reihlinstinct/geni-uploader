@@ -35,7 +35,8 @@ class Client:
             return {'id': FATHER, **BODY, 'ZZ-extra-provider-field': 'ZZ-SENTINEL'}
         if route.startswith('/api/' + FATHER):
             result = {'id': FATHER, **copy.deepcopy(BODY), 'unions': [UNION],
-                      'url': 'https://www.geni.com/zz-invented'}
+                      'profile_url': 'https://www.geni.com/zz-invented',
+                      'url': 'https://www.geni.com/api/' + FATHER}
             if self.change == 'privacy':
                 result['public'] = True
             if self.change == 'name':

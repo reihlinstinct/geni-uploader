@@ -15,7 +15,7 @@ from geni_uploader.core.people import Blocked, exact, require
 from parent_probe import encrypt
 
 LIMIT = 1024 * 1024
-FIELDS = ('id,guid,url,first_name,middle_name,last_name,maiden_name,names,gender,'
+FIELDS = ('id,guid,url,profile_url,first_name,middle_name,last_name,maiden_name,names,gender,'
           'public,is_alive,merge_pending,merged_into,unions')
 
 
@@ -216,7 +216,7 @@ def verify(client, config, created_id, expected):
     union = client.request('GET', '/api/' + unions[0] + '?only_ids=true')
     require(union.get('id') == unions[0] and union.get('partners') == [created_id]
             and union.get('children') == [config['owner']])
-    url = actual.get('url')
+    url = actual.get('profile_url')
     if url is not None:
         require(type(url) is str)
         parsed = urllib.parse.urlsplit(url)

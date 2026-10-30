@@ -71,3 +71,16 @@ credential, private names or private repository path belongs in public issues.
 There is no live probe during implementation or tests. The fake suite covers
 validation, consumed-marker persistence, transport limits, failure/uncertainty,
 exact request/readback and no retry. It does not prove vendor behavior.
+
+## Verified API contracts
+
+Official references rechecked during implementation:
+- https://www.geni.com/platform/developer/help/api?path=profile/add-parent
+- https://www.geni.com/platform/developer/help/api?path=profile
+- https://www.geni.com/platform/developer/help/api?path=profile/immediate-family
+- https://www.geni.com/platform/developer/help/api?path=union
+
+The create operation returns a full profile, not an exact id-only object. Only a
+returned/read-back profile_url is a browser link; url is an API link. A missing
+browser link stays missing, never synthesized. The documented fields may be
+omitted when blank; missing privacy/name/relationship readback never verifies.
