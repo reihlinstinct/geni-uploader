@@ -1,4 +1,11 @@
 # Protected father job capture and v2 private admission
+The job reads its release pin and read credential from the environment only:
+`FATHER_JOB_RELEASE_JSON` and `FATHER_JOB_RELEASE_SHA256` (the pinned release
+descriptor and its digest) and `FATHER_JOB_READ_TOKEN` (read-only token). It
+refuses any run whose GitHub context does not match the pin: `GITHUB_RUN_ID`,
+`GITHUB_RUN_ATTEMPT` (must be `1`), `GITHUB_SHA`, `GITHUB_REF`
+(`refs/heads/master`), `GITHUB_EVENT_NAME` (`workflow_dispatch`),
+`GITHUB_REPOSITORY` and `GITHUB_ACTOR_ID`.
 
 Part of the integration work in #313. This is not an installed workflow or a
 release. The existing proposal still stops unconditionally.
