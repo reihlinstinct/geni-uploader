@@ -14,7 +14,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: publish-image
@@ -22,6 +21,9 @@ concurrency:
 
 jobs:
   build:
+    permissions:
+      contents: read
+      packages: write
     if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.event_name == 'workflow_dispatch' && ((github.actor == 'reihl' && github.triggering_actor == 'reihl') || (github.actor == 'reihlinstinct' && github.triggering_actor == 'reihlinstinct')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
