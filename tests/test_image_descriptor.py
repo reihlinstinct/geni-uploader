@@ -226,8 +226,10 @@ def test_publish_image_emits_descriptor_after_the_push():
 def test_publish_image_authority_is_unchanged():
     data, steps = _build_steps()
     assert set(data["on"]) == {"workflow_dispatch"}
-    assert data["permissions"] == {"contents": "read", "packages": "write"}
-    assert "permissions" not in data["jobs"]["build"]
+    assert data["permissions"] == {"contents": "read"}
+    assert data["jobs"]["build"]["permissions"] == {"contents": "read", "packages": "write"}
+    assert set(data["jobs"]) == {"build", "summary"}
+    assert data["jobs"]["summary"]["permissions"] == {"contents": "read"}
     for step in steps:
         if "uses" in step:
             assert "@" in step["uses"] and len(step["uses"].split("@")[1].split()[0]) == 40
