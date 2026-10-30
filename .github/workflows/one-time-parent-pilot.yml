@@ -1,0 +1,62 @@
+name: One-time private parent pilot (protected)
+on:
+  workflow_dispatch:
+    inputs:
+      executor_sha:
+        description: Exact reviewed executor commit, matching master
+        required: true
+        type: string
+      config_sha256:
+        description: Exact approved private config SHA256 (no identifying values)
+        required: true
+        type: string
+      confirm:
+        description: Type CREATE_ONE_PRIVATE_PARENT; no retries or other changes
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: one-time-parent-pilot
+  cancel-in-progress: false
+jobs:
+  pilot:
+    if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && github.sha == inputs.executor_sha && github.actor == 'reihlinstinct' && github.triggering_actor == 'reihlinstinct' && github.run_attempt == 1 && inputs.confirm == 'CREATE_ONE_PRIVATE_PARENT' }}
+    environment: father-create
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Install reviewed age release
+        env:
+          AGE_VERSION: v1.3.2
+          AGE_SHA256: cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/FiloSottile/age/releases/download/${AGE_VERSION}/age-${AGE_VERSION}-linux-amd64.tar.gz" -o "$RUNNER_TEMP/age.tgz"
+          echo "${AGE_SHA256}  $RUNNER_TEMP/age.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/age.tgz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/age" >> "$GITHUB_PATH"
+      - name: Exact single-parent pilot
+        env:
+          PILOT_CONFIG_JSON: ${{ secrets.ONE_TIME_PARENT_PILOT_JSON }}
+          FAMILY_TREE_PAT: ${{ secrets.FAMILY_TREE_PAT }}
+          GENI_SECONDARY_ACCESS_TOKEN: ${{ secrets.GENI_SECONDARY_ACCESS_TOKEN }}
+          PILOT_EXECUTOR_SHA: ${{ inputs.executor_sha }}
+          PILOT_CONFIG_SHA256: ${{ inputs.config_sha256 }}
+          PILOT_CONFIRM: ${{ inputs.confirm }}
+          PILOT_OUTPUT_DIR: ${{ runner.temp }}/pilot-evidence
+        run: |
+          set +x
+          PYTHONPATH=src python3 one_time_parent_pilot.py
+      - name: Retain encrypted evidence even on uncertain outcome
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: single-parent-pilot-evidence
+          path: ${{ runner.temp }}/pilot-evidence/*.age
+          if-no-files-found: ignore
+          retention-days: 1
