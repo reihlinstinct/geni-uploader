@@ -103,6 +103,73 @@ def test_spec_help_texts_embed_no_other_flags():
         assert "--" not in opt.help
 
 
+def usage_block(script, *argv):
+    out = help_output(script, *argv)
+    lines = out.splitlines()
+    start = next(i for i, line in enumerate(lines) if line.startswith("usage:"))
+    block = [lines[start]]
+    for line in lines[start + 1:]:
+        if not line.startswith(" "):
+            break
+        block.append(line)
+    return norm(" ".join(block))
+
+
+def _bracketed(usage, flag, metavar):
+    needle = f"{flag} {metavar}" if metavar else flag
+    return f"[{needle}]" in usage
+
+
+def _unbracketed(usage, flag, metavar):
+    needle = f"{flag} {metavar}" if metavar else flag
+    return needle in usage and f"[{needle}]" not in usage
+
+
+@pytest.mark.parametrize("name", sorted(cli_spec.UPLOAD_COMMANDS))
+def test_required_options_match_live_parser(name):
+    """Spec-required == parser-required, plus documented runtime requirements."""
+    cmd = cli_spec.UPLOAD_COMMANDS[name]
+    usage = usage_block(UPLOAD, name)
+    for opt in cmd.options:
+        if opt.flag == "--confirm" and name == "run":
+            # runtime-required: the parser accepts the omission, run refuses it
+            assert opt.required
+            assert _bracketed(usage, opt.flag, opt.metavar)
+            assert "refuses" in opt.help
+        elif opt.required:
+            assert _unbracketed(usage, opt.flag, opt.metavar), (name, opt.flag)
+        else:
+            assert _bracketed(usage, opt.flag, opt.metavar), (name, opt.flag)
+
+
+def test_details_required_options_match_live_parser():
+    usage = usage_block(DETAILS)
+    assert _unbracketed(usage, "--manifest", "MANIFEST")
+    for opt in cli_spec.DETAILS_OPTIONS:
+        if opt.flag != "--manifest":
+            assert _bracketed(usage, opt.flag, opt.metavar)
+    # per-mode runtime requirements only name real options
+    known = {opt.flag for opt in cli_spec.DETAILS_OPTIONS}
+    for mode, flags in cli_spec.DETAILS_REQUIRED.items():
+        assert mode in cli_spec.DETAILS_COMMANDS
+        assert set(flags) <= known
+        assert "--manifest" in flags
+
+
+def test_exit_status_scoped_to_commands_that_return_them():
+    pages = bmp.render_all()
+    for code in ("3", "4", "5", "6"):
+        assert f".B {code}\n" in pages["geni-uploader-run.1"] or \
+            f".B {code}" in pages["geni-uploader-run.1"]
+        assert f".B {code}" in pages["geni-uploader.1"]
+        for other in ("plan", "whoami", "contrast", "guidmap", "pguid",
+                      "auth-url", "listing-shape"):
+            assert f".B {code}\n" not in pages[f"geni-uploader-{other}.1"]
+        for mode in cli_spec.DETAILS_COMMANDS:
+            assert f".B {code}\n" not in pages[f"geni-uploader-details-{mode}.1"]
+    assert "run command only" in pages["geni-uploader.1"]
+
+
 # -- drift: committed man pages vs the generator ------------------------------
 
 def test_committed_man_pages_match_generator():
@@ -182,13 +249,21 @@ def test_check_mode_accepts_fresh_and_refuses_stale(tmp_path):
     assert bmp.main(["--check", "--dir", str(tmp_path)]) == 1
 
 
-def test_write_pages_removes_stale_generated_pages(tmp_path):
+def test_write_pages_removes_only_marked_stale_pages(tmp_path):
     bmp.write_pages(bmp.render_all(), tmp_path)
-    ghost = tmp_path / "geni-uploader-ghost.1"
-    ghost.write_text(".TH GHOST 1\n", encoding="utf-8")
+    stale_generated = tmp_path / "geni-uploader-ghost.1"
+    stale_generated.write_text(bmp.HEADER_COMMENT + "\n.TH GHOST 1\n", encoding="utf-8")
+    foreign_ours = tmp_path / "geni-uploader-notes.1"  # our namespace, not ours
+    foreign_ours.write_text(".TH NOTES 1\n", encoding="utf-8")
+    unrelated = tmp_path / "ls.1"
+    unrelated.write_text(".TH LS 1\n", encoding="utf-8")
     notes = bmp.write_pages(bmp.render_all(), tmp_path)
-    assert not ghost.exists()
+    assert not stale_generated.exists()
     assert any("ghost" in note for note in notes)
+    assert foreign_ours.exists() and unrelated.exists()
+    # check ignores pages outside our namespace entirely
+    problems = bmp.check_pages(bmp.render_all(), tmp_path)
+    assert not any("ls.1" in problem for problem in problems)
 
 
 def test_tarball_is_deterministic_and_complete(tmp_path):

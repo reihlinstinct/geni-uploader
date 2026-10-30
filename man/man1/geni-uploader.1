@@ -16,7 +16,7 @@ The details\-* commands maintain metadata of sources that already exist on Geni;
 generate the Geni OAuth authorization URL
 .TP
 .B whoami
-verify Geni API credentials and print the authenticated profile
+verify Geni API credentials (prints a redacted shape only)
 .TP
 .B plan
 dry\-run a manifest against live Geni state without writing
@@ -25,13 +25,13 @@ dry\-run a manifest against live Geni state without writing
 upload manifest sources to Geni with journaled, verified writes
 .TP
 .B contrast
-compare Geni server listings against the manifest
+discriminate singular vs bulk profile endpoints (read\-only)
 .TP
 .B guidmap
-map the manifest's profile IDs to resolved API identifiers
+probe manifest profile numbers against served IDs (verdicts only)
 .TP
 .B pguid
-print each profile's resolved API identifier
+probe the profile\-g URL\-number resolution form (booleans only)
 .TP
 .B listing\-shape
 print the JSON shape of profile document/photo listings
@@ -61,8 +61,20 @@ expected HEAD commit of the data repository (fails closed)
 .B GH_TOKEN_FILE
 path of the mounted GitHub token file (default: /run/gh\-token)
 .TP
+.B GENI_ACCESS_TOKEN
+Geni access token (alternative to \-\-token\-file)
+.TP
+.B GENI_PLAN_REPORT
+write the plan summary JSON report to this path
+.TP
+.B GENI_VISUAL_PLAN
+write the visual plan render to this path
+.TP
 .B GENI_API_BASE
-Geni API base URL override; the allowlist still applies
+test\-only API base override: accepted only together with GENI_UPLOAD_E2E=1 and a loopback URL, so it can never redirect the production token
+.TP
+.B GENI_UPLOAD_E2E
+set to 1 for end\-to\-end tests against a local fake server; refused with the production API base
 .SH FILES
 .TP
 .B /run/gh\-token
@@ -88,7 +100,7 @@ the command completed
 failure (see the diagnostic log)
 .TP
 .B 2
-refused (for example a missing \-\-confirm YES)
+refused (missing \-\-confirm YES or token; also usage errors)
 .TP
 .B 3
 uncertain items remain; review them on Geni before re\-running
@@ -101,6 +113,8 @@ uploads are verified on Geni; only the repository status push failed
 .TP
 .B 6
 another run holds the state lock
+.PP
+Exit codes 3\-6 are returned by the run command only.
 .SH SEE ALSO
 .BR geni\-uploader\-auth\-url (1), .BR geni\-uploader\-whoami (1),
 .BR geni\-uploader\-plan (1), .BR geni\-uploader\-run (1),

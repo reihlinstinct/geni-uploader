@@ -5,7 +5,7 @@ geni\-uploader\-run \- upload manifest sources to Geni with journaled, verified 
 .SH SYNOPSIS
 .B geni\-uploader run
 .BI "\-\-manifest " "MANIFEST"
-.BI "[\-\-confirm " "CONFIRM]"
+.BI "\-\-confirm " "CONFIRM"
 .BI "[\-\-log " "LOG]"
 .BI "[\-\-state " "STATE]"
 .B [\-\-smoke]
@@ -23,7 +23,7 @@ file outside the repo holding the access token (global, before the command)
 path to the upload manifest file (required)
 .TP
 .BI "\-\-confirm " "CONFIRM"
-pass YES after reviewing the plan; run refuses otherwise
+pass YES after reviewing the plan; run refuses otherwise (required)
 .TP
 .BI "\-\-log " "LOG"
 diagnostic log file (run default: geni\-upload\-run.log next to the state file; plan default: stdout only)
@@ -52,7 +52,7 @@ the command completed
 failure (see the diagnostic log)
 .TP
 .B 2
-refused (for example a missing \-\-confirm YES)
+refused (missing \-\-confirm YES or token; also usage errors)
 .TP
 .B 3
 uncertain items remain; review them on Geni before re\-running

@@ -26,11 +26,13 @@ MANUAL = "Geni Uploader Manual"
 
 
 class Opt(NamedTuple):
-    """One command-line option."""
+    """One command-line option. required means the command refuses to run
+    without it, whether the parser enforces it or the command does."""
 
     flag: str
     metavar: str | None
     help: str
+    required: bool = False
 
 
 class Command(NamedTuple):
@@ -47,7 +49,8 @@ TOKEN_FILE = Opt(
     "--token-file", "TOKEN_FILE",
     "file outside the repo holding the access token (global, before the command)")
 
-_UPLOAD_MANIFEST = Opt("--manifest", "MANIFEST", "path to the upload manifest file")
+_UPLOAD_MANIFEST = Opt("--manifest", "MANIFEST", "path to the upload manifest file",
+                       required=True)
 _UPLOAD_LOG = Opt(
     "--log", "LOG",
     ("diagnostic log file (run default: geni-upload-run.log next to the state file; "
@@ -62,7 +65,8 @@ UPLOAD_COMMANDS: dict[str, Command] = {c.name: c for c in (
         (("Prints the Geni OAuth authorization URL for your Geni application. "
           "Open the URL in a browser, authorize the app, and complete the desktop "
           "flow to obtain an access token. This command performs no Geni writes."),),
-        (Opt("--client-id", "CLIENT_ID", "your Geni app's client ID"),
+        (Opt("--client-id", "CLIENT_ID", "your Geni app's client ID",
+             required=True),
          Opt("--redirect-uri", "REDIRECT_URI",
              ("only if your app settings define a callback URL; the "
               "desktop flow (default) needs none"))),
@@ -70,10 +74,10 @@ UPLOAD_COMMANDS: dict[str, Command] = {c.name: c for c in (
           "Print the authorization URL for the desktop OAuth flow."),)),
     Command(
         "whoami",
-        "verify Geni API credentials and print the authenticated profile",
+        "verify Geni API credentials (prints a redacted shape only)",
         (("Verifies the access token by fetching the authenticated profile and "
-          "prints it. Use it to confirm credentials before planning an upload. "
-          "Read-only."),)),
+          "prints only its redacted shape (keys and types, never values). Use "
+          "it to confirm credentials before planning an upload. Read-only."),)),
     Command(
         "plan",
         "dry-run a manifest against live Geni state without writing",
@@ -96,7 +100,8 @@ UPLOAD_COMMANDS: dict[str, Command] = {c.name: c for c in (
          "Run this only after a clean plan, and confirm it explicitly."),
         (_UPLOAD_MANIFEST,
          Opt("--confirm", "CONFIRM",
-             "pass YES after reviewing the plan; run refuses otherwise"),
+             "pass YES after reviewing the plan; run refuses otherwise",
+             required=True),
          _UPLOAD_LOG, _UPLOAD_STATE,
          Opt("--smoke", None, "upload only the first item, then stop"),
          Opt("--no-repo-sync", None,
@@ -105,24 +110,29 @@ UPLOAD_COMMANDS: dict[str, Command] = {c.name: c for c in (
           "Upload every pending item in the manifest after a clean plan."),)),
     Command(
         "contrast",
-        "compare Geni server listings against the manifest",
-        (("Compares the server-side document and photo listings against the "
-          "manifest and shows which items already exist on Geni. Performs no "
-          "writes."),),
+        "discriminate singular vs bulk profile endpoints (read-only)",
+        (("Read-only endpoint diagnostic: three paced reads discriminate "
+          "singular and bulk profile endpoint behavior for the token, so a "
+          "missing profile is attributed to the endpoint form or to "
+          "visibility. Prints shapes and a verdict only; values are never "
+          "shown."),),
         (_UPLOAD_MANIFEST,)),
     Command(
         "guidmap",
-        "map the manifest's profile IDs to resolved API identifiers",
-        (("Prints the manifest's profile IDs mapped to their resolved Geni API "
-          "identifiers. See docs/guid-resolution.md for the resolution "
-          "mechanism. Performs no writes."),),
+        "probe manifest profile numbers against served IDs (verdicts only)",
+        (("Bounded read-only diagnostic: compares each manifest target's "
+          "profile number against served id and guid values in memory and "
+          "prints a per-target verdict (RESOLVED-MAPPED, AMBIGUOUS or "
+          "UNKNOWN). Identifiers are never printed. See "
+          "docs/guid-resolution.md for the resolution mechanism."),),
         (_UPLOAD_MANIFEST,)),
     Command(
         "pguid",
-        "print each profile's resolved API identifier",
-        (("Prints each profile's resolved Geni API identifier. See "
-          "docs/guid-resolution.md for the resolution mechanism. Performs no "
-          "writes."),),
+        "probe the profile-g URL-number resolution form (booleans only)",
+        (("Read-only probe of the profile-g<guid> API form: one paced singular "
+          "GET per manifest target. Prints per-target booleans and a "
+          "RESOLVED-MAPPED verdict only; identifiers are never printed. See "
+          "docs/guid-resolution.md for the resolution mechanism."),),
         (_UPLOAD_MANIFEST,)),
     Command(
         "listing-shape",
@@ -147,7 +157,8 @@ DETAILS_MODE_HELP = (
     "(read-only); repair=apply reviewed repairs (needs --confirm YES and "
     "--state); snapshot=write a private metadata snapshot (needs --output)")
 
-_DETAILS_MANIFEST = Opt("--manifest", "MANIFEST", "path to the source-details manifest file")
+_DETAILS_MANIFEST = Opt("--manifest", "MANIFEST",
+                        "path to the source-details manifest file", required=True)
 _DETAILS_TOKEN = Opt("--token-file", "TOKEN_FILE",
                      "file outside the repo holding the access token")
 _DETAILS_CONFIRM = Opt("--confirm", "CONFIRM",
@@ -197,6 +208,15 @@ DETAILS_COMMANDS: dict[str, Command] = {c.name: c for c in (
 )}
 
 
+# Runtime requirements per details mode (the parser only enforces --manifest).
+DETAILS_REQUIRED: dict[str, tuple[str, ...]] = {
+    "validate": ("--manifest",),
+    "plan": ("--manifest",),
+    "repair": ("--manifest", "--confirm", "--state"),
+    "snapshot": ("--manifest", "--output"),
+}
+
+
 def details_opt(flag: str) -> Opt:
     """The spec option for the details command; KeyError names the gap."""
     for opt in DETAILS_OPTIONS:
@@ -205,10 +225,16 @@ def details_opt(flag: str) -> Opt:
     raise KeyError(f"cli_spec: details has no option {flag}")
 
 
-EXIT_STATUS = (
+# Codes every command can return (2 is argparse's usage error outside run).
+COMMON_EXIT_STATUS = (
     ("0", "the command completed"),
     ("1", "failure (see the diagnostic log)"),
-    ("2", "refused (for example a missing --confirm YES)"),
+    ("2", "usage error from argument parsing"),
+)
+
+# Additional codes only run returns (2 takes its refusal meaning there).
+RUN_EXIT_STATUS = (
+    ("2", "refused (missing --confirm YES or token; also usage errors)"),
     ("3", "uncertain items remain; review them on Geni before re-running"),
     ("4", "identity or tag verification stopped the run"),
     ("5", "uploads are verified on Geni; only the repository status push failed"),
@@ -220,7 +246,14 @@ ENVIRONMENT = (
     ("GENI_UPLOAD_REF", "branch of the data repository to clone (default: its HEAD)"),
     ("GENI_UPLOAD_EXPECT_SHA", "expected HEAD commit of the data repository (fails closed)"),
     ("GH_TOKEN_FILE", "path of the mounted GitHub token file (default: /run/gh-token)"),
-    ("GENI_API_BASE", "Geni API base URL override; the allowlist still applies"),
+    ("GENI_ACCESS_TOKEN", "Geni access token (alternative to --token-file)"),
+    ("GENI_PLAN_REPORT", "write the plan summary JSON report to this path"),
+    ("GENI_VISUAL_PLAN", "write the visual plan render to this path"),
+    ("GENI_API_BASE", ("test-only API base override: accepted only together with "
+                       "GENI_UPLOAD_E2E=1 and a loopback URL, so it can never redirect "
+                       "the production token")),
+    ("GENI_UPLOAD_E2E", ("set to 1 for end-to-end tests against a local fake server; "
+                         "refused with the production API base")),
 )
 
 FILES = (
