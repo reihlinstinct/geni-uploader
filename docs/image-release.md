@@ -20,7 +20,8 @@ A JSON object with exactly these keys:
 
 ## What the check refuses
 
-`python tools/image_provenance.py <descriptor>` exits 1 on the first mismatch:
+`python tools/image_provenance.py <descriptor>` (optional `--root <repo>`,
+defaulting to the repository containing the tool) exits 1 on the first mismatch:
 
 1. A malformed descriptor: unknown or missing keys, a tag instead of a digest, another
    registry path, a short or upper-case revision, a bad hash.
@@ -55,6 +56,9 @@ mutation run that disables each guard in turn was killed by the suite every time
 After the push, `publish-image.yml` runs `tools/image_descriptor.py`:
 
 1. `--list-destinations` prints every Dockerfile `COPY` destination.
+   The full interface: `--root <repo>` (default as above) and either
+   `--list-destinations` or all four of `--image <ref>`, `--revision <sha>`,
+   `--hashes <file>` and `--out <file>`.
 2. `docker run --rm --network none --entrypoint sha256sum "$TAG" <destinations>` hashes
    those files **inside the pushed image**.
 3. The tool builds a schema-1 descriptor from the pushed digest (`RepoDigests`),
