@@ -1,4 +1,14 @@
 # One-time protected parent pilot (#507)
+The workflow hands the pilot its settings as environment variables:
+`PILOT_CONFIRM` (must be `CREATE_ONE_PRIVATE_PARENT`), `PILOT_CONFIG_JSON` (injected from
+the `ONE_TIME_PARENT_PILOT_JSON` secret), `PILOT_CONFIG_SHA256` and
+`PILOT_EXECUTOR_SHA` (dispatch inputs pinning the config and the reviewed
+executor commit), `PILOT_OUTPUT_DIR` (encrypted evidence output),
+`FAMILY_TREE_PAT` and `GENI_SECONDARY_ACCESS_TOKEN` (scoped tokens). The
+pilot reads the GitHub run context (`GITHUB_RUN_ID`, `GITHUB_SHA`,
+`GITHUB_REF`, `GITHUB_REPOSITORY`, `GITHUB_EVENT_NAME`,
+`GITHUB_RUN_ATTEMPT`, `GITHUB_ACTOR`, `GITHUB_TRIGGERING_ACTOR`) before any
+network call.
 
 This is a separate deliberately smaller path, not an opening of the dormant
 production gate. It does not use the signed approval server, new OAuth callback,
