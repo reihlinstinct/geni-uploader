@@ -95,3 +95,27 @@ The create operation returns a full profile, not an exact id-only object. Only a
 returned/read-back profile_url is a browser link; url is an API link. A missing
 browser link stays missing, never synthesized. The documented fields may be
 omitted when blank; missing privacy/name/relationship readback never verifies.
+
+## Failure evidence follow-up (#509)
+
+Malformed provider object/transport AttributeError paths produce fixed value-free
+failures. Response overflow, status, redirect, deadline and malformed JSON have
+fixed diagnostic codes; no raw exception, partial plaintext body or credentials
+are logged. Available private encrypted acknowledgment/final evidence is retained
+through post-send failures. Oversized bodies stop at the bound, not buffered whole.
+Public early-stop lines name only a fixed stage: setup, encryption, private_source,
+credential, preflight, preflight_evidence, consume, send, ack, readback or final.
+An early stop can precede private evidence creation; its stage is diagnostic, not
+proof of an absent vendor write. Permanent-marker and receipt evidence determine
+whether a send was possible. No marker is reset and no attempt is rerun.
+This adds no request, retry, refresh, workflow permission or live-run authority.
+
+Review follow-up: preserve the original stopped stage after final evidence
+succeeds, distinguish config/manifest/output setup stages, and pin transport
+diagnostic codes plus both deadline branches and run transitions with fake-only
+regressions. A final evidence failure reports final. No added calls, permissions,
+retry or live action.
+
+The combined earlier-stop/final-receipt-failure regression asserts final, and
+exactly 30 seconds trips each deadline branch. Both previously surviving test-only
+mutations are now killed. These are offline coverage additions, not a new run.

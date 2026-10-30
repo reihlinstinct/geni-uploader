@@ -15,6 +15,28 @@ from geni_uploader.core.people import Blocked, exact, require
 from parent_probe import encrypt
 
 LIMIT = 1024 * 1024
+STAGES = frozenset(('setup', 'config', 'manifest', 'output', 'github_credential',
+                    'encryption', 'private_source', 'credential', 'preflight',
+                    'preflight_evidence', 'consume', 'send', 'ack', 'readback', 'final'))
+
+
+class TransportStop(Blocked):
+    """Fixed non-identifying diagnostics only; never response values or exceptions."""
+    def __init__(self, code):
+        require(code in ('transport_unavailable', 'response_oversize', 'response_deadline',
+                         'response_status', 'response_redirect', 'response_malformed'))
+        self.code = code
+        super().__init__(code)
+
+
+class Progress:
+    def __init__(self):
+        self.stage = 'setup'
+
+    def enter(self, stage):
+        require(stage in STAGES)
+        self.stage = stage
+
 FIELDS = ('id,guid,url,profile_url,first_name,middle_name,last_name,maiden_name,names,gender,'
           'public,is_alive,merge_pending,merged_into,unions')
 
@@ -71,23 +93,34 @@ class HTTPS:
             client.request(method, route, body=None if body is None else canonical(body),
                            headers=headers)
             response = client.getresponse()
-            require(200 <= response.status < 300 and not response.getheader('Location')
-                    and not response.getheader('Link'))
+            if not 200 <= response.status < 300:
+                raise TransportStop('response_status')
+            if response.getheader('Location') or response.getheader('Link'):
+                raise TransportStop('response_redirect')
             # Per-read socket timeout is supplemented by a whole-response deadline.
             deadline = time.monotonic() + 30
             chunks, size = [], 0
             while True:
-                require(time.monotonic() < deadline)
+                if time.monotonic() >= deadline:
+                    raise TransportStop('response_deadline')
                 chunk = response.read(min(65536, LIMIT + 1 - size))
                 if not chunk:
                     break
                 size += len(chunk)
-                require(size <= LIMIT and time.monotonic() < deadline)
+                if size > LIMIT:
+                    raise TransportStop('response_oversize')
+                if time.monotonic() >= deadline:
+                    raise TransportStop('response_deadline')
                 chunks.append(chunk)
-            return decode(b''.join(chunks))
-        except (Blocked, OSError, ValueError, TypeError, KeyError, RecursionError,
+            try:
+                return decode(b''.join(chunks))
+            except (Blocked, ValueError, TypeError, RecursionError):
+                raise TransportStop('response_malformed') from None
+        except TransportStop:
+            raise
+        except (Blocked, OSError, ValueError, TypeError, KeyError, RecursionError, AttributeError,
                 http.client.HTTPException, subprocess.SubprocessError):
-            raise Blocked('pilot transport unavailable') from None
+            raise TransportStop('transport_unavailable') from None
         finally:
             if client is not None:
                 try:
@@ -225,10 +258,13 @@ def verify(client, config, created_id, expected):
     return {'object_id': created_id, 'vendor_url': url, 'profile': actual, 'union': union}
 
 
-def execute(config, manifest, client, store, save, clock=time.time):
+def execute(config, manifest, client, store, save, clock=time.time, progress=None):
     """Tests inject all effects. The protected action supplies the only live wiring."""
+    progress = progress or Progress()
+    progress.enter('config')
     config = configuration(config)
     require(clock() < config['expires_at'])
+    progress.enter('manifest')
     exact(manifest, ('kind', 'target', 'creation_enabled', 'payload'))
     require(manifest['kind'] == 'offline_father_only_data_proposal'
             and manifest['creation_enabled'] is False and manifest['target'] == config['owner'])
@@ -237,14 +273,18 @@ def execute(config, manifest, client, store, save, clock=time.time):
     report = {'schema': 1, 'mode': 'one_time_parent_pilot', 'data_sha': config['data_sha'],
               'data_path': config['data_path'], 'owner': config['owner'],
               'payload_sha256': sha(canonical(approved)), 'retry_allowed': False}
+    progress.enter('preflight')
     report['preflight'] = preflight(client, config)
     require(clock() < config['expires_at'])
     # Save preflight evidence first, then consume globally before any POST.
+    progress.enter('preflight_evidence')
     store.receipt('before', save(report))
+    progress.enter('consume')
     store.consume()
     report['phase'] = 'UNCERTAIN'
     try:
         require(clock() < config['expires_at'])
+        progress.enter('send')
         response = client.request('POST', '/api/' + config['owner'] + '/add-parent', approved)
         report['create_response'] = response
         require(type(response) is dict and 'error' not in response)
@@ -254,24 +294,33 @@ def execute(config, manifest, client, store, save, clock=time.time):
         report['object_id'] = created_id
         report['phase'] = 'ACKNOWLEDGED_NOT_VERIFIED'
         # Persist returned ID before any further vendor read. Failure forbids continuation/retry.
+        progress.enter('ack')
         store.receipt('ack', save(report))
         require(clock() < config['expires_at'])
+        progress.enter('readback')
         report['readback'] = verify(client, config, created_id, approved)
         report['phase'] = 'VERIFIED'
-    except (Blocked, OSError, ValueError, TypeError, KeyError, RecursionError,
-                http.client.HTTPException, subprocess.SubprocessError):
+    except (Blocked, OSError, ValueError, TypeError, KeyError, RecursionError, AttributeError,
+                http.client.HTTPException, subprocess.SubprocessError) as exc:
+        report['stopped_stage'] = progress.stage
+        report['failure_code'] = exc.code if isinstance(exc, TransportStop) else 'validation_or_storage'
         report['follow_up'] = 'GET-only reconciliation or separately approved repair; never retry create'
+    progress.enter('final')
     store.receipt('final', save(report))
+    if 'stopped_stage' in report:
+        progress.enter(report['stopped_stage'])
     return report['phase']
 
 
-def run(env):
+def run(env, progress=None):
+    progress = progress or Progress()
     require(env.get('PILOT_CONFIRM') == 'CREATE_ONE_PRIVATE_PARENT')
     require(env.get('GITHUB_RUN_ATTEMPT') == '1' and env.get('GITHUB_EVENT_NAME') == 'workflow_dispatch'
             and env.get('GITHUB_REPOSITORY') == 'reihlinstinct/geni-uploader'
             and env.get('GITHUB_REF') == 'refs/heads/master'
             and env.get('GITHUB_ACTOR') == 'reihlinstinct'
             and env.get('GITHUB_TRIGGERING_ACTOR') == 'reihlinstinct')
+    progress.enter('config')
     config_raw = env.get('PILOT_CONFIG_JSON', '').encode()
     config = configuration(decode(config_raw))
     require(env.get('PILOT_CONFIG_SHA256') == sha(config_raw)
@@ -279,11 +328,16 @@ def run(env):
             and re.fullmatch(r'[a-f0-9]{40}', env.get('GITHUB_SHA', '')))
     require(time.time() < config['expires_at'])
     # Encryption preflight before GitHub reads, marker creation, or any vendor call.
+    progress.enter('encryption')
     encrypt(config['recipient'], b'pilot preflight')
+    progress.enter('github_credential')
     github = HTTPS('api.github.com', env.get('FAMILY_TREE_PAT', ''), github=True)
     store = PrivateGit(github, config['data_repo'], config['data_sha'], config['owner'])
+    progress.enter('private_source')
     manifest = store.load(config['data_path'])
+    progress.enter('credential')
     client = HTTPS('www.geni.com', env.get('GENI_SECONDARY_ACCESS_TOKEN', ''))
+    progress.enter('output')
     output = Path(env['PILOT_OUTPUT_DIR'])
     require(output.is_absolute() and not output.exists())
     output.mkdir(mode=0o700)
@@ -298,18 +352,19 @@ def run(env):
             f.flush()
             os.fsync(f.fileno())
         return ciphertext
-    return execute(config, manifest, client, store, save)
+    return execute(config, manifest, client, store, save, progress=progress)
 
 
 def main():
+    progress = Progress()
     try:
-        result = run(os.environ)
+        result = run(os.environ, progress)
         require(result == 'VERIFIED')
         print('pilot verification complete; encrypted evidence retained; no retry')
         return 0
-    except (Blocked, OSError, ValueError, TypeError, KeyError, RecursionError,
+    except (Blocked, OSError, ValueError, TypeError, KeyError, RecursionError, AttributeError,
                 http.client.HTTPException, subprocess.SubprocessError):
-        print('pilot stopped; inspect encrypted evidence; no retry or automatic repair')
+        print('pilot stopped at ' + progress.stage + '; inspect encrypted evidence; no retry or automatic repair')
         return 1
 
 

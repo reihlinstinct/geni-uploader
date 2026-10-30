@@ -209,7 +209,7 @@ def test_consumed_marker_is_atomic_create_with_readback_no_delete_or_update():
 
 
 def test_main_never_prints_exception_or_raw_result(monkeypatch, capsys):
-    def fail(env):
+    def fail(env, progress):
         raise Blocked('ZZ-SENTINEL')
     monkeypatch.setattr(p, 'run', fail)
     assert p.main() == 1
@@ -249,7 +249,7 @@ def test_transport_fixed_host_bound_body_no_redirect_or_retry(monkeypatch, kind)
     if kind == 'normal':
         assert client.request('POST', '/api/' + OWNER + '/add-parent', BODY)['id'] == FATHER
     else:
-        with pytest.raises(Blocked, match='pilot transport unavailable'):
+        with pytest.raises(p.TransportStop):
             client.request('POST', '/api/' + OWNER + '/add-parent', BODY)
     assert len([x for x in seen if x[0] == 'request']) == 1 and closed == [True]
     with pytest.raises(Blocked):
@@ -293,3 +293,249 @@ def test_consumed_marker_blocks_second_execute_and_does_not_retry():
     with pytest.raises(Blocked):
         p.execute(copy.deepcopy(C), copy.deepcopy(M), client, store, save, lambda: 200)
     assert sum(x[0] == 'POST' for x in client.calls) == 1
+
+@pytest.mark.parametrize('stage', sorted(p.STAGES))
+def test_fixed_stage_diagnostics_never_print_private_exception(monkeypatch, capsys, stage):
+    def fail(env, progress):
+        progress.enter(stage)
+        raise AttributeError('ZZ-PRIVATE-SENTINEL')
+    monkeypatch.setattr(p, 'run', fail)
+    assert p.main() == 1
+    out = capsys.readouterr().out
+    assert 'stopped at ' + stage + ';' in out and 'ZZ-PRIVATE-SENTINEL' not in out
+
+
+def test_malformed_post_object_retains_consumption_and_final_evidence():
+    client = Client()
+    original = client.request
+    def request(method, route, body=None):
+        if method == 'POST':
+            client.calls.append((method, route, body))
+            raise AttributeError('ZZ-PRIVATE-SENTINEL')
+        return original(method, route, body)
+    client.request = request
+    store = Store(client)
+    reports = []
+    def save(report):
+        reports.append(copy.deepcopy(report))
+        return b'age-encryption.org/v1\nZZciphertext'
+    assert p.execute(copy.deepcopy(C), copy.deepcopy(M), client, store, save,
+                     lambda: 200) == 'UNCERTAIN'
+    assert store.consumed and store.receipts == ['before', 'final']
+    assert reports[-1]['stopped_stage'] == 'send'
+    assert reports[-1]['failure_code'] == 'validation_or_storage'
+    assert 'ZZ-PRIVATE-SENTINEL' not in str(reports)
+    assert sum(x[0] == 'POST' for x in client.calls) == 1
+
+
+def test_oversize_response_retains_only_fixed_diagnostic_and_acknowledged_status():
+    client = Client()
+    original = client.request
+    def request(method, route, body=None):
+        if route.startswith('/api/' + FATHER):
+            raise p.TransportStop('response_oversize')
+        return original(method, route, body)
+    client.request = request
+    store = Store(client)
+    reports = []
+    def save(report):
+        reports.append(copy.deepcopy(report))
+        return b'age-encryption.org/v1\nZZciphertext'
+    assert p.execute(copy.deepcopy(C), copy.deepcopy(M), client, store, save,
+                     lambda: 200) == 'ACKNOWLEDGED_NOT_VERIFIED'
+    assert store.consumed and reports[-1]['object_id'] == FATHER
+    assert reports[-1]['failure_code'] == 'response_oversize'
+    assert reports[-1]['stopped_stage'] == 'readback'
+
+
+def test_transport_malformed_response_object_closes_without_leaking(monkeypatch):
+    closed = []
+    class Connection:
+        def __init__(self, *a, **kw):
+            pass
+        def request(self, *a, **kw):
+            pass
+        def getresponse(self):
+            return object()
+        def close(self):
+            closed.append(True)
+    monkeypatch.setattr(p.http.client, 'HTTPSConnection', Connection)
+    client = p.HTTPS('www.geni.com', 'ZZ-token')
+    with pytest.raises(p.TransportStop, match='transport_unavailable'):
+        client.request('GET', '/api/profile')
+    assert closed == [True]
+
+
+def test_stage_transition_inventory_on_verified_run():
+    class Progress(p.Progress):
+        def __init__(self):
+            super().__init__()
+            self.seen = []
+        def enter(self, stage):
+            super().enter(stage)
+            self.seen.append(stage)
+    progress = Progress()
+    client = Client()
+    store = Store(client)
+    assert p.execute(copy.deepcopy(C), copy.deepcopy(M), client, store,
+                     lambda _: b'age-encryption.org/v1\nZZciphertext', lambda: 200,
+                     progress) == 'VERIFIED'
+    assert progress.seen == ['config', 'manifest', 'preflight', 'preflight_evidence', 'consume',
+                             'send', 'ack', 'readback', 'final']
+
+
+@pytest.mark.parametrize('kind,code', [('status', 'response_status'),
+    ('redirect', 'response_redirect'), ('link', 'response_redirect'),
+    ('oversize', 'response_oversize'), ('malformed', 'response_malformed'),
+    ('timeout', 'transport_unavailable'), ('before_deadline', 'response_deadline'),
+    ('after_deadline', 'response_deadline')])
+def test_exact_transport_failure_codes_and_deadline_branches(monkeypatch, kind, code):
+    reads, closed = [], []
+    appended = []
+    import inspect
+    import sys
+    lines, first_line = inspect.getsourcelines(p.HTTPS.request)
+    append_line = first_line + next(i for i, line in enumerate(lines) if 'chunks.append(chunk)' in line)
+    def trace(frame, event, arg):
+        if event == 'line' and frame.f_code is p.HTTPS.request.__code__ and frame.f_lineno == append_line:
+            appended.append(True)
+        return trace
+    ticks = iter([0, 0, 30] if kind == 'before_deadline' else
+                 [0, 0, 1, 30] if kind == 'after_deadline' else [0] * 100)
+    monkeypatch.setattr(p.time, 'monotonic', lambda: next(ticks, 1))
+    class Response:
+        status = 403 if kind == 'status' else 200
+        def getheader(self, name):
+            return 'ZZ' if (kind == 'redirect' and name == 'Location' or
+                            kind == 'link' and name == 'Link') else None
+        def read(self, size):
+            reads.append(size)
+            if kind == 'timeout':
+                raise TimeoutError('ZZprivate')
+            if kind == 'oversize':
+                return b' ' * size if len(reads) <= 17 else b''
+            return b'ZZbad' if len(reads) == 1 else b''
+    class Connection:
+        def __init__(self, *a, **kw):
+            pass
+        def request(self, *a, **kw):
+            pass
+        def getresponse(self):
+            return Response()
+        def close(self):
+            closed.append(True)
+    monkeypatch.setattr(p.http.client, 'HTTPSConnection', Connection)
+    old_trace = sys.gettrace()
+    try:
+        sys.settrace(trace)
+        with pytest.raises(p.TransportStop) as exc:
+            p.HTTPS('www.geni.com', 'ZZ-token').request('GET', '/api/profile')
+    finally:
+        sys.settrace(old_trace)
+    assert exc.value.code == code
+    assert closed == [True]
+    if kind == 'before_deadline':
+        assert reads == []
+    if kind == 'after_deadline':
+        assert reads == [65536] and appended == []
+
+
+@pytest.mark.parametrize('change,stage', [('lost', 'send'), ('malformed', 'send'),
+    ('ack', 'ack'), ('privacy', 'readback'), ('final', 'final')])
+def test_main_reports_original_stop_stage_unless_final_persistence_fails(monkeypatch, capsys,
+                                                                       change, stage):
+    def run(env, progress):
+        client = Client(change)
+        store = Store(client, change)
+        return p.execute(copy.deepcopy(C), copy.deepcopy(M), client, store,
+                         lambda _: b'age-encryption.org/v1\nZZ', lambda: 200, progress)
+    monkeypatch.setattr(p, 'run', run)
+    assert p.main() == 1
+    assert 'stopped at ' + stage + ';' in capsys.readouterr().out
+
+
+def pilot_environment(tmp_path):
+    c = dict(C, expires_at=2**39)
+    raw = p.canonical(c)
+    return {'PILOT_CONFIRM': 'CREATE_ONE_PRIVATE_PARENT', 'GITHUB_RUN_ATTEMPT': '1',
+            'GITHUB_EVENT_NAME': 'workflow_dispatch',
+            'GITHUB_REPOSITORY': 'reihlinstinct/geni-uploader',
+            'GITHUB_REF': 'refs/heads/master', 'GITHUB_ACTOR': 'reihlinstinct',
+            'GITHUB_TRIGGERING_ACTOR': 'reihlinstinct', 'GITHUB_SHA': 'b'*40,
+            'PILOT_EXECUTOR_SHA': 'b'*40, 'PILOT_CONFIG_SHA256': p.sha(raw),
+            'PILOT_CONFIG_JSON': raw.decode(), 'PILOT_OUTPUT_DIR': str(tmp_path/'out'),
+            'GITHUB_RUN_ID': '999004', 'FAMILY_TREE_PAT': 'ZZ-token',
+            'GENI_SECONDARY_ACCESS_TOKEN': 'ZZ-secondary'}
+
+
+@pytest.mark.parametrize('failure,stage', [('env', 'setup'), ('config', 'config'),
+    ('encryption', 'encryption'), ('github_credential', 'github_credential'),
+    ('private_source', 'private_source'), ('credential', 'credential'), ('output', 'output'),
+    ('manifest', 'manifest')])
+def test_real_run_transitions_report_distinct_fixed_stages(monkeypatch, tmp_path, capsys,
+                                                           failure, stage):
+    env = pilot_environment(tmp_path)
+    if failure == 'env':
+        env['GITHUB_RUN_ATTEMPT'] = '2'
+    if failure == 'config':
+        env['PILOT_CONFIG_SHA256'] = 'c'*64
+    if failure == 'output':
+        (tmp_path/'out').mkdir()
+    class FakeHTTPS:
+        def __init__(self, host, token, **kw):
+            if failure == 'github_credential' and host == 'api.github.com':
+                raise Blocked()
+            if failure == 'credential' and host == 'www.geni.com':
+                raise Blocked()
+        def request(self, *a, **kw):
+            pytest.fail('unexpected vendor call')
+    class FakeStore:
+        def __init__(self, *a):
+            pass
+        def load(self, path):
+            if failure == 'private_source':
+                raise Blocked()
+            return {} if failure == 'manifest' else copy.deepcopy(M)
+    def encrypt(*a):
+        if failure == 'encryption':
+            raise Blocked()
+        return b'age-encryption.org/v1\nZZ'
+    monkeypatch.setattr(p, 'HTTPS', FakeHTTPS)
+    monkeypatch.setattr(p, 'PrivateGit', FakeStore)
+    monkeypatch.setattr(p, 'encrypt', encrypt)
+    monkeypatch.setattr(p.os, 'environ', env)
+    assert p.main() == 1
+    out = capsys.readouterr().out
+    assert 'stopped at ' + stage + ';' in out
+
+
+def test_real_run_expiry_at_execute_is_config_not_env_setup(monkeypatch, tmp_path, capsys):
+    env = pilot_environment(tmp_path)
+    monkeypatch.setattr(p.os, 'environ', env)
+    ticks = iter([200, 2**39])
+    monkeypatch.setattr(p.time, 'time', lambda: next(ticks, 2**39))
+    monkeypatch.setattr(p, 'encrypt', lambda *a: b'age-encryption.org/v1\nZZ')
+    monkeypatch.setattr(p, 'HTTPS', lambda *a, **kw: object())
+    class Store:
+        def __init__(self, *a):
+            pass
+        def load(self, path):
+            return copy.deepcopy(M)
+    monkeypatch.setattr(p, 'PrivateGit', Store)
+    # execute's default clock binds the original function; inject the fake explicitly.
+    execute = p.execute
+    monkeypatch.setattr(p, 'execute', lambda *a, **kw: execute(*a, clock=p.time.time, **kw))
+    assert p.main() == 1
+    assert 'stopped at config;' in capsys.readouterr().out
+
+
+@pytest.mark.parametrize('failure', ['lost', 'privacy'])
+def test_post_send_stop_plus_final_receipt_failure_reports_final(monkeypatch, capsys, failure):
+    def run(env, progress):
+        client = Client(failure)
+        store = Store(client, 'final')
+        return p.execute(copy.deepcopy(C), copy.deepcopy(M), client, store,
+                         lambda _: b'age-encryption.org/v1\nZZ', lambda: 200, progress)
+    monkeypatch.setattr(p, 'run', run)
+    assert p.main() == 1
+    assert 'stopped at final;' in capsys.readouterr().out
