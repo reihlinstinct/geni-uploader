@@ -46,7 +46,7 @@ commit; consumers must independently enforce live expiry/revocation before use.
 No consumer or atomic revocation-to-vendor-use boundary is changed by this PR.
 No provider revocation, remote secret deletion or historical erasure is claimed.
 
-24 tests cover actual adapter/seal trace, one-time state, duplicate callbacks,
+25 tests cover actual adapter/seal trace, one-time state, duplicate callbacks,
 wrong owner/merge, stale state/browser/subject/code, malformed/oversized responses,
 response loss, deadline, expiry and concurrent revoke. A real local workerd SQLite
 rehearsal preserves consumed state and inactive custody across restart; its exact
@@ -75,3 +75,5 @@ A same-object attempt regression first rejects wrong input without consuming the
 stored state, then proves the object cannot retry valid input. A fresh object can
 still consume that untouched state, making the object guard distinct from the
 durable consumed-state barrier. No reset route is added.
+
+Additional #506 coverage asserts streaming byte-cap enforcement stops reading at the first over-limit chunk, cancels/releases the reader and never reaches owner lookup or custody. Removing the read-loop cap must fail the regression. Offline only.
