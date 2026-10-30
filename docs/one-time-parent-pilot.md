@@ -115,3 +115,7 @@ succeeds, distinguish config/manifest/output setup stages, and pin transport
 diagnostic codes plus both deadline branches and run transitions with fake-only
 regressions. A final evidence failure reports final. No added calls, permissions,
 retry or live action.
+
+The combined earlier-stop/final-receipt-failure regression asserts final, and
+exactly 30 seconds trips each deadline branch. Both previously surviving test-only
+mutations are now killed. These are offline coverage additions, not a new run.

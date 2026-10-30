@@ -400,8 +400,8 @@ def test_exact_transport_failure_codes_and_deadline_branches(monkeypatch, kind, 
         if event == 'line' and frame.f_code is p.HTTPS.request.__code__ and frame.f_lineno == append_line:
             appended.append(True)
         return trace
-    ticks = iter([0, 0, 31] if kind == 'before_deadline' else
-                 [0, 0, 1, 31] if kind == 'after_deadline' else [0] * 100)
+    ticks = iter([0, 0, 30] if kind == 'before_deadline' else
+                 [0, 0, 1, 30] if kind == 'after_deadline' else [0] * 100)
     monkeypatch.setattr(p.time, 'monotonic', lambda: next(ticks, 1))
     class Response:
         status = 403 if kind == 'status' else 200
@@ -527,3 +527,15 @@ def test_real_run_expiry_at_execute_is_config_not_env_setup(monkeypatch, tmp_pat
     monkeypatch.setattr(p, 'execute', lambda *a, **kw: execute(*a, clock=p.time.time, **kw))
     assert p.main() == 1
     assert 'stopped at config;' in capsys.readouterr().out
+
+
+@pytest.mark.parametrize('failure', ['lost', 'privacy'])
+def test_post_send_stop_plus_final_receipt_failure_reports_final(monkeypatch, capsys, failure):
+    def run(env, progress):
+        client = Client(failure)
+        store = Store(client, 'final')
+        return p.execute(copy.deepcopy(C), copy.deepcopy(M), client, store,
+                         lambda _: b'age-encryption.org/v1\nZZ', lambda: 200, progress)
+    monkeypatch.setattr(p, 'run', run)
+    assert p.main() == 1
+    assert 'stopped at final;' in capsys.readouterr().out
