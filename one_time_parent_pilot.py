@@ -136,21 +136,24 @@ class HTTPS:
             pass  # The original status remains available even if capture fails.
         return evidence
 
+    def admit_vendor(self, method, route):
+        require(self.calls < 12)
+        require((method == 'GET' and re.fullmatch(
+            r'/api/(?:profile|profile-[0-9]{1,30}(?:/immediate-family)?|union-[0-9]{1,30})(?:\?fields=[A-Za-z_,]+&only_ids=true|\?only_ids=true)?', route))
+            or (method == 'POST' and re.fullmatch(r'/api/profile-[0-9]{1,30}/add-parent', route)))
+        if method == 'POST':
+            require(not self.posted)
+            self.posted = True
+        if self.last is not None:
+            time.sleep(max(0, 10 - (time.monotonic() - self.last)))
+        self.calls += 1
+        self.last = time.monotonic()
+
     def request(self, method, route, body=None):
         require(method in ('GET', 'POST') and type(route) is str and route.startswith('/'))
         require(not any(c in route for c in '\r\n#') and len(route) <= 2048)
         if not self.github:
-            require(self.calls < 12)
-            require((method == 'GET' and re.fullmatch(
-                r'/api/(?:profile|profile-[0-9]{1,30}(?:/immediate-family)?|union-[0-9]{1,30})(?:\?fields=[A-Za-z_,]+&only_ids=true|\?only_ids=true)?', route))
-                or (method == 'POST' and re.fullmatch(r'/api/profile-[0-9]{1,30}/add-parent', route)))
-            if method == 'POST':
-                require(not self.posted)
-                self.posted = True
-            if self.last is not None:
-                time.sleep(max(0, 10 - (time.monotonic() - self.last)))
-            self.calls += 1
-            self.last = time.monotonic()
+            self.admit_vendor(method, route)
         client = None
         try:
             client = http.client.HTTPSConnection(self.host, port=443, timeout=20)

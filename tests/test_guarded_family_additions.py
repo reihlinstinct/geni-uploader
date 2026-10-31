@@ -56,6 +56,10 @@ class IO:
         self.gets += 1
         return {'id': target, 'partners': list(self.parents), 'children': list(self.children)}
 
+    def get_family(self, target):
+        return {'focus': {'id': target}, 'nodes': {self.cfg['union_id']:
+                self.get_union(self.cfg['union_id'])}}
+
     def add(self, owner, route, body):
         self.posts.append((owner, route, body))
         if self.anomaly == 'send':
@@ -173,3 +177,12 @@ def test_local_capture_failure_forbids_remote_effects():
     with pytest.raises(OSError):
         g.execute(cfg, io, st, save, lambda: 200)
     assert io.gets == 1 and not io.posts and not st.events
+
+
+def test_sibling_missing_direct_backreference_stops_after_one():
+    cfg = fixture('siblings')
+    io = IO(cfg)
+    io.get_family = lambda target: {'focus': {'id': target}, 'nodes': {}}
+    r = g.execute(cfg, io, Store(), lambda r: b'ZZ-cipher', lambda: 200)
+    assert r['phase'] == 'STOPPED' and len(io.posts) == 1
+    assert r['items'][0]['phase'] == 'ACKNOWLEDGED_NOT_VERIFIED'
