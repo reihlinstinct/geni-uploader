@@ -11,6 +11,7 @@ from one_time_parent_pilot import (
     FIELDS,
     HTTPS,
     PrivateGit,
+    TransportStop,
     canonical,
     configuration,
     decode,
@@ -57,8 +58,15 @@ class IO:
     def request(self, method, route, body=None):
         try:
             return self.client.request(method, route, body)
+        except TransportStop as exc:
+            status = exc.evidence.get('http_status')
+            evidence = {'host': 'www.geni.com', 'error_type': exc.code}
+            if type(status) is int and 100 <= status <= 599:
+                evidence['status_class'] = str(status // 100) + 'xx'
+            raise TransportStop(exc.code, evidence=evidence) from None
         except Exception as exc:
-            raise Blocked() from exc
+            raise TransportStop('transport_unavailable', evidence={
+                'host': 'www.geni.com', 'error_type': 'seam_failure'}) from exc
 
     def get_profile(self, target):
         return self.request('GET', '/api/' + target + '?fields=' + FIELDS + '&only_ids=true')

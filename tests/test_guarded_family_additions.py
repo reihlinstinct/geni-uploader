@@ -216,3 +216,19 @@ def test_explicit_remaining_batch_size(count):
     cfg['entries'] = cfg['entries'][:count]
     r, io, _, _ = run(cfg)
     assert r['phase'] == 'VERIFIED' and len(io.posts) == count
+
+
+def test_union_get_transport_failure_retains_read_stage():
+    cfg = fixture('siblings')
+    io = IO(cfg)
+    original = io.get_union
+
+    def get_union(target):
+        if io.posts:
+            raise g.TransportStop('response_status', evidence={
+                'host': 'www.geni.com', 'error_type': 'response_status', 'status_class': '5xx'})
+        return original(target)
+    io.get_union = get_union
+    r = g.execute(cfg, io, Store(), lambda r: b'ZZ-cipher', lambda: 200)
+    assert r['stage'] == 'read_union' and r['phase'] == 'STOPPED'
+    assert r['transport_failure']['status_class'] == '5xx' and len(io.posts) == 1
