@@ -56,3 +56,21 @@ secondary_credential before transport construction. Missing/malformed values
 stop there with encrypted local evidence, after encryption/output setup succeeds.
 Syntax validity is not authentication: a well-formed but denied credential still
 fails at the actual private_repository or vendor_reads HTTP boundary.
+
+## Scoped post-write reconciliation (#532)
+
+A separate protected pilot-get-reconcile workflow uses PILOT_GET_RECONCILE_JSON
+and pins mode get_only_reconcile. It has the same exact executor/config, master,
+owner-actor, first-attempt and human environment gates. It receives the read-only
+repository credential and secondary vendor token, never the evidence writer.
+
+After verifying the immutable proposal and exact owner identity, it reads the
+owner's immediate family once and at most eight related profile IDs once each.
+No union expansion, graph traversal, pagination or retries occur. IDs are syntax
+checked before route construction. Name comparison uses normalized full name
+fields and the proposal's localized names; a candidate match is not proof of
+parenthood or of the uncertain write. Hidden-parent completeness stays unproved.
+Encrypted local evidence alone contains observed IDs and name-match booleans.
+Public output remains fixed-stage only. No raw names/response/header values are
+retained. HTTP 500 after a send remains uncertain even if no match is observed.
+No markers are changed and this workflow cannot authorize or retry creation.

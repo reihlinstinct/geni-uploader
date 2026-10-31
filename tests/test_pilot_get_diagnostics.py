@@ -304,3 +304,92 @@ def test_run_bad_credential_stops_at_named_stage_without_transport(monkeypatch, 
     assert progress['stage'] == stage and reports[0]['stage'] == stage
     assert reports[0]['phase'] == 'STOPPED' and reports[0]['create_enabled'] is False
     assert len(list((tmp_path / 'diagnostic').iterdir())) == 1
+
+
+def reconcile_clients(change=None):
+    c = dict(C, mode='get_only_reconcile')
+    prefix, source, vr = d.routes(c)
+    calls = []
+    root = {'id': c['owner'], 'first_name': 'ZZ-Root', 'last_name': 'ZZ-Family'}
+    class Transport:
+        def __init__(self, host, token, **kw):
+            self.host = host
+        def request(self, method, route):
+            calls.append((self.host, method, route))
+            assert method == 'GET'
+            if route == prefix:
+                return {'private': True, 'full_name': c['data_repo']}
+            if route == source:
+                raw = d.canonical(M)
+                return {'type': 'file', 'encoding': 'base64', 'size': len(raw),
+                        'content': base64.b64encode(raw).decode()}
+            if 'immediate-family' in route:
+                nodes = {'profile-999002': {'id': 'profile-999002'},
+                         'union-999003': {'id': 'union-999003'}}
+                if change == 'isolated':
+                    nodes = {}
+                if change == 'badid':
+                    nodes = {'https://zz.invalid': {'id': 'https://zz.invalid'}}
+                if change == 'mismatch':
+                    nodes['profile-999002']['id'] = 'profile-999004'
+                if change == 'cap':
+                    nodes = {'profile-'+str(i): {'id': 'profile-'+str(i)} for i in range(9)}
+                r = {'focus': root, 'nodes': nodes}
+                if change == 'pagination':
+                    r['next_page'] = 'ZZ'
+                return r
+            if '/api/profile-999002?' in route:
+                if change == 'http':
+                    raise d.TransportStop('response_status', evidence={'http_status': 500})
+                return {'id': 'profile-999002', 'first_name': 'ZZ-Father',
+                        'last_name': 'ZZ-Other' if change == 'nonmatch' else 'ZZ-Family'}
+            return dict(root, id='profile-999004') if change == 'wrongroot' else root
+    return c, d.GetOnly('api.github.com', 'ZZ-token', [prefix, source], factory=Transport), d.GetOnly(
+        'www.geni.com', 'ZZ-token', vr, factory=Transport), calls
+
+
+@pytest.mark.parametrize('change,count,match', [(None, 6, True), ('isolated', 5, None),
+                                               ('nonmatch', 6, False)])
+def test_reconcile_only_bounded_gets_encrypted_ids_no_name_or_parent_claim(change, count, match):
+    c, gh, vendor, calls = reconcile_clients(change)
+    saved = []
+    r = d.diagnose(c, gh, vendor, saved.append, lambda: 200)
+    assert r['phase'] == 'READ_ONLY_COMPLETE' and r['mode'] == 'get_only_reconcile'
+    result = r['reconciliation']
+    assert result['completeness'] == result['parenthood'] == 'UNPROVED'
+    assert len(calls) == count and all(x[1] == 'GET' for x in calls)
+    assert 'ZZ-Father' not in str(r) and 'ZZ-Root' not in str(r)
+    assert result['checked'] == ([] if match is None else [{'id':'profile-999002', 'name_match':match}])
+    assert len(vendor.seen) <= 11 and saved == [r]
+
+
+@pytest.mark.parametrize('change', ['badid', 'mismatch', 'cap', 'pagination', 'wrongroot', 'http'])
+def test_reconcile_malformed_or_failure_stops_no_retry(change):
+    c, gh, vendor, calls = reconcile_clients(change)
+    r = d.diagnose(c, gh, vendor, lambda _: None, lambda: 200)
+    assert r['phase'] == 'STOPPED' and r['stage'] == 'vendor_reads'
+    assert all(x[1] == 'GET' for x in calls) and len(calls) <= 6
+    assert len(calls) == len(set(calls))
+    if change == 'http':
+        assert r['http_failure'] == {'http_status': 500}
+
+
+def test_reconcile_workflow_has_no_writer_and_fixed_mode():
+    s = Path('.github/workflows/pilot-get-reconcile.yml').read_text()
+    assert 'DIAGNOSTIC_MODE: get_only_reconcile' in s
+    assert 'secrets.PILOT_GET_RECONCILE_JSON' in s
+    assert 'PILOT_PRIVATE_EVIDENCE_WRITER' not in s
+    assert 'environment: father-create' in s and 'github.run_attempt == 1' in s
+    assert 'contents: read' in s and 'contents: write' not in s
+    assert 'github.sha == inputs.executor_sha' in s
+
+
+def test_mode_cannot_cross_workflows(monkeypatch, tmp_path):
+    env = environment(tmp_path)
+    c = d.decode(env['DIAGNOSTIC_CONFIG_JSON'].encode())
+    c['mode'] = 'get_only_reconcile'
+    raw = d.canonical(c)
+    env.update(DIAGNOSTIC_CONFIG_JSON=raw.decode(), DIAGNOSTIC_CONFIG_SHA256=d.sha(raw))
+    monkeypatch.setattr(d, 'encrypt', lambda *a: pytest.fail('encryption called'))
+    with pytest.raises(Blocked):
+        d.run(env, {})
