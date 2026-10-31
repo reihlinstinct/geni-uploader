@@ -21,9 +21,14 @@ ERRORS = (Blocked, OSError, ValueError, TypeError, KeyError, RecursionError, Att
 
 def configuration(c):
     exact(c, ('schema', 'mode', 'data_repo', 'data_sha', 'data_path', 'owner',
-              'expect_name', 'recipient', 'allow_unknown_merge', 'expires_at'))
+              'expect_name', 'recipient', 'allow_unknown_merge', 'expires_at',
+              *(('created_id', 'union_id') if c.get('mode') == 'get_only_verify' else ())))
     require(type(c['schema']) is int and c['schema'] == 1 and c['mode'] in (
-        'get_only_diagnostic', 'get_only_reconcile'))
+        'get_only_diagnostic', 'get_only_reconcile', 'get_only_verify'))
+    if c['mode'] == 'get_only_verify':
+        require(type(c['created_id']) is str and re.fullmatch(r'profile-[0-9]{1,30}', c['created_id'])
+                and c['created_id'] != c['owner'])
+        require(type(c['union_id']) is str and re.fullmatch(r'union-[0-9]{1,30}', c['union_id']))
     require(type(c['data_repo']) is str and re.fullmatch(
         r'[A-Za-z0-9_-]{1,100}/[A-Za-z0-9_-]{1,100}', c['data_repo']))
     require(type(c['data_sha']) is str and re.fullmatch(r'[a-f0-9]{40}', c['data_sha']))
@@ -62,6 +67,9 @@ def routes(c):
     source = prefix + '/contents/' + urllib.parse.quote(c['data_path'], safe='/') + '?ref=' + c['data_sha']
     # Reuse the same fixed field list as the reviewed read preflight, not create/receipt logic.
     from one_time_parent_pilot import FIELDS
+    if c['mode'] == 'get_only_verify':
+        return prefix, source, ['/api/' + c['created_id'] + '?fields=' + FIELDS + '&only_ids=true',
+                                '/api/' + c['union_id'] + '?only_ids=true']
     vendor = ['/api/' + x + '?fields=' + FIELDS + '&only_ids=true'
               for x in ('profile', c['owner'])]
     vendor.append('/api/' + c['owner'] + '/immediate-family?only_ids=true')
@@ -97,7 +105,9 @@ def diagnose(c, github, vendor, save, clock=time.time):
         report['payload_sha256'] = sha(canonical(approved))
         report['stage'] = 'vendor_reads'
         require(clock() < c['expires_at'])
-        if c['mode'] == 'get_only_reconcile':
+        if c['mode'] == 'get_only_verify':
+            verify_read_only(vendor, c, approved, report, save, clock)
+        elif c['mode'] == 'get_only_reconcile':
             reconcile(vendor, c, approved, report, clock)
         else:
             report['preflight'] = preflight(vendor, c)
@@ -109,6 +119,55 @@ def diagnose(c, github, vendor, save, clock=time.time):
             report['http_failure'] = exc.evidence
     save(report)
     return report
+
+
+def verify_read_only(vendor, c, approved, report, save, clock):
+    """Capture each parsed response durably before applying unchanged checks."""
+    import copy
+
+    from one_time_parent_pilot import FIELDS, merge_clear, vendor_payload
+    report['verification'] = {'responses': {}, 'checks': {}, 'verified': False}
+    evidence = report['verification']
+    for label, route in (
+        ('profile', '/api/' + c['created_id'] + '?fields=' + FIELDS + '&only_ids=true'),
+        ('union', '/api/' + c['union_id'] + '?only_ids=true'),
+    ):
+        require(clock() < c['expires_at'])
+        evidence['responses'][label] = vendor.request('GET', route)
+        save(copy.deepcopy(report))  # failure here forbids the next read
+    actual, union = evidence['responses']['profile'], evidence['responses']['union']
+
+    def check(label, test):
+        try:
+            evidence['checks'][label] = bool(test())
+        except ERRORS:
+            evidence['checks'][label] = False
+
+    check('profile_id', lambda: actual.get('id') == c['created_id'])
+    def merge():
+        merge_clear(actual, c['allow_unknown_merge'])
+        return True
+    check('merge', merge)
+    check('private', lambda: actual.get('public') is False)
+    check('alive', lambda: actual.get('is_alive') is True)
+    check('gender', lambda: actual.get('gender') == 'male')
+    for key, val in vendor_payload(approved).items():
+        check('field_' + key, lambda key=key, val=val: actual.get(key) == val)
+    check('profile_union', lambda: actual.get('unions') == [c['union_id']])
+    check('union_id', lambda: union.get('id') == c['union_id'])
+    check('union_partners', lambda: union.get('partners') == [c['created_id']])
+    check('union_children', lambda: union.get('children') == [c['owner']])
+    def url():
+        value = actual.get('profile_url')
+        if value is None:
+            return True
+        require(type(value) is str)
+        parsed = urllib.parse.urlsplit(value)
+        return parsed.scheme == 'https' and parsed.netloc == 'www.geni.com' and not parsed.fragment
+    check('profile_url', url)
+    evidence['verified'] = all(evidence['checks'].values())
+    save(copy.deepcopy(report))
+    require(evidence['verified'])
 
 
 def reconcile(vendor, c, approved, report, clock):
@@ -185,11 +244,16 @@ def run(env, progress):
     output = Path(env['DIAGNOSTIC_OUTPUT_DIR'])
     require(output.is_absolute() and not output.exists())
     output.mkdir(mode=0o700)
+    save_count = 0
     def save(report):
+        nonlocal save_count
         report = dict(report, executor_sha=env['GITHUB_SHA'], run_id=env['GITHUB_RUN_ID'],
                       recorded_at=int(time.time()))
         ciphertext = encrypt(c['recipient'], canonical(report))
-        fd = os.open(output / 'diagnostic.age', os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        filename = ('diagnostic-' + str(save_count) + '.age'
+                    if c['mode'] == 'get_only_verify' else 'diagnostic.age')
+        save_count += 1
+        fd = os.open(output / filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, 'wb') as f:
             f.write(ciphertext)
             f.flush()
