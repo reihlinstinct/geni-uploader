@@ -135,3 +135,15 @@ code limits its use to immutable source reads and atomic consumed/evidence tags.
 Do not describe this as a technically tag-only credential. Store it only in the
 protected environment, keep its human reviewer and branch policy, and disclose
 this residual scope before any run. Never reset or delete consumed markers.
+
+## Local encrypted failure details
+
+After the output directory exists, escaping execution/receipt errors write one
+local encrypted STOPPED report with the stage and fixed failure code. HTTP
+failures retain numeric status and bounded GitHub message/permission hints using
+the same redaction and bounds as the GET-only diagnostic. Redirect-rejection
+evidence records only status and Location/Link presence, never their values.
+Handled send/readback errors preserve the same details in encrypted reports.
+No additional remote receipt attempt, vendor call, retry or repair is performed
+by the outer failure handler. Failures before output creation remain fixed-stage
+public messages only. This does not change redirect rejection or create gates.
