@@ -13,6 +13,14 @@ path, names and recipient belong only in the environment secret
 PILOT_GET_DIAGNOSTIC_JSON, never public inputs. The old create config is not used.
 No risk acceptance flag here can grant creation.
 
+Environment read by the executor: DIAGNOSTIC_CONFIRM is the run-confirmation
+input and must equal READ_ONLY_NO_CREATE. DIAGNOSTIC_CONFIG_JSON carries the
+closed config bytes and arrives only from the environment secret named above.
+DIAGNOSTIC_CONFIG_SHA256 pins those config bytes, and DIAGNOSTIC_EXECUTOR_SHA
+must equal the exact commit SHA being run. DIAGNOSTIC_OUTPUT_DIR is the local
+protected artifact directory under the runner temp area, retained one day,
+never a remote or public path.
+
 Only five distinct GET routes can be used: exact private repo metadata, exact
 immutable private proposal, vendor token-self, exact owner and immediate family.
 Method/body/route checks happen before transport construction. POST, PUT, PATCH,
