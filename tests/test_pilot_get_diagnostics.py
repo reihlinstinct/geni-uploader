@@ -540,3 +540,78 @@ def test_sibling_verification_three_captures_with_direct_family():
     union['children'] = [OWNER]
     with pytest.raises(Blocked):
         d.verify_read_only(ClientRead(), cfg, BODY, {}, lambda r: None, lambda: 200)
+
+
+def match_config():
+    return dict(copy.deepcopy(C), mode='get_only_matches', discovery_id='profile-999002')
+
+
+def match_vendor(c, values, calls):
+    class Transport:
+        def __init__(self, *a, **kw):
+            pass
+        def request(self, method, route):
+            calls.append((method, route))
+            v = values[len(calls) - 1]
+            if isinstance(v, Exception):
+                raise v
+            return v
+    return d.GetOnly('www.geni.com', 'ZZ-token', d.routes(c)[2], factory=Transport)
+
+
+@pytest.mark.parametrize('listing', [[], {'results': []}, [{'id': 'profile-999003'}]])
+def test_match_discovery_exact_routes_capture_before_next_read(listing):
+    c = match_config()
+    assert d.configuration(c) == c
+    calls, saved = [], []
+    v = match_vendor(c, [{'id': c['discovery_id']}, listing], calls)
+    report = {}
+    def save(value):
+        assert len(calls) == len(saved) + 1
+        saved.append(value)
+    d.discover_matches(v, c, report, save, lambda: 200)
+    assert len(calls) == 2 and len(saved) == 2
+    assert all(method == 'GET' for method, route in calls)
+    assert report['discovery']['identity'] == 'UNPROVED'
+    assert report['discovery']['duplicate_absence'] == 'UNPROVED'
+    with pytest.raises(Blocked):
+        v.request('GET', d.routes(c)[2][1])
+    with pytest.raises(Blocked):
+        v.request('GET', '/api/profile-999003')
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize('bad', [{'error': 'ZZ-private'}, {'id': 'profile-999003'},
+                                  {'id': 'profile-999002', 'name': 'Z' * 262144}])
+def test_match_profile_bad_or_oversize_capture_stops_before_listing(bad):
+    c = match_config()
+    calls, saved = [], []
+    with pytest.raises(Blocked):
+        d.discover_matches(match_vendor(c, [bad], calls), c, {}, saved.append, lambda: 200)
+    assert len(calls) == len(saved) == 1
+
+
+@pytest.mark.parametrize('bad', [{'error': 'ZZ-denied'}, {'results': [], 'next_page': 'ZZ'},
+                                  {'unexpected': []}, [None], [{}] * 21])
+def test_match_listing_unrecognized_captured_no_traversal(bad):
+    c = match_config()
+    calls, saved = [], []
+    with pytest.raises(Blocked):
+        d.discover_matches(match_vendor(c, [{'id': c['discovery_id']}, bad], calls),
+                           c, {}, saved.append, lambda: 200)
+    assert len(calls) == len(saved) == 2
+
+
+def test_match_capture_failure_expiry_and_denial_stop_without_retry():
+    c = match_config()
+    for fault in ('save', 'expiry', 'denied'):
+        calls = []
+        values = [d.TransportStop('response_status')] if fault == 'denied' else [
+            {'id': c['discovery_id']}, []]
+        def save(value, fault=fault):
+            if fault == 'save':
+                raise OSError('ZZ-save')
+        with pytest.raises((Blocked, OSError, d.TransportStop)):
+            d.discover_matches(match_vendor(c, values, calls), c, {}, save,
+                               lambda fault=fault: c['expires_at'] if fault == 'expiry' else 200)
+        assert len(calls) == (0 if fault == 'expiry' else 1)
