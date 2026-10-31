@@ -77,7 +77,11 @@ def plan(value):
                 and child['id'] not in verified_ids and child['key'] not in keys)
         require(type(child['key']) is str and re.fullmatch(r'[a-z][a-z0-9-]{1,48}', child['key']))
         verified_ids.add(child['id'])
-        require(payload(child['payload'])['is_alive'] is True)
+        reviewed = payload(child['payload'])
+        require(reviewed['is_alive'] is True)
+        name = canonical(reviewed['names'])
+        require(name not in names)
+        names.add(name)
     require(verified_ids == set(children) - {value['owner']})
     return copy.deepcopy(value)
 
