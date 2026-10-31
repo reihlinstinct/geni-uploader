@@ -709,3 +709,93 @@ def test_creation_location_narrow_exception_never_follows(monkeypatch, github, m
         assert 'zz.invalid' not in str(exc.value.evidence)
         assert reads == ([4097] if status >= 300 else [])
     assert len(calls) == 1 and calls[0][:2] == (method, route) and closed == [True]
+
+
+def recovery_fixture():
+    report = {'run_id':'999004', 'mode':'get_only_reconcile', 'phase':'READ_ONLY_COMPLETE',
+        'stage':'complete', 'create_enabled':False, 'owner':OWNER, 'data_sha':C['data_sha'],
+        'data_path':C['data_path'], 'payload_sha256':p.sha(p.canonical(BODY)),
+        'reconciliation':{'observed_profile_ids':[], 'checked':[],
+                          'completeness':'UNPROVED', 'parenthood':'UNPROVED'}}
+    cipher = b'age-encryption.org/v1\nZZciphertext'
+    import base64
+    a = {'schema':1, 'kind':'locally_decrypted_reconcile_attestation', 'run_id':'999004',
+         'ciphertext_b64':base64.b64encode(cipher).decode(), 'report':report,
+         'accept_uncertainty':True}
+    r = {'attempt_id':'zz-recovery-002', 'run_id':'999004', 'attestation_sha':'b'*40,
+         'attestation_path':'zz/attestation.json', 'attestation_digest':p.sha(p.canonical(a)),
+         'ciphertext_digest':p.sha(cipher), 'report_digest':p.sha(p.canonical(report)),
+         'accept_uncertainty':True}
+    return dict(C, recovery=r), a
+
+
+def test_recovery_namespace_pins_keep_legacy_and_consume_once():
+    c, a = recovery_fixture()
+    calls = []
+    class Store:
+        marker = 'ZZ-legacy'
+        def load_bytes(self, path, commit):
+            calls.append((path, commit))
+            return p.canonical(a)
+    store = Store()
+    assert p.configuration(c) == c
+    p.admit_recovery(store, c, M)
+    assert store.marker.startswith('pilot-parent-consumed-v2-')
+    assert calls == [('zz/attestation.json', 'b'*40)]
+    marker = store.marker
+    c['recovery']['attempt_id'] = 'zz-recovery-003'
+    p.admit_recovery(store, c, M)
+    assert store.marker != marker
+    assert p.PrivateGit(object(), C['data_repo'], C['data_sha'], OWNER).marker == (
+        'pilot-parent-consumed-v1-' + p.sha(OWNER.encode()))
+
+
+@pytest.mark.parametrize('change', ['attestationdigest','reportdigest','cipherdigest','run',
+    'owner','payload','phase','profiles','checked','uncertainty','type','cipher'])
+def test_recovery_wrong_evidence_cannot_select_namespace(change):
+    c, a = recovery_fixture()
+    if change == 'attestationdigest':
+        c['recovery']['attestation_digest'] = '0'*64
+    if change == 'reportdigest':
+        c['recovery']['report_digest'] = '0'*64
+    if change == 'cipherdigest':
+        c['recovery']['ciphertext_digest'] = '0'*64
+    if change == 'run':
+        a['report']['run_id'] = '999005'
+    if change == 'owner':
+        a['report']['owner'] = 'profile-999008'
+    if change == 'payload':
+        a['report']['payload_sha256'] = '0'*64
+    if change == 'phase':
+        a['report']['phase'] = 'STOPPED'
+    if change == 'profiles':
+        a['report']['reconciliation']['observed_profile_ids'] = ['profile-999002']
+    if change == 'checked':
+        a['report']['reconciliation']['checked'] = [{'id':'profile-999002'}]
+    if change == 'uncertainty':
+        a['accept_uncertainty'] = False
+    if change == 'type':
+        a['schema'] = True
+    if change == 'cipher':
+        a['ciphertext_b64'] = 'ZZbad'
+    if change not in ('attestationdigest','reportdigest','cipherdigest'):
+        c['recovery']['attestation_digest'] = p.sha(p.canonical(a))
+        c['recovery']['report_digest'] = p.sha(p.canonical(a['report']))
+    class Store:
+        marker = 'ZZ-legacy'
+        def load_bytes(self, *args):
+            return p.canonical(a)
+    store = Store()
+    with pytest.raises((Blocked, ValueError)):
+        p.admit_recovery(store, c, M)
+    assert store.marker == 'ZZ-legacy'
+
+
+@pytest.mark.parametrize('key,val', [('attempt_id','../ZZbad'), ('attempt_id',''),
+    ('run_id',123), ('attestation_sha','master'), ('attestation_path','../ZZ.json'),
+    ('report_digest','ZZbad'), ('accept_uncertainty',False)])
+def test_recovery_bad_config_rejected_offline(key, val):
+    c, _ = recovery_fixture()
+    c['recovery'][key] = val
+    with pytest.raises(Blocked):
+        p.configuration(c)
