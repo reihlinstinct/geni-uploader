@@ -708,7 +708,8 @@ def test_creation_location_narrow_exception_never_follows(monkeypatch, github, m
         assert exc.value.code == ('response_status' if status >= 300 else 'response_redirect')
         assert 'zz.invalid' not in str(exc.value.evidence)
         assert reads == ([4097] if status >= 300 else [])
-    assert len(calls) == 1 and calls[0][:2] == (method, route) and closed == [True]
+    sent_route = route + '?api_version=1' if not github and method == 'GET' else route
+    assert len(calls) == 1 and calls[0][:2] == (method, sent_route) and closed == [True]
 
 
 def recovery_fixture():
@@ -928,3 +929,65 @@ def test_vendor_failure_body_read_failure_keeps_structural_header_evidence():
     evidence = p.HTTPS('www.geni.com', 'ZZ-token').vendor_failure(Response())
     assert evidence['body_parse'] == 'read_error' and evidence['body_media'] == 'text/plain'
     assert 'body_bytes_observed' not in evidence and 'ZZ-private' not in str(evidence)
+
+
+@pytest.mark.parametrize('github,method,route,body', [
+    (False, 'GET', '/api/profile', None),
+    (False, 'GET', '/api/profile-999001?fields=id&only_ids=true', None),
+    (False, 'GET', '/api/profile-999001/immediate-family?only_ids=true', None),
+    (False, 'GET', '/api/union-999003?only_ids=true', None),
+    (False, 'POST', '/api/profile-999001/add-parent', p.vendor_payload(BODY)),
+    (True, 'GET', '/repos/zz/zz', None),
+    (True, 'POST', '/repos/zz/zz/git/tags', {'tag':'ZZ-tag'}),
+])
+def test_api_version_pin_exact_serialized_request(monkeypatch, github, method, route, body):
+    calls = []
+    class Response:
+        status = 200
+        done = False
+        def getheader(self, name):
+            return None
+        def read(self, size):
+            if self.done:
+                return b''
+            self.done = True
+            return b'{}'
+    class Connection:
+        def __init__(self, *args, **kwargs):
+            pass
+        def request(self, method, path, **kwargs):
+            calls.append((method, path, kwargs))
+        def getresponse(self):
+            return Response()
+        def close(self):
+            pass
+    monkeypatch.setattr(p.http.client, 'HTTPSConnection', Connection)
+    original = copy.deepcopy(body)
+    p.HTTPS('api.github.com' if github else 'www.geni.com', 'ZZ-token', github=github).request(
+        method, route, body)
+    expected_route = route
+    expected_body = body
+    if not github:
+        if method == 'GET':
+            expected_route += ('&' if '?' in route else '?') + 'api_version=1'
+        else:
+            expected_body = dict(body, api_version='1')
+    assert calls == [(method, expected_route, {
+        'body':None if expected_body is None else p.canonical(expected_body),
+        'headers':dict({'Authorization':'Bearer ZZ-token', 'Accept':'application/json',
+            'User-Agent':'single-parent-pilot', 'Content-Type':'application/json'},
+            **({'X-GitHub-Api-Version':'2022-11-28'} if github else {}))})]
+    assert body == original
+
+
+def test_version_pin_body_cannot_be_overridden_and_has_separate_hash():
+    with pytest.raises(Blocked):
+        p.vendor_create_params(dict(p.vendor_payload(BODY), api_version=0))
+    result, _, _, reports = run()
+    assert result == 'VERIFIED'
+    final = reports[-1]
+    assert final['api_version'] == 1
+    assert final['request_body_sha256'] == p.sha(p.canonical(
+        dict(p.vendor_payload(BODY), api_version='1')))
+    assert final['request_body_sha256'] != final['wire_payload_sha256']
+    assert 'api_version' not in BODY
