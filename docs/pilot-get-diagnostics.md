@@ -111,3 +111,21 @@ family GET for the target. The profile's fields, canonical union reference, pinn
 union membership and direct family back-reference must all pass. Every response
 is encrypted before further work. The original father verification mode is
 unchanged when these optional fields are absent. No mutation or retry is added.
+
+
+## Bounded match discovery
+
+`get_only_matches` requires a separately approved pinned `discovery_id`, expiry,
+executor SHA and config hash. Its protected workflow uses `PILOT_GET_MATCHES_JSON`.
+It makes two fixed vendor GETs: a profile summary with managers and merge fields,
+then that profile's `tree_matches` listing. Each response is encrypted before
+validation or the next read. Access errors, unexpected schemas, over 20 entries
+or a response above 256 KiB stop the run. No paging, candidate or manager reads,
+URL following, retries, edits or merges are supported. Private/redacted returned
+values remain private; they do not authorize access elsewhere. No match proves
+identity, and an empty or inaccessible listing never proves duplicate absence.
+The SDK documents `tree_matches`, but its detailed return schema is not specified;
+unrecognized shapes are retained encrypted and stop rather than guessed.
+
+References: https://www.geni.com/platform/developer/help/sdk_js?version=1 and
+https://www.geni.com/platform/developer/help/api?path=profile&version=1 .
