@@ -43,7 +43,7 @@ jobs:
       - name: Exact single-parent pilot
         env:
           PILOT_CONFIG_JSON: ${{ secrets.ONE_TIME_PARENT_PILOT_JSON }}
-          FAMILY_TREE_PAT: ${{ secrets.FAMILY_TREE_PAT }}
+          FAMILY_TREE_PAT: ${{ secrets.PILOT_PRIVATE_EVIDENCE_WRITER }}
           GENI_SECONDARY_ACCESS_TOKEN: ${{ secrets.GENI_SECONDARY_ACCESS_TOKEN }}
           PILOT_EXECUTOR_SHA: ${{ inputs.executor_sha }}
           PILOT_CONFIG_SHA256: ${{ inputs.config_sha256 }}
