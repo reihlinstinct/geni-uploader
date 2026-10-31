@@ -125,7 +125,7 @@ def verify_read_only(vendor, c, approved, report, save, clock):
     """Capture each parsed response durably before applying unchanged checks."""
     import copy
 
-    from one_time_parent_pilot import FIELDS, merge_clear, vendor_payload
+    from one_time_parent_pilot import FIELDS, canonical_union_reference, merge_clear, vendor_payload
     report['verification'] = {'responses': {}, 'checks': {}, 'verified': False}
     evidence = report['verification']
     for label, route in (
@@ -153,7 +153,11 @@ def verify_read_only(vendor, c, approved, report, save, clock):
     check('gender', lambda: actual.get('gender') == 'male')
     for key, val in vendor_payload(approved).items():
         check('field_' + key, lambda key=key, val=val: actual.get(key) == val)
-    check('profile_union', lambda: actual.get('unions') == [c['union_id']])
+    def profile_union():
+        refs = actual.get('unions')
+        require(type(refs) is list and len(refs) == 1)
+        return canonical_union_reference(refs[0]) == c['union_id']
+    check('profile_union', profile_union)
     check('union_id', lambda: union.get('id') == c['union_id'])
     check('union_partners', lambda: union.get('partners') == [c['created_id']])
     check('union_children', lambda: union.get('children') == [c['owner']])

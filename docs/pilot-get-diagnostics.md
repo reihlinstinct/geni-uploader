@@ -94,3 +94,11 @@ strict privacy, living, gender, names, union and relationship checks. Exact
 names-map and bare-ID expectations are not relaxed. Failed checks leave the
 result STOPPED, never VERIFIED. Parsed responses are encrypted only, never
 printed in workflow logs. This mode does not create remote receipt markers.
+
+### Exact union reference representation
+
+Create readback and pinned GET verification accept either a bare `union-<digits>`
+ID or exactly `https://www.geni.com/api/union-<digits>`. Both map to the same ID
+before checking the pinned relationship. Other hosts, schemes, queries, fragments,
+ports, whitespace and trailing paths are rejected. Cardinality, privacy, names,
+partner IDs and child IDs remain strict; this is representation normalization only.

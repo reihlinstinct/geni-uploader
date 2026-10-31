@@ -393,6 +393,14 @@ def preflight(client, config):
             'hidden_parent_completeness': 'UNPROVED', 'request_count': 3}
 
 
+def canonical_union_reference(value):
+    """Only bare IDs or the exact vendor HTTPS API representation."""
+    require(type(value) is str)
+    match = re.fullmatch(r'(?:https://www\.geni\.com/api/)?(union-[0-9]{1,30})', value)
+    require(match is not None)
+    return match.group(1)
+
+
 def verify(client, config, created_id, expected):
     actual = get_profile(client, created_id)
     require(actual.get('id') == created_id)
@@ -402,10 +410,10 @@ def verify(client, config, created_id, expected):
     for key, val in expected.items():
         require(actual.get(key) == val)
     unions = actual.get('unions')
-    require(type(unions) is list and len(unions) == 1 and type(unions[0]) is str
-            and re.fullmatch(r'union-[0-9]{1,30}', unions[0]))
-    union = client.request('GET', '/api/' + unions[0] + '?only_ids=true')
-    require(union.get('id') == unions[0] and union.get('partners') == [created_id]
+    require(type(unions) is list and len(unions) == 1)
+    union_id = canonical_union_reference(unions[0])
+    union = client.request('GET', '/api/' + union_id + '?only_ids=true')
+    require(union.get('id') == union_id and union.get('partners') == [created_id]
             and union.get('children') == [config['owner']])
     url = actual.get('profile_url')
     if url is not None:

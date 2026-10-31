@@ -1066,3 +1066,32 @@ def test_form_exact_bytes_and_roundtrip():
     assert urllib.parse.parse_qs(actual.decode())['public'] == ['false']
     assert p.sha(actual) == __import__('hashlib').sha256(actual).hexdigest()
     assert 'api_version' not in wire
+
+
+@pytest.mark.parametrize('value', ['union-999003', 'https://www.geni.com/api/union-999003'])
+def test_union_reference_exact_supported_shapes(value):
+    assert p.canonical_union_reference(value) == 'union-999003'
+
+
+@pytest.mark.parametrize('value', [None, [], 'profile-999003', 'union-', 'union-1x',
+    'http://www.geni.com/api/union-999003', 'https://geni.com/api/union-999003',
+    'https://www.geni.com.evil.invalid/api/union-999003',
+    'https://www.geni.com/api/union-999003?', 'https://www.geni.com/api/union-999003#',
+    'https://www.geni.com/api/union-999003/', 'https://www.geni.com/api/union-999003/other',
+    'https://www.geni.com:443/api/union-999003', ' union-999003', 'union-999003\n'])
+def test_union_reference_rejects_noncanonical_shapes(value):
+    with pytest.raises(Blocked):
+        p.canonical_union_reference(value)
+
+
+def test_create_readback_accepts_exact_vendor_url_reference():
+    class UrlUnion(Client):
+        def request(self, method, route, body=None):
+            value = super().request(method, route, body)
+            if method == 'GET' and route.startswith('/api/' + FATHER):
+                value['unions'] = ['https://www.geni.com/api/' + UNION]
+            return value
+    client = UrlUnion()
+    actual = p.verify(client, C, FATHER, p.vendor_payload(BODY))
+    assert actual['union']['id'] == UNION
+    assert client.calls[-1][1] == '/api/' + UNION + '?only_ids=true'
