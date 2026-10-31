@@ -615,3 +615,72 @@ def test_match_capture_failure_expiry_and_denial_stop_without_retry():
             d.discover_matches(match_vendor(c, values, calls), c, {}, save,
                                lambda fault=fault: c['expires_at'] if fault == 'expiry' else 200)
         assert len(calls) == (0 if fault == 'expiry' else 1)
+
+
+def test_production_match_transport_admission_and_wire_routes(monkeypatch):
+    c = match_config()
+    requests, sleeps = [], []
+    values = [{'id': c['discovery_id']}, []]
+    class Response:
+        status = 200
+        def __init__(self):
+            self.raw = d.canonical(values[len(requests) - 1])
+        def getheader(self, key):
+            return None
+        def read(self, size):
+            result, self.raw = self.raw[:size], self.raw[size:]
+            return result
+    class Socket:
+        def __init__(self, *a, **kw):
+            pass
+        def request(self, method, route, **kw):
+            requests.append((method, route))
+        def getresponse(self):
+            return Response()
+        def close(self):
+            pass
+    monkeypatch.setattr(d.http.client, 'HTTPSConnection', Socket)
+    monkeypatch.setattr(d.time, 'sleep', sleeps.append)
+    v = d.GetOnly('www.geni.com', 'ZZ-token', d.routes(c)[2])
+    report = {}
+    d.discover_matches(v, c, report, lambda r: None, lambda: 200)
+    assert type(v.transport) is d.MatchHTTPS
+    assert requests == [('GET', r + '&api_version=1') for r in d.routes(c)[2]]
+    assert v.transport.calls == 2 and len(sleeps) == 1
+    for method, route in [('POST', d.routes(c)[2][0]), ('GET', '/api/profile-999003'),
+                           ('GET', d.routes(c)[2][1])]:
+        with pytest.raises(Blocked):
+            v.transport.request(method, route)
+    assert len(requests) == 2
+
+
+def test_real_legacy_admission_still_rejects_match_route():
+    c = match_config()
+    with pytest.raises(Blocked):
+        d.HTTPS('www.geni.com', 'ZZ-token').admit_vendor('GET', d.routes(c)[2][1])
+
+
+def test_real_match_admission_rejects_mismatched_route_pair():
+    c = match_config()
+    routes = d.routes(c)[2]
+    with pytest.raises(Blocked):
+        d.MatchHTTPS('www.geni.com', 'ZZ-token', [routes[0], routes[1].replace('999002', '999003')])
+
+
+def test_production_match_network_failure_consumes_route_no_retry(monkeypatch):
+    c = match_config()
+    sockets = []
+    class Socket:
+        def __init__(self, *a, **kw):
+            sockets.append(True)
+            raise OSError('ZZ-network-denial')
+    monkeypatch.setattr(d.http.client, 'HTTPSConnection', Socket)
+    v = d.GetOnly('www.geni.com', 'ZZ-token', d.routes(c)[2])
+    route = d.routes(c)[2][0]
+    with pytest.raises(d.TransportStop):
+        v.request('GET', route)
+    with pytest.raises(Blocked):
+        v.request('GET', route)
+    with pytest.raises(Blocked):
+        v.transport.request('GET', route)
+    assert len(sockets) == 1

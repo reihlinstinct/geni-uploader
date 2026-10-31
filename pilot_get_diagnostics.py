@@ -60,6 +60,31 @@ def configuration(c):
     return c
 
 
+class MatchHTTPS(HTTPS):
+    """Exact two-route GET transport; legacy create admission remains untouched."""
+    def __init__(self, host, token, routes):
+        super().__init__(host, token, capture_failure=True)
+        require(len(routes) == 2)
+        profile_route, match_route = sorted(routes)
+        match = re.fullmatch(r'/api/(profile-[0-9]{1,30})/tree_matches\?only_ids=true',
+                             profile_route)
+        # '/' sorts before '?', so the match route is first.
+        require(match is not None)
+        target = match.group(1)
+        require(match_route == '/api/' + target + '?fields=' + MATCH_FIELDS + '&only_ids=true')
+        self.read_routes = frozenset(routes)
+        self.used_routes = set()
+
+    def admit_vendor(self, method, route):
+        require(method == 'GET' and route in self.read_routes
+                and route not in self.used_routes and self.calls < 2)
+        self.used_routes.add(route)
+        if self.last is not None:
+            time.sleep(max(0, 10 - (time.monotonic() - self.last)))
+        self.calls += 1
+        self.last = time.monotonic()
+
+
 class GetOnly:
     """Checks method and exact per-run route allowlist BEFORE transport construction."""
     def __init__(self, host, token, routes, *, factory=HTTPS):
@@ -75,7 +100,11 @@ class GetOnly:
             options = {'github': self.host == 'api.github.com'}
             if self.factory is HTTPS:
                 options['capture_failure'] = True
-            self.transport = self.factory(self.host, self.token, **options)
+            if self.factory is HTTPS and self.host == 'www.geni.com' and any(
+                    '/tree_matches?' in r for r in self.routes):
+                self.transport = MatchHTTPS(self.host, self.token, self.routes)
+            else:
+                self.transport = self.factory(self.host, self.token, **options)
         return self.transport.request('GET', route)
 
 

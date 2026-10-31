@@ -129,3 +129,10 @@ unrecognized shapes are retained encrypted and stop rather than guessed.
 
 References: https://www.geni.com/platform/developer/help/sdk_js?version=1 and
 https://www.geni.com/platform/developer/help/api?path=profile&version=1 .
+
+
+Discovery uses an exact two-route read-only HTTPS admission class, not the legacy
+create transport's profile/family route expression. Both the outer wrapper and
+actual transport reject repeats, non-GET methods and any other route before a
+socket is opened. The transport keeps the two-call cap and ten-second pacing.
+Offline tests exercise the production transport with only the socket substituted.
