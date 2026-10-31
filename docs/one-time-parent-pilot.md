@@ -213,3 +213,24 @@ replace the original status. These details remain in encrypted evidence only;
 no raw error or rate values are printed publicly. Arbitrary vendor message text
 can contain private data, so it must never be copied to a public issue or log.
 The capture never retries a request or adds a vendor call.
+
+## Structural vendor error diagnostics (#538)
+
+An opt-in failure capture retains the HTTP status and bounded structural metadata
+only in encrypted evidence. It records allowlisted media categories (JSON, HTML,
+plain text, other or absent), bytes observed up to 4097, whether the 4096-byte
+parse cap was exceeded, and a fixed parse outcome: empty, over_cap, invalid_json,
+json or read_error. Bytes observed are not the total response size if capped or
+if a read fails. JSON error shape is object, other, absent or non_object; unknown
+keys and raw body text are never retained. Existing error type/message strings
+remain limited to 256 printable characters after token and URL redaction; these
+may still contain private names and must never enter public output.
+
+Rate headers record absent/numeric/invalid state, retaining only up to ten-digit
+numeric values. Retry-After records absent/numeric/other state and a numeric
+seconds value only. Request/correlation headers record presence only, never the
+identifier. Arbitrary header values, cookies and authorization are not captured.
+These diagnostics do not authorize a retry or a live call, do not change the
+request, and do not expose a workflow input or enable debug mode. Missing error
+strings do not imply that the vendor sent an empty body. A status-only report
+from an older executor cannot establish body length, format or header presence.

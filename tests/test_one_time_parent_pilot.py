@@ -861,3 +861,70 @@ def test_vendor_error_capture_bounded_redacted_local_only(monkeypatch, kind):
     else:
         assert 'geni_error_message' not in e
     assert len(calls) == 1 and closed == [True]
+
+
+@pytest.mark.parametrize('raw,parse,shape', [
+    (b'', 'empty', None), (b'<html>ZZ-private</html>', 'invalid_json', None),
+    (b'Z' * 4096, 'invalid_json', None), (b'Z' * 4097, 'over_cap', None),
+    (b'\xff', 'invalid_json', None), (b'[]', 'json', 'non_object'),
+    (b'{}', 'json', 'absent'), (b'{"error":null}', 'json', 'other'),
+    (b'{"error":"ZZ-private"}', 'json', 'other'),
+    (b'{"error":{}}', 'json', 'object'),
+    (b'{"error":{},"error":{}}', 'invalid_json', None),
+    (b'[' * 2000, 'invalid_json', None),
+])
+def test_vendor_failure_structural_body_evidence(raw, parse, shape):
+    class Response:
+        def getheader(self, name):
+            return None
+        def read(self, size):
+            assert size == 4097
+            return raw
+    evidence = p.HTTPS('www.geni.com', 'ZZ-token').vendor_failure(Response())
+    assert evidence['body_parse'] == parse
+    assert evidence['body_bytes_observed'] == len(raw)
+    assert evidence['body_over_cap'] is (len(raw) > 4096)
+    assert evidence.get('error_shape') == shape
+    assert 'ZZ-private' not in str(evidence)
+    assert 'body' not in evidence and 'raw' not in evidence
+
+
+@pytest.mark.parametrize('headers,expected', [
+    ({}, {'body_media':'absent', 'retry_after_state':'absent',
+          'geni_rate_limit_state':'absent', 'request_id_present':False}),
+    ({'Content-Type':'Application/JSON; charset=utf-8', 'Retry-After':'60',
+      'X-API-Rate-Limit':'9999999999', 'X-Request-ID':'ZZ-private'},
+     {'body_media':'application/json', 'retry_after_state':'numeric',
+      'retry_after_seconds':60, 'geni_rate_limit_state':'numeric',
+      'geni_rate_limit':9999999999, 'request_id_present':True}),
+    ({'Content-Type':'text/html', 'Retry-After':'Wed, ZZ-private',
+      'X-API-Rate-Limit':'12345678901', 'X-API-Rate-Remaining':'-1',
+      'X-Correlation-ID':'ZZ-private'},
+     {'body_media':'text/html', 'retry_after_state':'other',
+      'geni_rate_limit_state':'invalid', 'geni_rate_remaining_state':'invalid',
+      'request_id_present':True}),
+    ({'Content-Type':'ZZ-private', 'Retry-After':'ZZ-token',
+      'Set-Cookie':'ZZ-token', 'Authorization':'ZZ-token'},
+     {'body_media':'other', 'retry_after_state':'other', 'request_id_present':False}),
+])
+def test_vendor_failure_header_values_are_not_retained(headers, expected):
+    class Response:
+        def getheader(self, name):
+            return headers.get(name)
+        def read(self, size):
+            return b''
+    evidence = p.HTTPS('www.geni.com', 'ZZ-token').vendor_failure(Response())
+    assert all(evidence[k] == v for k, v in expected.items())
+    assert 'ZZ-private' not in str(evidence) and 'ZZ-token' not in str(evidence)
+    assert 'Set-Cookie' not in str(evidence) and 'Authorization' not in str(evidence)
+
+
+def test_vendor_failure_body_read_failure_keeps_structural_header_evidence():
+    class Response:
+        def getheader(self, name):
+            return 'text/plain' if name == 'Content-Type' else None
+        def read(self, size):
+            raise TimeoutError('ZZ-private')
+    evidence = p.HTTPS('www.geni.com', 'ZZ-token').vendor_failure(Response())
+    assert evidence['body_parse'] == 'read_error' and evidence['body_media'] == 'text/plain'
+    assert 'body_bytes_observed' not in evidence and 'ZZ-private' not in str(evidence)
