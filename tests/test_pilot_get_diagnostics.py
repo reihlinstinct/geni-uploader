@@ -310,7 +310,8 @@ def reconcile_clients(change=None):
     c = dict(C, mode='get_only_reconcile')
     prefix, source, vr = d.routes(c)
     calls = []
-    root = {'id': c['owner'], 'first_name': 'ZZ-Root', 'last_name': 'ZZ-Family'}
+    root = {'id': c['owner'], 'first_name': 'ZZ-Root', 'last_name': 'ZZ-Family',
+            'names': {'en-US': {'first_name': 'ZZ-Root'}, 'he': {'first_name': 'ZZ-Hebrew'}}}
     class Transport:
         def __init__(self, host, token, **kw):
             self.host = host
@@ -359,7 +360,8 @@ def test_reconcile_only_bounded_gets_encrypted_ids_no_name_or_parent_claim(chang
     assert result['completeness'] == result['parenthood'] == 'UNPROVED'
     assert len(calls) == count and all(x[1] == 'GET' for x in calls)
     assert 'ZZ-Father' not in str(r) and 'ZZ-Root' not in str(r)
-    assert result['checked'] == ([] if match is None else [{'id':'profile-999002', 'name_match':match}])
+    assert result['checked'] == ([] if match is None else [{'id':'profile-999002', 'name_match':match, 'name_locales':[]}])
+    assert r['root_name_locales'] == [['en-US', 'he'], ['en-US', 'he']]
     assert len(vendor.seen) <= 11 and saved == [r]
 
 

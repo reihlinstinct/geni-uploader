@@ -116,10 +116,18 @@ def reconcile(vendor, c, approved, report, clock):
     from one_time_parent_pilot import FIELDS, get_profile
     from parent_probe import profile
     owner = c['owner']
+    def locale_keys(value):
+        names = value.get('names', {})
+        require(type(names) is dict and len(names) <= 20)
+        require(all(type(k) is str and re.fullmatch(r'[a-z]{2,3}(?:-[A-Za-z]{2,4})?', k)
+                    for k in names))
+        return sorted(names)
+    report['root_name_locales'] = []
     for route in ('profile', owner):
         require(clock() < c['expires_at'])
-        profile(get_profile(vendor, route), owner, c['expect_name'],
-                allow_unknown_merge=c['allow_unknown_merge'])
+        root = profile(get_profile(vendor, route), owner, c['expect_name'],
+                       allow_unknown_merge=c['allow_unknown_merge'])
+        report['root_name_locales'].append(locale_keys(root))
     require(clock() < c['expires_at'])
     family = vendor.request('GET', '/api/' + owner + '/immediate-family?only_ids=true')
     require(type(family) is dict and set(family) <= {'focus', 'nodes'})
@@ -150,7 +158,7 @@ def reconcile(vendor, c, approved, report, clock):
                 and not any(k in actual for k in ('next_page', 'paging', 'pagination')))
         # A name match is only a candidate, never proof of this write or relationship.
         report['reconciliation']['checked'].append({'id': node,
-            'name_match': name(actual) in expected})
+            'name_match': name(actual) in expected, 'name_locales': locale_keys(actual)})
 
 
 def run(env, progress):

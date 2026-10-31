@@ -74,3 +74,7 @@ Encrypted local evidence alone contains observed IDs and name-match booleans.
 Public output remains fixed-stage only. No raw names/response/header values are
 retained. HTTP 500 after a send remains uncertain even if no match is observed.
 No markers are changed and this workflow cannot authorize or retry creation.
+
+Record observed name-locale keys in encrypted reconciliation evidence. Keys only,
+no name values, and no extra requests. Root self/owner keys are recorded separately;
+candidate keys are attached to each encrypted checked-ID observation.
