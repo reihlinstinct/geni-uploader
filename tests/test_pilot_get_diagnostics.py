@@ -510,3 +510,33 @@ def test_verify_run_preserves_each_encrypted_capture(monkeypatch, tmp_path):
     assert len(files) == 4 and len({f.read_bytes() for f in files}) == 4
     assert all(f.stat().st_mode & 0o777 == 0o600 for f in files)
     assert d.decode(snapshots[-1])['verification']['verified'] is True
+
+
+def test_sibling_verification_three_captures_with_direct_family():
+    from tests.test_one_time_parent_pilot import FATHER, OWNER, UNION
+    cfg, _, _, _ = verify_clients()
+    cfg.update(target_payload=copy.deepcopy(BODY), expected_parents=['profile-999009', 'profile-999008'],
+               expected_children=[OWNER, FATHER])
+    d.configuration(cfg)
+    _, _, allowed = d.routes(cfg)
+    assert len(allowed) == 3
+    actual = Client().request('GET', '/api/' + FATHER)
+    union = {'id': UNION, 'partners': cfg['expected_parents'], 'children': cfg['expected_children']}
+    calls, saved = [], []
+
+    class ClientRead:
+        def request(self, method, route):
+            calls.append((method, route))
+            assert method == 'GET' and route in allowed
+            if '/immediate-family' in route:
+                return {'focus': {'id': FATHER}, 'nodes': {UNION: copy.deepcopy(union)}}
+            return copy.deepcopy(union if '/union-' in route else actual)
+    report = {}
+    d.verify_read_only(ClientRead(), cfg, BODY, report,
+                       lambda r: saved.append(copy.deepcopy(r)), lambda: 200)
+    assert len(calls) == 3 and len(saved) == 4
+    assert report['verification']['verified']
+    assert report['verification']['checks']['family_parent_union']
+    union['children'] = [OWNER]
+    with pytest.raises(Blocked):
+        d.verify_read_only(ClientRead(), cfg, BODY, {}, lambda r: None, lambda: 200)
