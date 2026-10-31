@@ -585,9 +585,9 @@ def test_escaping_execution_failure_saved_locally_with_details(monkeypatch, tmp_
     assert len(list((tmp_path / 'out').iterdir())) == 1
 
 
-def test_success_status_location_remains_rejected_with_safe_metadata(monkeypatch):
+def test_other_success_status_location_remains_rejected_with_safe_metadata(monkeypatch):
     class Response:
-        status = 201
+        status = 200
         def getheader(self, name):
             return 'ZZ-private-url' if name == 'Location' else None
     class Connection:
@@ -604,7 +604,7 @@ def test_success_status_location_remains_rejected_with_safe_metadata(monkeypatch
         p.HTTPS('api.github.com', 'ZZ-token', github=True,
                 capture_failure=True).request('POST', '/repos/zz/zz/git/tags', {})
     assert exc.value.code == 'response_redirect'
-    assert exc.value.evidence == {'http_status': 201, 'location_present': True,
+    assert exc.value.evidence == {'http_status': 200, 'location_present': True,
                                   'link_present': False}
     assert 'ZZ-private-url' not in str(exc.value.evidence)
 
@@ -656,3 +656,56 @@ def test_debug_retained_only_inside_encryption(monkeypatch, tmp_path, capsys, de
         assert saved[0]['debug_trace'][-1]['stage'] == 'preflight'
     out = capsys.readouterr().out
     assert 'debug_trace' not in out and 'elapsed_ms' not in out
+
+
+@pytest.mark.parametrize('github,method,route,status,link,accepted', [
+    (True, 'POST', '/repos/zz-owner/zz-private/git/tags', 201, False, True),
+    (True, 'POST', '/repos/zz-owner/zz-private/git/refs', 201, False, True),
+    (True, 'POST', '/repos/zz-owner/zz-private/git/tags', 201, True, False),
+    (True, 'POST', '/repos/zz-owner/zz-private/git/refs', 201, True, False),
+    (True, 'GET', '/repos/zz-owner/zz-private/git/tags', 201, False, False),
+    (True, 'POST', '/repos/zz-owner/zz-private/git/tags', 200, False, False),
+    (True, 'POST', '/repos/zz-owner/zz-private/git/tags', 202, False, False),
+    (True, 'POST', '/repos/zz-owner/zz-private/git/tags', 301, False, False),
+    (True, 'POST', '/repos/zz-owner/zz-private/git/tags', 302, False, False),
+    (True, 'POST', '/repos/zz-owner/zz-private/git/tags', 307, False, False),
+    (True, 'POST', '/repos/zz-owner/zz-private/git/tags', 308, False, False),
+    (True, 'POST', '/repos/zz-owner/zz-private/git/tags/ZZ', 201, False, False),
+    (True, 'POST', '/repos/zz-owner/zz-private/git/tags?ZZ', 201, False, False),
+    (True, 'POST', '/repos/zz-owner/zz-private/issues', 201, False, False),
+    (False, 'POST', '/api/profile-999001/add-parent', 201, False, False),
+    (False, 'GET', '/api/profile', 201, False, False),
+])
+def test_creation_location_narrow_exception_never_follows(monkeypatch, github, method,
+                                                         route, status, link, accepted):
+    calls, reads, closed = [], [], []
+    class Response:
+        def getheader(self, name):
+            return 'https://zz.invalid/ZZ-do-not-follow' if name == 'Location' or (
+                link and name == 'Link') else None
+        def read(self, size):
+            reads.append(size)
+            return b'{"ZZ":true}' if len(reads) == 1 else b''
+    Response.status = status
+    class Connection:
+        def __init__(self, host, **kw):
+            assert host == ('api.github.com' if github else 'www.geni.com')
+        def request(self, *a, **kw):
+            calls.append(a)
+        def getresponse(self):
+            return Response()
+        def close(self):
+            closed.append(True)
+    monkeypatch.setattr(p.http.client, 'HTTPSConnection', Connection)
+    client = p.HTTPS('api.github.com' if github else 'www.geni.com', 'ZZ-token',
+                     github=github, capture_failure=True)
+    if accepted:
+        assert client.request(method, route, {}) == {'ZZ': True}
+        assert len(reads) == 2
+    else:
+        with pytest.raises(p.TransportStop) as exc:
+            client.request(method, route, {})
+        assert exc.value.code == ('response_status' if status >= 300 else 'response_redirect')
+        assert 'zz.invalid' not in str(exc.value.evidence)
+        assert reads == ([4097] if status >= 300 else [])
+    assert len(calls) == 1 and calls[0][:2] == (method, route) and closed == [True]

@@ -157,3 +157,12 @@ time clamped to zero through one day. It contains no URLs, payloads, names,
 credentials, headers or raw responses. Public output and transport behavior do
 not change. No workflow input or secret enables this setting in the current
 workflow; any exposure of that control needs its own review and approval.
+
+## GitHub creation Location metadata (#530)
+
+Only GitHub POST responses with status 201 on the exact repository git/tags or
+git/refs route may include Location. Its value is never followed or retained;
+the bounded JSON response is read normally. Link remains rejected, as do 3xx
+statuses and Location on other routes, methods, statuses or vendor responses.
+This narrow metadata exception does not change authorization, retry or create
+gates and does not authorize any new run.
