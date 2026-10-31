@@ -57,3 +57,13 @@ Stable consume markers deliberately omit union ID and expiry: changing those
 must not permit recreating the same approved person. No marker reset is exposed.
 A failed batch has no automatic resume operation. A remaining-items plan needs
 fresh review and approval, with all earlier markers preserved.
+
+### Fresh remaining-items plans
+
+Sibling plans can contain one to four ordered remaining entries. This is not an
+automatic resume: a new immutable plan and fresh human approval are mandatory.
+Prior created children require `verified_children` entries with exact IDs,
+original stable keys and approved payloads. Every non-owner existing child must
+be listed and is checked by profile plus direct family readback before any send.
+Prior keys cannot appear among remaining entries. Stable consume markers remain
+unchanged and consumed; no retry or reset is exposed.

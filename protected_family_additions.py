@@ -25,7 +25,8 @@ class ScopedVendor(HTTPS):
         super().__init__('www.geni.com', token, capture_failure=True)
         self.plan = core.plan(value)
         self.profiles = {'profile', value['owner'], *(x['id'] for x in value['parents'])}
-        self.families = set()
+        self.profiles.update(x['id'] for x in value.get('verified_children', []))
+        self.families = {x['id'] for x in value.get('verified_children', [])}
         self.post_count = 0
         self.unknown_send = False
 
