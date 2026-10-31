@@ -971,7 +971,7 @@ def test_api_version_pin_exact_serialized_request(monkeypatch, github, method, r
         if method == 'GET':
             expected_route += ('&' if '?' in route else '?') + 'api_version=1'
         else:
-            expected_body = dict(body, api_version=1)
+            expected_body = dict(body, api_version='1')
     assert calls == [(method, expected_route, {
         'body':None if expected_body is None else p.canonical(expected_body),
         'headers':dict({'Authorization':'Bearer ZZ-token', 'Accept':'application/json',
@@ -988,6 +988,6 @@ def test_version_pin_body_cannot_be_overridden_and_has_separate_hash():
     final = reports[-1]
     assert final['api_version'] == 1
     assert final['request_body_sha256'] == p.sha(p.canonical(
-        dict(p.vendor_payload(BODY), api_version=1)))
+        dict(p.vendor_payload(BODY), api_version='1')))
     assert final['request_body_sha256'] != final['wire_payload_sha256']
     assert 'api_version' not in BODY

@@ -242,8 +242,8 @@ than depending on the application's default version. Geni's own
 [API Explorer](https://www.geni.com/platform/developer/api_explorer) source
 [submitRequest](https://www.geni.com/platform/javascripts/api_explorer.js) adds
 `api_version` to request parameters, appends it to the query for GET and sends it
-among POST parameters. We use `api_version=1` on GET queries and the integer
-`api_version: 1` in the documented JSON POST format. This is not a `/api/v1/`
+among POST parameters. We use `api_version=1` on GET queries and the string
+`api_version: "1"` in the documented JSON POST format. This is not a `/api/v1/`
 path or a `version` parameter. App defaults are described in the official
 [application settings docs](https://www.geni.com/platform/developer/help/oauth_extensions?version=1).
 

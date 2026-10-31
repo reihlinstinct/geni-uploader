@@ -424,7 +424,7 @@ def vendor_payload(approved):
 def vendor_create_params(wire):
     # Geni's own API Explorer sends api_version among POST request parameters.
     require(type(wire) is dict and 'api_version' not in wire)
-    return dict(wire, api_version=1)
+    return dict(wire, api_version='1')
 
 
 def execute(config, manifest, client, store, save, clock=time.time, progress=None):
