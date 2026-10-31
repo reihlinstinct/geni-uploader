@@ -113,7 +113,8 @@ def execute(value, io, store, save, clock=time.time):
 
     def observe(kind, target):
         now()
-        actual = (io.get_profile(target) if kind == 'profile' else io.get_union(target))
+        actual = (io.get_profile(target) if kind == 'profile' else
+                  io.get_family(target) if kind == 'family' else io.get_union(target))
         report['responses'].append({'kind': kind, 'target': target, 'value': actual})
         save(copy.deepcopy(report))  # durable local encryption before checks/next effect
         return actual
@@ -167,6 +168,11 @@ def execute(value, io, store, save, clock=time.time):
             else:
                 children.append(created)
             union_state(observe('union', c['union_id']), c['union_id'], parents, children)
+            if c['mode'] == 'siblings':
+                family = observe('family', created)
+                require(type(family) is dict and family.get('focus', {}).get('id') == created
+                        and type(family.get('nodes')) is dict)
+                union_state(family['nodes'].get(c['union_id']), c['union_id'], parents, children)
             known.add(created)
             item['phase'] = 'VERIFIED'
             report['stage'] = 'final'
