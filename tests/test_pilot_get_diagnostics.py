@@ -477,3 +477,36 @@ def test_verify_workflow_fixed_mode_separate_secret_and_no_writer():
     assert 'READ_ONLY_NO_CREATE' in s and 'environment: father-create' in s
     assert 'PILOT_PRIVATE_EVIDENCE_WRITER' not in s
     assert 'contents: read' in s and 'github.run_attempt == 1' in s
+
+
+def test_verify_run_preserves_each_encrypted_capture(monkeypatch, tmp_path):
+    from tests.test_one_time_parent_pilot import FATHER, UNION
+    env = environment(tmp_path)
+    cfg = d.decode(env['DIAGNOSTIC_CONFIG_JSON'].encode())
+    cfg.update(mode='get_only_verify', created_id=FATHER, union_id=UNION)
+    env.update(DIAGNOSTIC_MODE='get_only_verify', DIAGNOSTIC_CONFIG_JSON=d.canonical(cfg).decode(),
+               DIAGNOSTIC_CONFIG_SHA256=d.sha(d.canonical(cfg)))
+    prefix, source, _ = d.routes(cfg)
+    snapshots = []
+
+    def request(self, method, route, body=None):
+        assert method == 'GET' and body is None and route in self.routes
+        if self.host == 'api.github.com':
+            if route == prefix:
+                return {'private': True, 'full_name': cfg['data_repo']}
+            assert route == source
+            raw = d.canonical(M)
+            return {'type': 'file', 'encoding': 'base64', 'size': len(raw),
+                    'content': base64.b64encode(raw).decode()}
+        return Client().request(method, route)
+
+    def encrypt(recipient, raw):
+        snapshots.append(raw)
+        return b'ZZ-ciphertext-' + str(len(snapshots)).encode()
+    monkeypatch.setattr(d.GetOnly, 'request', request)
+    monkeypatch.setattr(d, 'encrypt', encrypt)
+    assert d.run(env, {}) is True
+    files = sorted((tmp_path / 'out').glob('*.age'))
+    assert len(files) == 4 and len({f.read_bytes() for f in files}) == 4
+    assert all(f.stat().st_mode & 0o777 == 0o600 for f in files)
+    assert d.decode(snapshots[-1])['verification']['verified'] is True

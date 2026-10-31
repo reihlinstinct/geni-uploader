@@ -83,7 +83,7 @@ candidate keys are attached to each encrypted checked-ID observation.
 
 `get_only_verify` uses two additional exact config pins: `created_id` and
 `union_id`. Its protected `pilot-get-verify.yml` workflow uses the separate
-`PILOT_GET_VERIFY_JSON` secret and still requires READ_ONLY_NO_CREATE, exact
+dedicated verification configuration secret and still requires READ_ONLY_NO_CREATE, exact
 executor/config digests, expiry and environment approval. The vendor allowlist
 contains only the pinned profile fields GET and pinned union GET. No traversal,
 mutation or retry is possible. The private source is loaded read-only as before.
