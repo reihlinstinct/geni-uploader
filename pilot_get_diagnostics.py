@@ -142,8 +142,12 @@ def run(env, progress):
     prefix, source, vendor_routes = routes(c)
     try:
         stage('github_credential')
+        require(type(env.get('FAMILY_TREE_PAT')) is str and re.fullmatch(
+            r'[A-Za-z0-9._~-]{8,4096}', env['FAMILY_TREE_PAT']))
         github = GetOnly('api.github.com', env.get('FAMILY_TREE_PAT', ''), [prefix, source])
         stage('secondary_credential')
+        require(type(env.get('GENI_SECONDARY_ACCESS_TOKEN')) is str and re.fullmatch(
+            r'[A-Za-z0-9._~-]{8,4096}', env['GENI_SECONDARY_ACCESS_TOKEN']))
         vendor = GetOnly('www.geni.com', env.get('GENI_SECONDARY_ACCESS_TOKEN', ''), vendor_routes)
         report = diagnose(c, github, vendor, save)
         stage(report['stage'])
