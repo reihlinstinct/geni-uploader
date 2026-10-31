@@ -234,3 +234,24 @@ These diagnostics do not authorize a retry or a live call, do not change the
 request, and do not expose a workflow input or enable debug mode. Missing error
 strings do not imply that the vendor sent an empty body. A status-only report
 from an older executor cannot establish body length, format or header presence.
+
+## Explicit API version (#540)
+
+All vendor requests in the pilot transport now explicitly select API v1 rather
+than depending on the application's default version. Geni's own
+[API Explorer](https://www.geni.com/platform/developer/api_explorer) source
+[submitRequest](https://www.geni.com/platform/javascripts/api_explorer.js) adds
+`api_version` to request parameters, appends it to the query for GET and sends it
+among POST parameters. We use `api_version=1` on GET queries and the integer
+`api_version: 1` in the documented JSON POST format. This is not a `/api/v1/`
+path or a `version` parameter. App defaults are described in the official
+[application settings docs](https://www.geni.com/platform/developer/help/oauth_extensions?version=1).
+
+The pin is applied after the existing method/route allowlist checks; callers
+cannot override it or add arbitrary versioned routes. GitHub calls are unchanged.
+It covers preflight, create, readback and read-only diagnostic/reconciliation
+requests using this transport. Profile fields and their wire digest are
+unchanged. Encrypted reports separately record `api_version: 1` and
+`request_body_sha256` over the full serialized POST object, including the version
+parameter. This hash differs from `wire_payload_sha256`, which covers profile
+fields only. No live call, workflow, config field or authorization is added.

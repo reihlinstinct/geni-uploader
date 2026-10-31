@@ -158,7 +158,14 @@ class HTTPS:
                        'User-Agent': 'single-parent-pilot', 'Content-Type': 'application/json'}
             if self.github:
                 headers['X-GitHub-Api-Version'] = '2022-11-28'
-            client.request(method, route, body=None if body is None else canonical(body),
+            request_route, request_body = route, body
+            if not self.github:
+                if method == 'GET':
+                    request_route += ('&' if '?' in route else '?') + 'api_version=1'
+                else:
+                    request_body = vendor_create_params(body)
+            client.request(method, request_route,
+                           body=None if request_body is None else canonical(request_body),
                            headers=headers)
             response = client.getresponse()
             if not 200 <= response.status < 300:
@@ -414,6 +421,12 @@ def vendor_payload(approved):
                                  'en-US': dict(approved['names']['en'])})
 
 
+def vendor_create_params(wire):
+    # Geni's own API Explorer sends api_version among POST request parameters.
+    require(type(wire) is dict and 'api_version' not in wire)
+    return dict(wire, api_version=1)
+
+
 def execute(config, manifest, client, store, save, clock=time.time, progress=None):
     """Tests inject all effects. The protected action supplies the only live wiring."""
     progress = progress or Progress()
@@ -430,6 +443,8 @@ def execute(config, manifest, client, store, save, clock=time.time, progress=Non
     report = {'schema': 1, 'mode': 'one_time_parent_pilot', 'data_sha': config['data_sha'],
               'data_path': config['data_path'], 'owner': config['owner'],
               'wire_payload_sha256': sha(canonical(wire)),
+              'request_body_sha256': sha(canonical(vendor_create_params(wire))),
+              'api_version': 1,
               'payload_sha256': sha(canonical(approved)), 'retry_allowed': False}
     if 'recovery' in config:
         r = config['recovery']
