@@ -22,13 +22,25 @@ ERRORS = (Blocked, OSError, ValueError, TypeError, KeyError, RecursionError, Att
 def configuration(c):
     exact(c, ('schema', 'mode', 'data_repo', 'data_sha', 'data_path', 'owner',
               'expect_name', 'recipient', 'allow_unknown_merge', 'expires_at',
-              *(('created_id', 'union_id') if c.get('mode') == 'get_only_verify' else ())))
+              *(('created_id', 'union_id') if c.get('mode') == 'get_only_verify' else ()),
+              *(('target_payload', 'expected_parents', 'expected_children')
+                if 'target_payload' in c else ())))
     require(type(c['schema']) is int and c['schema'] == 1 and c['mode'] in (
         'get_only_diagnostic', 'get_only_reconcile', 'get_only_verify'))
     if c['mode'] == 'get_only_verify':
         require(type(c['created_id']) is str and re.fullmatch(r'profile-[0-9]{1,30}', c['created_id'])
                 and c['created_id'] != c['owner'])
         require(type(c['union_id']) is str and re.fullmatch(r'union-[0-9]{1,30}', c['union_id']))
+    if 'target_payload' in c:
+        require(c['mode'] == 'get_only_verify')
+        payload(c['target_payload'])
+        for key in ('expected_parents', 'expected_children'):
+            values = c[key]
+            require(type(values) is list and 1 <= len(values) <= 20
+                    and all(type(v) is str and re.fullmatch(r'profile-[0-9]{1,30}', v) for v in values)
+                    and len(set(values)) == len(values))
+        require(c['created_id'] in c['expected_children'] and c['owner'] in c['expected_children']
+                and len(c['expected_parents']) == 2)
     require(type(c['data_repo']) is str and re.fullmatch(
         r'[A-Za-z0-9_-]{1,100}/[A-Za-z0-9_-]{1,100}', c['data_repo']))
     require(type(c['data_sha']) is str and re.fullmatch(r'[a-f0-9]{40}', c['data_sha']))
@@ -69,7 +81,9 @@ def routes(c):
     from one_time_parent_pilot import FIELDS
     if c['mode'] == 'get_only_verify':
         return prefix, source, ['/api/' + c['created_id'] + '?fields=' + FIELDS + '&only_ids=true',
-                                '/api/' + c['union_id'] + '?only_ids=true']
+                                '/api/' + c['union_id'] + '?only_ids=true',
+                                *(['/api/' + c['created_id'] + '/immediate-family?only_ids=true']
+                                  if 'target_payload' in c else [])]
     vendor = ['/api/' + x + '?fields=' + FIELDS + '&only_ids=true'
               for x in ('profile', c['owner'])]
     vendor.append('/api/' + c['owner'] + '/immediate-family?only_ids=true')
@@ -131,6 +145,8 @@ def verify_read_only(vendor, c, approved, report, save, clock):
     for label, route in (
         ('profile', '/api/' + c['created_id'] + '?fields=' + FIELDS + '&only_ids=true'),
         ('union', '/api/' + c['union_id'] + '?only_ids=true'),
+        *([('family', '/api/' + c['created_id'] + '/immediate-family?only_ids=true')]
+          if 'target_payload' in c else []),
     ):
         require(clock() < c['expires_at'])
         evidence['responses'][label] = vendor.request('GET', route)
@@ -150,8 +166,9 @@ def verify_read_only(vendor, c, approved, report, save, clock):
     check('merge', merge)
     check('private', lambda: actual.get('public') is False)
     check('alive', lambda: actual.get('is_alive') is True)
-    check('gender', lambda: actual.get('gender') == 'male')
-    for key, val in vendor_payload(approved).items():
+    check('gender', lambda: actual.get('gender') == c.get('target_payload', approved)['gender'])
+    expected_payload = c.get('target_payload', approved)
+    for key, val in vendor_payload(expected_payload).items():
         check('field_' + key, lambda key=key, val=val: actual.get(key) == val)
     def profile_union():
         refs = actual.get('unions')
@@ -159,8 +176,18 @@ def verify_read_only(vendor, c, approved, report, save, clock):
         return canonical_union_reference(refs[0]) == c['union_id']
     check('profile_union', profile_union)
     check('union_id', lambda: union.get('id') == c['union_id'])
-    check('union_partners', lambda: union.get('partners') == [c['created_id']])
-    check('union_children', lambda: union.get('children') == [c['owner']])
+    if 'target_payload' in c:
+        from guarded_family_additions import union_state
+        def parent_union(value):
+            union_state(value, c['union_id'], c['expected_parents'], c['expected_children'])
+            return True
+        check('parent_union', lambda: parent_union(union))
+        family = evidence['responses']['family']
+        check('family_focus', lambda: family.get('focus', {}).get('id') == c['created_id'])
+        check('family_parent_union', lambda: parent_union(family.get('nodes', {}).get(c['union_id'])))
+    else:
+        check('union_partners', lambda: union.get('partners') == [c['created_id']])
+        check('union_children', lambda: union.get('children') == [c['owner']])
     def url():
         value = actual.get('profile_url')
         if value is None:
