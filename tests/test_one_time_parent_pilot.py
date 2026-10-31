@@ -550,3 +550,60 @@ def test_create_and_diagnostic_credentials_are_separate_without_fallback():
     assert 'FAMILY_TREE_PAT: ${{ secrets.FAMILY_TREE_PAT }}' in diagnostic
     assert 'PILOT_PRIVATE_EVIDENCE_WRITER' not in diagnostic
     assert "environment: father-create" in create
+
+
+@pytest.mark.parametrize('stage', ['preflight_evidence', 'consume', 'send', 'ack', 'readback', 'final'])
+def test_escaping_execution_failure_saved_locally_with_details(monkeypatch, tmp_path, capsys, stage):
+    env = pilot_environment(tmp_path)
+    saved = []
+    remote_calls = []
+    class FakeStore:
+        def __init__(self, *a):
+            pass
+        def load(self, path):
+            return copy.deepcopy(M)
+    def fake_execute(config, manifest, client, store, save, **kw):
+        kw['progress'].enter(stage)
+        remote_calls.append(stage)
+        raise p.TransportStop('response_redirect', evidence={
+            'http_status': 201, 'location_present': True, 'link_present': False})
+    def encrypt(recipient, raw):
+        if raw != b'pilot preflight':
+            saved.append(p.decode(raw))
+        return b'age-encryption.org/v1\nZZ'
+    monkeypatch.setattr(p, 'HTTPS', lambda *a, **kw: object())
+    monkeypatch.setattr(p, 'PrivateGit', FakeStore)
+    monkeypatch.setattr(p, 'execute', fake_execute)
+    monkeypatch.setattr(p, 'encrypt', encrypt)
+    monkeypatch.setattr(p.os, 'environ', env)
+    assert p.main() == 1
+    assert saved[0]['stage'] == stage and saved[0]['phase'] == 'STOPPED'
+    assert saved[0]['http_failure']['http_status'] == 201
+    assert saved[0]['failure_code'] == 'response_redirect'
+    assert saved[0]['retry_allowed'] is False and remote_calls == [stage]
+    assert '201' not in capsys.readouterr().out
+    assert len(list((tmp_path / 'out').iterdir())) == 1
+
+
+def test_success_status_location_remains_rejected_with_safe_metadata(monkeypatch):
+    class Response:
+        status = 201
+        def getheader(self, name):
+            return 'ZZ-private-url' if name == 'Location' else None
+    class Connection:
+        def __init__(self, *a, **kw):
+            pass
+        def request(self, *a, **kw):
+            pass
+        def getresponse(self):
+            return Response()
+        def close(self):
+            pass
+    monkeypatch.setattr(p.http.client, 'HTTPSConnection', Connection)
+    with pytest.raises(p.TransportStop) as exc:
+        p.HTTPS('api.github.com', 'ZZ-token', github=True,
+                capture_failure=True).request('POST', '/repos/zz/zz/git/tags', {})
+    assert exc.value.code == 'response_redirect'
+    assert exc.value.evidence == {'http_status': 201, 'location_present': True,
+                                  'link_present': False}
+    assert 'ZZ-private-url' not in str(exc.value.evidence)

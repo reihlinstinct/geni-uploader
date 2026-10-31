@@ -117,7 +117,11 @@ class HTTPS:
                             pass  # original status must survive malformed error content
                 raise TransportStop('response_status', evidence=evidence)
             if response.getheader('Location') or response.getheader('Link'):
-                raise TransportStop('response_redirect')
+                raise TransportStop('response_redirect', evidence=(
+                    {'http_status': response.status,
+                     'location_present': bool(response.getheader('Location')),
+                     'link_present': bool(response.getheader('Link'))}
+                    if self.capture_failure else None))
             # Per-read socket timeout is supplemented by a whole-response deadline.
             deadline = time.monotonic() + 30
             chunks, size = [], 0
@@ -325,6 +329,8 @@ def execute(config, manifest, client, store, save, clock=time.time, progress=Non
                 http.client.HTTPException, subprocess.SubprocessError) as exc:
         report['stopped_stage'] = progress.stage
         report['failure_code'] = exc.code if isinstance(exc, TransportStop) else 'validation_or_storage'
+        if isinstance(exc, TransportStop) and exc.evidence:
+            report['http_failure'] = exc.evidence
         report['follow_up'] = 'GET-only reconciliation or separately approved repair; never retry create'
     progress.enter('final')
     store.receipt('final', save(report))
@@ -352,12 +358,14 @@ def run(env, progress=None):
     progress.enter('encryption')
     encrypt(config['recipient'], b'pilot preflight')
     progress.enter('github_credential')
-    github = HTTPS('api.github.com', env.get('FAMILY_TREE_PAT', ''), github=True)
+    github = HTTPS('api.github.com', env.get('FAMILY_TREE_PAT', ''), github=True,
+                   capture_failure=True)
     store = PrivateGit(github, config['data_repo'], config['data_sha'], config['owner'])
     progress.enter('private_source')
     manifest = store.load(config['data_path'])
     progress.enter('credential')
-    client = HTTPS('www.geni.com', env.get('GENI_SECONDARY_ACCESS_TOKEN', ''))
+    client = HTTPS('www.geni.com', env.get('GENI_SECONDARY_ACCESS_TOKEN', ''),
+                   capture_failure=True)
     progress.enter('output')
     output = Path(env['PILOT_OUTPUT_DIR'])
     require(output.is_absolute() and not output.exists())
@@ -373,7 +381,17 @@ def run(env, progress=None):
             f.flush()
             os.fsync(f.fileno())
         return ciphertext
-    return execute(config, manifest, client, store, save, progress=progress)
+    try:
+        return execute(config, manifest, client, store, save, progress=progress)
+    except (Blocked, OSError, ValueError, TypeError, KeyError, RecursionError, AttributeError,
+            http.client.HTTPException, subprocess.SubprocessError) as exc:
+        # Local only. A failed receipt must never trigger another remote write or send.
+        save({'schema': 1, 'mode': 'one_time_parent_pilot', 'phase': 'STOPPED',
+              'stage': progress.stage, 'retry_allowed': False,
+              'failure_code': exc.code if isinstance(exc, TransportStop) else 'validation_or_storage',
+              **({'http_failure': exc.evidence} if isinstance(exc, TransportStop)
+                 and exc.evidence else {})})
+        raise
 
 
 def main():
