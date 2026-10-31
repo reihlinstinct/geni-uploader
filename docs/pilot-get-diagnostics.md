@@ -60,7 +60,7 @@ fails at the actual private_repository or vendor_reads HTTP boundary.
 ## Scoped post-write reconciliation (#532)
 
 A separate protected pilot-get-reconcile workflow uses PILOT_GET_RECONCILE_JSON
-and pins mode get_only_reconcile. It has the same exact executor/config, master,
+and pins DIAGNOSTIC_MODE=get_only_reconcile. It has the same exact executor/config, master,
 owner-actor, first-attempt and human environment gates. It receives the read-only
 repository credential and secondary vendor token, never the evidence writer.
 
