@@ -971,11 +971,14 @@ def test_api_version_pin_exact_serialized_request(monkeypatch, github, method, r
         if method == 'GET':
             expected_route += ('&' if '?' in route else '?') + 'api_version=1'
         else:
-            expected_body = dict(body, api_version='1')
+            expected_body = p.vendor_create_bytes(body)
     assert calls == [(method, expected_route, {
-        'body':None if expected_body is None else p.canonical(expected_body),
+        'body':(expected_body if type(expected_body) is bytes else
+                None if expected_body is None else p.canonical(expected_body)),
         'headers':dict({'Authorization':'Bearer ZZ-token', 'Accept':'application/json',
-            'User-Agent':'single-parent-pilot', 'Content-Type':'application/json'},
+            'User-Agent':'single-parent-pilot', 'Content-Type':
+            'application/x-www-form-urlencoded' if not github and method == 'POST'
+            else 'application/json'},
             **({'X-GitHub-Api-Version':'2022-11-28'} if github else {}))})]
     assert body == original
 
@@ -987,8 +990,7 @@ def test_version_pin_body_cannot_be_overridden_and_has_separate_hash():
     assert result == 'VERIFIED'
     final = reports[-1]
     assert final['api_version'] == 1
-    assert final['request_body_sha256'] == p.sha(p.canonical(
-        dict(p.vendor_payload(BODY), api_version='1')))
+    assert final['request_body_sha256'] == p.sha(p.vendor_create_bytes(p.vendor_payload(BODY)))
     assert final['request_body_sha256'] != final['wire_payload_sha256']
     assert 'api_version' not in BODY
 
@@ -1050,3 +1052,17 @@ def test_expired_post_send_observation_has_no_network():
     client = Client()
     obs = p.observe_after_send(client, C, lambda: 999)
     assert not client.calls and obs['state'] == 'STOPPED'
+
+
+def test_form_exact_bytes_and_roundtrip():
+    import urllib.parse
+    wire = {'first_name': 'ZZ A&B', 'gender': 'male', 'is_alive': True,
+            'public': False, 'names': {'he': {'first_name': 'אב'},
+                                     'en-US': {'first_name': 'ZZ A&B'}}}
+    actual = p.vendor_create_bytes(wire)
+    assert actual == (b'api_version=1&first_name=ZZ+A%26B&gender=male&is_alive=true&'
+                      b'names%5Ben-US%5D%5Bfirst_name%5D=ZZ+A%26B&'
+                      b'names%5Bhe%5D%5Bfirst_name%5D=%D7%90%D7%91&public=false')
+    assert urllib.parse.parse_qs(actual.decode())['public'] == ['false']
+    assert p.sha(actual) == __import__('hashlib').sha256(actual).hexdigest()
+    assert 'api_version' not in wire

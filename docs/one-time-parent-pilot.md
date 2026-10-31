@@ -275,3 +275,14 @@ prove absence of hidden/unlinked objects: completeness and parenthood remain
 UNPROVED and the run stays UNCERTAIN. Existing consumption, recovery attestation
 admission and fresh final-go requirements remain unchanged. No workflow inputs,
 config changes or live calls are introduced by this implementation.
+
+### Form request encoding
+
+The protected create transport sends the same approved fields as deterministic
+`application/x-www-form-urlencoded` bytes. Nested names use bracketed locale keys;
+booleans use lowercase `true`/`false`, UTF-8 is percent-encoded, and api_version is
+`1`. Bearer authentication, privacy fields, route guards, one-send and recovery
+rules do not change. `request_body_sha256` hashes the actual form bytes, while
+`wire_payload_sha256` still hashes the canonical profile-field object.
+Offline tests assert exact bytes, headers and hashes. No live call, configuration
+installation or dispatch is part of this serialization change.

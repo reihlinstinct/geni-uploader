@@ -163,9 +163,11 @@ class HTTPS:
                 if method == 'GET':
                     request_route += ('&' if '?' in route else '?') + 'api_version=1'
                 else:
-                    request_body = vendor_create_params(body)
+                    request_body = vendor_create_bytes(body)
+                    headers['Content-Type'] = 'application/x-www-form-urlencoded'
             client.request(method, request_route,
-                           body=None if request_body is None else canonical(request_body),
+                           body=(request_body if type(request_body) is bytes else
+                                 None if request_body is None else canonical(request_body)),
                            headers=headers)
             response = client.getresponse()
             if not 200 <= response.status < 300:
@@ -427,6 +429,27 @@ def vendor_create_params(wire):
     return dict(wire, api_version='1')
 
 
+def vendor_create_bytes(wire):
+    """Deterministic Explorer-style strings and bracketed keys; no data removed."""
+    pairs = []
+
+    def flatten(fields, prefix=''):
+        require(type(fields) is dict)
+        for key in sorted(fields):
+            require(type(key) is str)
+            value = fields[key]
+            name = prefix + '[' + key + ']' if prefix else key
+            if type(value) is dict:
+                flatten(value, name)
+            else:
+                require(type(value) in (str, bool))
+                pairs.append((name, ('true' if value else 'false')
+                              if type(value) is bool else value))
+
+    flatten(vendor_create_params(wire))
+    return urllib.parse.urlencode(pairs).encode('ascii')
+
+
 def observe_after_send(client, config, clock):
     """Three bounded GETs only; no absence, relationship or write attribution proof."""
     result = {'state': 'STOPPED', 'reads_completed': 0, 'observed_profile_ids': [],
@@ -474,7 +497,7 @@ def execute(config, manifest, client, store, save, clock=time.time, progress=Non
     report = {'schema': 1, 'mode': 'one_time_parent_pilot', 'data_sha': config['data_sha'],
               'data_path': config['data_path'], 'owner': config['owner'],
               'wire_payload_sha256': sha(canonical(wire)),
-              'request_body_sha256': sha(canonical(vendor_create_params(wire))),
+              'request_body_sha256': sha(vendor_create_bytes(wire)),
               'api_version': 1,
               'payload_sha256': sha(canonical(approved)), 'retry_allowed': False}
     if 'recovery' in config:
