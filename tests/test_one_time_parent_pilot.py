@@ -607,3 +607,52 @@ def test_success_status_location_remains_rejected_with_safe_metadata(monkeypatch
     assert exc.value.evidence == {'http_status': 201, 'location_present': True,
                                   'link_present': False}
     assert 'ZZ-private-url' not in str(exc.value.evidence)
+
+
+def test_debug_trace_default_off_bounded_and_fixed(monkeypatch):
+    progress = p.Progress()
+    progress.enter('config')
+    assert progress.trace is None
+    ticks = iter([10, 9, 11] + [1000000] * 100)
+    monkeypatch.setattr(p.time, 'monotonic', lambda: next(ticks))
+    progress.enable_debug()
+    for _ in range(100):
+        progress.enter('manifest')
+    assert len(progress.trace) == 64
+    assert progress.trace[0] == {'stage': 'config', 'elapsed_ms': 0}
+    assert all(set(e) == {'stage', 'elapsed_ms'} and e['stage'] in p.STAGES
+               and 0 <= e['elapsed_ms'] <= 86400000 for e in progress.trace)
+    with pytest.raises(Blocked):
+        progress.enter('ZZ-private')
+
+
+@pytest.mark.parametrize('debug', [None, '0', '1', 'ZZ-private'])
+def test_debug_retained_only_inside_encryption(monkeypatch, tmp_path, capsys, debug):
+    env = pilot_environment(tmp_path)
+    if debug is not None:
+        env['PILOT_DEBUG'] = debug
+    saved = []
+    class FakeStore:
+        def __init__(self, *a):
+            pass
+        def load(self, path):
+            return copy.deepcopy(M)
+    def execute(config, manifest, client, store, save, **kw):
+        kw['progress'].enter('preflight')
+        save({'phase': 'ZZ-test'})
+        return 'VERIFIED'
+    def encrypt(recipient, raw):
+        if raw != b'pilot preflight':
+            saved.append(p.decode(raw))
+        return b'age-encryption.org/v1\nZZ'
+    monkeypatch.setattr(p, 'HTTPS', lambda *a, **kw: object())
+    monkeypatch.setattr(p, 'PrivateGit', FakeStore)
+    monkeypatch.setattr(p, 'execute', execute)
+    monkeypatch.setattr(p, 'encrypt', encrypt)
+    monkeypatch.setattr(p.os, 'environ', env)
+    assert p.main() == 0
+    assert ('debug_trace' in saved[0]) == (debug == '1')
+    if debug == '1':
+        assert saved[0]['debug_trace'][-1]['stage'] == 'preflight'
+    out = capsys.readouterr().out
+    assert 'debug_trace' not in out and 'elapsed_ms' not in out

@@ -147,3 +147,13 @@ Handled send/readback errors preserve the same details in encrypted reports.
 No additional remote receipt attempt, vendor call, retry or repair is performed
 by the outer failure handler. Failures before output creation remain fixed-stage
 public messages only. This does not change redirect rejection or create gates.
+
+## Opt-in encrypted debug trace (#526)
+
+PILOT_DEBUG=1 enables fixed stage transitions and relative elapsed milliseconds
+in encrypted reports only. It is off by default; other values leave it off.
+The trace contains at most 64 events, each with an allowlisted stage and an elapsed
+time clamped to zero through one day. It contains no URLs, payloads, names,
+credentials, headers or raw responses. Public output and transport behavior do
+not change. No workflow input or secret enables this setting in the current
+workflow; any exposure of that control needs its own review and approval.

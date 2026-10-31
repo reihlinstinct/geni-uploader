@@ -61,6 +61,7 @@ ENV_DOCS = {
     'SECONDARY_PROBE_CONNECTION_JSON': ['docs/secondary-readonly-evidence.md'],
     'SECONDARY_PROBE_TOKEN': ['docs/secondary-readonly-evidence.md'],
     'TOKEN_PROBE_CREDENTIAL': ['docs/token-probe.md'],
+    'PILOT_DEBUG': ['docs/one-time-parent-pilot.md'],
     'PILOT_CONFIRM': ['docs/one-time-parent-pilot.md'],
     'PILOT_CONFIG_JSON': ['docs/one-time-parent-pilot.md'],
     'PILOT_CONFIG_SHA256': ['docs/one-time-parent-pilot.md'],
