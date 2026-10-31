@@ -188,6 +188,36 @@ def test_sibling_missing_direct_backreference_stops_after_one():
     assert r['items'][0]['phase'] == 'ACKNOWLEDGED_NOT_VERIFIED'
 
 
+def test_remaining_three_plan_verifies_prior_child_and_preserves_marker():
+    cfg = fixture('siblings')
+    prior = cfg['entries'].pop(0)
+    cfg['children'].append('profile-999009')
+    cfg['verified_children'] = [dict(prior, id='profile-999009')]
+    io = IO(cfg)
+    io.profiles['profile-999009'] = dict(g.vendor_payload(prior['payload']), id='profile-999009')
+    st = Store()
+    old_marker = g.marker(cfg, prior)
+    st.consumed.add(old_marker)
+    r = g.execute(cfg, io, st, lambda r: b'ZZ-cipher', lambda: 200)
+    assert r['phase'] == 'VERIFIED' and len(io.posts) == 3
+    assert old_marker in st.consumed and len(st.consumed) == 4
+
+
+def test_unverified_existing_child_blocks_before_effects():
+    cfg = fixture('siblings')
+    cfg['children'].append('profile-999009')
+    with pytest.raises(Blocked):
+        run(cfg)
+
+
+@pytest.mark.parametrize('count', [1, 2, 3, 4])
+def test_explicit_remaining_batch_size(count):
+    cfg = fixture('siblings')
+    cfg['entries'] = cfg['entries'][:count]
+    r, io, _, _ = run(cfg)
+    assert r['phase'] == 'VERIFIED' and len(io.posts) == count
+
+
 def test_union_get_transport_failure_retains_read_stage():
     cfg = fixture('siblings')
     io = IO(cfg)

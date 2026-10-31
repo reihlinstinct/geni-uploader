@@ -17,7 +17,7 @@ from one_time_parent_pilot import (
 
 
 def plan(value):
-    exact(value, ('schema', 'mode', 'owner', 'expect_name', 'union_id', 'parents',
+    exact(value, (*(('verified_children',) if 'verified_children' in value else ()), 'schema', 'mode', 'owner', 'expect_name', 'union_id', 'parents',
                   'children', 'entries', 'expires_at', 'allow_unknown_merge',
                   'accept_hidden_duplicate_risk', 'accept_private_create_risk',
                   'accept_union_selection_risk'))
@@ -51,7 +51,7 @@ def plan(value):
         profile_id(child)
         require(child not in ids)
     entries = value['entries']
-    require(type(entries) is list and len(entries) == (1 if value['mode'] == 'mother' else 4))
+    require(type(entries) is list and (len(entries) == 1 if value['mode'] == 'mother' else 1 <= len(entries) <= 4))
     keys, names = set(), set()
     for entry in entries:
         exact(entry, ('key', 'payload'))
@@ -67,6 +67,18 @@ def plan(value):
         name = canonical(reviewed['names'])
         require(name not in names)
         names.add(name)
+    verified = value.get('verified_children', [])
+    require(type(verified) is list and len(verified) <= 20)
+    verified_ids = set()
+    for child in verified:
+        exact(child, ('id', 'key', 'payload'))
+        profile_id(child['id'])
+        require(child['id'] in children and child['id'] != value['owner']
+                and child['id'] not in verified_ids and child['key'] not in keys)
+        require(type(child['key']) is str and re.fullmatch(r'[a-z][a-z0-9-]{1,48}', child['key']))
+        verified_ids.add(child['id'])
+        require(payload(child['payload'])['is_alive'] is True)
+    require(verified_ids == set(children) - {value['owner']})
     return copy.deepcopy(value)
 
 
@@ -135,6 +147,13 @@ def execute(value, io, store, save, clock=time.time):
             unions = actual.get('unions')
             require(type(unions) is list and len(unions) == 1
                     and canonical_union_reference(unions[0]) == c['union_id'])
+        for child in c.get('verified_children', []):
+            actual = observe('profile', child['id'])
+            profile_fields(actual, child['payload'], child['id'], c['allow_unknown_merge'])
+            family = observe('family', child['id'])
+            require(type(family) is dict and family.get('focus', {}).get('id') == child['id']
+                    and type(family.get('nodes')) is dict)
+            union_state(family['nodes'].get(c['union_id']), c['union_id'], parents, children)
         for entry in c['entries']:
             union_state(observe('union', c['union_id']), c['union_id'], parents, children)
             item = {'key': entry['key'], 'marker': marker(c, entry), 'phase': 'NOT_SENT',
