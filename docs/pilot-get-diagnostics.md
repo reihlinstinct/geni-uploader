@@ -102,3 +102,12 @@ ID or exactly `https://www.geni.com/api/union-<digits>`. Both map to the same ID
 before checking the pinned relationship. Other hosts, schemes, queries, fragments,
 ports, whitespace and trailing paths are rejected. Cardinality, privacy, names,
 partner IDs and child IDs remain strict; this is representation normalization only.
+
+### Sibling parent-union verification
+
+The same GET-only mode can carry a complete approved `target_payload`, two exact
+`expected_parents` and exact `expected_children`. This adds one pinned immediate-
+family GET for the target. The profile's fields, canonical union reference, pinned
+union membership and direct family back-reference must all pass. Every response
+is encrypted before further work. The original father verification mode is
+unchanged when these optional fields are absent. No mutation or retry is added.
