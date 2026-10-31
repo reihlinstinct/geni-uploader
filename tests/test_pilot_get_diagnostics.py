@@ -395,3 +395,85 @@ def test_mode_cannot_cross_workflows(monkeypatch, tmp_path):
     monkeypatch.setattr(d, 'encrypt', lambda *a: pytest.fail('encryption called'))
     with pytest.raises(Blocked):
         d.run(env, {})
+
+
+def verify_clients(change=None):
+    from tests.test_one_time_parent_pilot import FATHER, UNION
+    cfg = dict(C, mode='get_only_verify', created_id=FATHER, union_id=UNION)
+    prefix, source, vr = d.routes(cfg)
+    calls = []
+
+    class Transport:
+        def __init__(self, host, token, **kw):
+            self.host = host
+
+        def request(self, method, route):
+            calls.append((self.host, method, route))
+            if self.host == 'api.github.com':
+                if route == prefix:
+                    return {'private': True, 'full_name': cfg['data_repo']}
+                raw = d.canonical(M)
+                return {'type': 'file', 'encoding': 'base64', 'size': len(raw),
+                        'content': base64.b64encode(raw).decode()}
+            value = Client(change).request(method, route)
+            if change == 'extra_locale' and route.startswith('/api/' + FATHER):
+                value['names']['zz'] = {'first_name': 'ZZ-extra'}
+            if change == 'url_union' and 'unions' in value:
+                value['unions'] = ['https://www.geni.com/api/' + UNION]
+            if change == 'relationship' and route.startswith('/api/' + UNION):
+                value['children'] = []
+            return value
+
+    return (cfg, d.GetOnly('api.github.com', 'ZZ-token', [prefix, source], factory=Transport),
+            d.GetOnly('www.geni.com', 'ZZ-token', vr, factory=Transport), calls)
+
+
+@pytest.mark.parametrize('change,failed', [(None, None), ('privacy', 'private'),
+    ('name', 'field_first_name'), ('extra_locale', 'field_names'),
+    ('url_union', 'profile_union'), ('relationship', 'union_children')])
+def test_verify_capture_before_checks_and_no_relaxation(change, failed):
+    cfg, gh, vendor, calls = verify_clients(change)
+    reports = []
+    result = d.diagnose(cfg, gh, vendor, lambda r: reports.append(copy.deepcopy(r)), lambda: 200)
+    assert len(calls) == 4 and all(x[1] == 'GET' for x in calls)
+    assert set(reports[0]['verification']['responses']) == {'profile'}
+    assert reports[0]['verification']['checks'] == {}
+    assert set(reports[1]['verification']['responses']) == {'profile', 'union'}
+    checks = result['verification']['checks']
+    if failed:
+        assert checks[failed] is False
+        assert result['phase'] == 'STOPPED' and not result['verification']['verified']
+    else:
+        assert all(checks.values()) and result['verification']['verified']
+        assert result['phase'] == 'READ_ONLY_COMPLETE'
+
+
+def test_verify_capture_storage_failure_stops_before_second_get():
+    cfg, gh, vendor, calls = verify_clients()
+    saved = []
+
+    def save(r):
+        saved.append(copy.deepcopy(r))
+        if len(saved) == 1:
+            raise OSError('ZZ-storage')
+    result = d.diagnose(cfg, gh, vendor, save, lambda: 200)
+    assert len(calls) == 3 and result['phase'] == 'STOPPED'
+    assert set(saved[0]['verification']['responses']) == {'profile'}
+
+
+@pytest.mark.parametrize('key,value', [('created_id', 'profile'), ('union_id', 'profile-999'),
+                                     ('created_id', C['owner'])])
+def test_verify_rejects_bad_target_pins(key, value):
+    cfg, _, _, _ = verify_clients()
+    cfg[key] = value
+    with pytest.raises(Blocked):
+        d.configuration(cfg)
+
+
+def test_verify_workflow_fixed_mode_separate_secret_and_no_writer():
+    s = Path('.github/workflows/pilot-get-verify.yml').read_text()
+    assert 'DIAGNOSTIC_MODE: get_only_verify' in s
+    assert 'secrets.PILOT_GET_VERIFY_JSON' in s
+    assert 'READ_ONLY_NO_CREATE' in s and 'environment: father-create' in s
+    assert 'PILOT_PRIVATE_EVIDENCE_WRITER' not in s
+    assert 'contents: read' in s and 'github.run_attempt == 1' in s

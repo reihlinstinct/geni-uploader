@@ -78,3 +78,19 @@ No markers are changed and this workflow cannot authorize or retry creation.
 Record observed name-locale keys in encrypted reconciliation evidence. Keys only,
 no name values, and no extra requests. Root self/owner keys are recorded separately;
 candidate keys are attached to each encrypted checked-ID observation.
+
+## Pinned read-only verification
+
+`get_only_verify` uses two additional exact config pins: `created_id` and
+`union_id`. Its protected `pilot-get-verify.yml` workflow uses the separate
+`PILOT_GET_VERIFY_JSON` secret and still requires READ_ONLY_NO_CREATE, exact
+executor/config digests, expiry and environment approval. The vendor allowlist
+contains only the pinned profile fields GET and pinned union GET. No traversal,
+mutation or retry is possible. The private source is loaded read-only as before.
+
+Each parsed response is encrypted and saved before validation or the next read.
+A save failure stops further reads. Per-check booleans retain the original
+strict privacy, living, gender, names, union and relationship checks. Exact
+names-map and bare-ID expectations are not relaxed. Failed checks leave the
+result STOPPED, never VERIFIED. Parsed responses are encrypted only, never
+printed in workflow logs. This mode does not create remote receipt markers.
