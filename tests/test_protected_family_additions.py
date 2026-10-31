@@ -181,3 +181,15 @@ def test_private_plan_hash_drift_stops_without_vendor(monkeypatch, tmp_path):
     monkeypatch.setattr(p, 'encrypt', lambda *a: b'ZZ-cipher')
     monkeypatch.setattr(p, 'ScopedVendor', lambda *a: pytest.fail('vendor constructed'))
     assert p.run(e) is False
+
+
+def test_transport_failure_encrypted_fields_are_structural_only():
+    class Client:
+        def request(self, *a):
+            raise p.TransportStop('response_status', evidence={
+                'http_status': 500, 'geni_error_message': 'ZZ-private',
+                'arbitrary': 'ZZ-token', 'body_media': 'text/html'})
+    with pytest.raises(p.TransportStop) as caught:
+        p.IO(Client()).get_union('union-999001')
+    assert caught.value.evidence == {'host': 'www.geni.com',
+        'error_type': 'response_status', 'status_class': '5xx'}
