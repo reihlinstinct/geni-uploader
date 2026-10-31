@@ -255,3 +255,23 @@ unchanged. Encrypted reports separately record `api_version: 1` and
 `request_body_sha256` over the full serialized POST object, including the version
 parameter. This hash differs from `wire_payload_sha256`, which covers profile
 fields only. No live call, workflow, config field or authorization is added.
+
+## Same-run observations after uncertain send (#542)
+
+The protected pilot still sends at most one create POST. Success uses the existing
+returned-ID acknowledgement and exact profile/union readback. If the send fails
+or its response is unusable, it first saves the original uncertain-send evidence
+locally in encrypted form, then attempts at most three GET-only reads: current
+root, explicit owner root, and the owner's immediate family. All are pinned to
+API v1. This is part of the same approved run, not a retry or a repair. Expiry
+still applies before every read; a read/storage failure cannot authorize another
+POST. Failed acknowledgement storage does not permit this continuation.
+
+The encrypted final report preserves the original failure and adds a separate
+post_failure_observation with read count, bounded observed profile IDs, state and
+any fixed failure evidence. It never follows candidates, unions, pages or links.
+An observed profile is not attributed to this attempt. Empty observations do not
+prove absence of hidden/unlinked objects: completeness and parenthood remain
+UNPROVED and the run stays UNCERTAIN. Existing consumption, recovery attestation
+admission and fresh final-go requirements remain unchanged. No workflow inputs,
+config changes or live calls are introduced by this implementation.

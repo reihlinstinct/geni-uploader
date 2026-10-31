@@ -17,7 +17,7 @@ from parent_probe import encrypt
 LIMIT = 1024 * 1024
 STAGES = frozenset(('setup', 'config', 'manifest', 'output', 'github_credential',
                     'encryption', 'private_source', 'recovery', 'credential', 'preflight',
-                    'preflight_evidence', 'consume', 'send', 'ack', 'readback', 'final'))
+                    'preflight_evidence', 'consume', 'send', 'ack', 'readback', 'failure_reads', 'final'))
 
 
 class TransportStop(Blocked):
@@ -427,6 +427,37 @@ def vendor_create_params(wire):
     return dict(wire, api_version='1')
 
 
+def observe_after_send(client, config, clock):
+    """Three bounded GETs only; no absence, relationship or write attribution proof."""
+    result = {'state': 'STOPPED', 'reads_completed': 0, 'observed_profile_ids': [],
+              'completeness': 'UNPROVED', 'parenthood': 'UNPROVED'}
+    try:
+        owner = config['owner']
+        for route in ('profile', owner):
+            require(clock() < config['expires_at'])
+            root = get_profile(client, route)
+            require(type(root) is dict and root.get('id') == owner and 'error' not in root)
+            result['reads_completed'] += 1
+        require(clock() < config['expires_at'])
+        family = client.request('GET', '/api/' + owner + '/immediate-family?only_ids=true')
+        require(type(family) is dict and set(family) <= {'focus', 'nodes'}
+                and type(family.get('focus')) is dict and family['focus'].get('id') == owner)
+        nodes = family.get('nodes')
+        require(type(nodes) is dict and len(nodes) <= 20)
+        require(all(type(k) is str and re.fullmatch(r'(?:profile|union)-[0-9]{1,30}', k)
+                    and type(v) is dict and v.get('id') == k for k, v in nodes.items()))
+        result['observed_profile_ids'] = sorted(
+            k for k in nodes if k.startswith('profile-') and k != owner)
+        result['reads_completed'] += 1
+        result['state'] = 'READ_ONLY_COMPLETE'
+    except (Blocked, OSError, ValueError, TypeError, KeyError, RecursionError, AttributeError,
+            http.client.HTTPException, subprocess.SubprocessError) as exc:
+        result['failure_code'] = exc.code if isinstance(exc, TransportStop) else 'validation_or_transport'
+        if isinstance(exc, TransportStop) and exc.evidence:
+            result['http_failure'] = exc.evidence
+    return result
+
+
 def execute(config, manifest, client, store, save, clock=time.time, progress=None):
     """Tests inject all effects. The protected action supplies the only live wiring."""
     progress = progress or Progress()
@@ -484,6 +515,13 @@ def execute(config, manifest, client, store, save, clock=time.time, progress=Non
         if isinstance(exc, TransportStop) and exc.evidence:
             report['http_failure'] = exc.evidence
         report['follow_up'] = 'GET-only reconciliation or separately approved repair; never retry create'
+        if report['stopped_stage'] == 'send':
+            # Persist the original uncertain-send evidence locally before any more vendor I/O.
+            # A storage failure forbids continuation, just like failed acknowledgement storage.
+            save(report)
+            progress.enter('failure_reads')
+            report['post_failure_observation'] = observe_after_send(client, config, clock)
+
     progress.enter('final')
     store.receipt('final', save(report))
     if 'stopped_stage' in report:

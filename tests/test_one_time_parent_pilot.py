@@ -991,3 +991,62 @@ def test_version_pin_body_cannot_be_overridden_and_has_separate_hash():
         dict(p.vendor_payload(BODY), api_version='1')))
     assert final['request_body_sha256'] != final['wire_payload_sha256']
     assert 'api_version' not in BODY
+
+
+@pytest.mark.parametrize('change', ['lost', 'malformed'])
+def test_uncertain_send_immediately_observed_without_second_post(change):
+    result, client, store, reports = run(change)
+    final = reports[-1]
+    assert result == 'UNCERTAIN' and store.consumed
+    assert [m for m, _, _ in client.calls] == ['GET'] * 3 + ['POST'] + ['GET'] * 3
+    assert final['stopped_stage'] == 'send' and final['retry_allowed'] is False
+    assert 'post_failure_observation' not in reports[-2]
+    obs = final['post_failure_observation']
+    assert obs == {'state':'READ_ONLY_COMPLETE', 'reads_completed':3,
+                   'observed_profile_ids':[], 'completeness':'UNPROVED', 'parenthood':'UNPROVED'}
+
+
+def test_uncertain_send_storage_failure_forbids_further_reads():
+    client = Client('lost')
+    store = Store(client)
+    reports = []
+    def save(report):
+        reports.append(copy.deepcopy(report))
+        if 'failure_code' in report:
+            raise OSError('ZZ-private')
+        return b'age-encryption.org/v1\nZZciphertext'
+    with pytest.raises(OSError):
+        p.execute(C, M, client, store, save, clock=lambda: 200)
+    assert [m for m, _, _ in client.calls] == ['GET'] * 3 + ['POST']
+
+
+@pytest.mark.parametrize('change', ['fail', 'wrong_owner', 'oversize', 'pagination', 'candidate'])
+def test_post_send_observations_are_bounded_not_attributed(change):
+    calls = []
+    class Reader:
+        def request(self, method, route, body=None):
+            assert method == 'GET' and body is None
+            calls.append(route)
+            if change == 'fail':
+                raise p.TransportStop('response_status', evidence={'http_status':500})
+            if 'immediate-family' not in route:
+                return {'id':FATHER if change == 'wrong_owner' else OWNER}
+            result = {'focus':{'id':OWNER}, 'nodes':{FATHER:{'id':FATHER, 'first_name':'ZZ-private'}}}
+            if change == 'oversize':
+                result['nodes'] = {'profile-' + str(999100+i):{'id':'profile-'+str(999100+i)}
+                                   for i in range(21)}
+            if change == 'pagination':
+                result['paging'] = 'ZZ-private'
+            return result
+    obs = p.observe_after_send(Reader(), C, lambda: 200)
+    assert len(calls) <= 3 and obs['completeness'] == obs['parenthood'] == 'UNPROVED'
+    assert obs['state'] == ('READ_ONLY_COMPLETE' if change == 'candidate' else 'STOPPED')
+    if change == 'candidate':
+        assert obs['observed_profile_ids'] == [FATHER]
+    assert 'ZZ-private' not in str(obs)
+
+
+def test_expired_post_send_observation_has_no_network():
+    client = Client()
+    obs = p.observe_after_send(client, C, lambda: 999)
+    assert not client.calls and obs['state'] == 'STOPPED'
