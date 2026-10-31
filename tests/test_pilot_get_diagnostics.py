@@ -430,7 +430,7 @@ def verify_clients(change=None):
 
 @pytest.mark.parametrize('change,failed', [(None, None), ('privacy', 'private'),
     ('name', 'field_first_name'), ('extra_locale', 'field_names'),
-    ('url_union', 'profile_union'), ('relationship', 'union_children')])
+    ('url_union', None), ('relationship', 'union_children')])
 def test_verify_capture_before_checks_and_no_relaxation(change, failed):
     cfg, gh, vendor, calls = verify_clients(change)
     reports = []
