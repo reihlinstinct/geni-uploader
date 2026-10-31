@@ -11,3 +11,4 @@ GITHUB_WORKFLOW_REF # runner-provided workflow ref read by scripts/ci/run_summar
 NEEDS_JSON # CI needs-context blob injected for scripts/ci/run_summary.py, not user configuration
 ONE_TIME_PARENT_PILOT_JSON # workflow secret name; injected into the pilot as PILOT_CONFIG_JSON, not read by code directly
 PILOT_GET_DIAGNOSTIC_JSON # workflow secret name; injected into the diagnostic as DIAGNOSTIC_CONFIG_JSON, not read by code directly
+PILOT_PRIVATE_EVIDENCE_WRITER # create-workflow secret mapped into FAMILY_TREE_PAT; not a code-read env name

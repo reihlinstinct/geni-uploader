@@ -539,3 +539,14 @@ def test_post_send_stop_plus_final_receipt_failure_reports_final(monkeypatch, ca
     monkeypatch.setattr(p, 'run', run)
     assert p.main() == 1
     assert 'stopped at final;' in capsys.readouterr().out
+
+
+
+def test_create_and_diagnostic_credentials_are_separate_without_fallback():
+    create = Path('.github/workflows/one-time-parent-pilot.yml').read_text()
+    diagnostic = Path('.github/workflows/pilot-get-diagnostics.yml').read_text()
+    assert 'FAMILY_TREE_PAT: ${{ secrets.PILOT_PRIVATE_EVIDENCE_WRITER }}' in create
+    assert 'secrets.FAMILY_TREE_PAT' not in create
+    assert 'FAMILY_TREE_PAT: ${{ secrets.FAMILY_TREE_PAT }}' in diagnostic
+    assert 'PILOT_PRIVATE_EVIDENCE_WRITER' not in diagnostic
+    assert "environment: father-create" in create

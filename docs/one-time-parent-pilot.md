@@ -119,3 +119,19 @@ retry or live action.
 The combined earlier-stop/final-receipt-failure regression asserts final, and
 exactly 30 seconds trips each deadline branch. Both previously surviving test-only
 mutations are now killed. These are offline coverage additions, not a new run.
+
+## Separate private evidence writer (#522)
+
+The create workflow maps the father-create environment secret
+PILOT_PRIVATE_EVIDENCE_WRITER into the executor's FAMILY_TREE_PAT variable.
+The GET-only diagnostic continues to use the separate read-only repository
+credential and never receives this writer. Missing writer stops before a vendor
+request; there is no fallback to another credential.
+
+Minimum GitHub token scope is one exact private repository, Contents read/write
+and required Metadata read. GitHub does not offer a tag-only token permission:
+the credential can technically write other repository contents, while reviewed
+code limits its use to immutable source reads and atomic consumed/evidence tags.
+Do not describe this as a technically tag-only credential. Store it only in the
+protected environment, keep its human reviewer and branch policy, and disclose
+this residual scope before any run. Never reset or delete consumed markers.
