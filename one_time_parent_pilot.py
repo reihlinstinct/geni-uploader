@@ -33,10 +33,20 @@ class TransportStop(Blocked):
 class Progress:
     def __init__(self):
         self.stage = 'setup'
+        self.trace = None
+        self.started = None
+
+    def enable_debug(self):
+        self.trace = []
+        self.started = time.monotonic()
+        self.enter(self.stage)
 
     def enter(self, stage):
         require(stage in STAGES)
         self.stage = stage
+        if self.trace is not None and len(self.trace) < 64:
+            elapsed = max(0, min(86400000, int((time.monotonic() - self.started) * 1000)))
+            self.trace.append({'stage': stage, 'elapsed_ms': elapsed})
 
 FIELDS = ('id,guid,url,profile_url,first_name,middle_name,last_name,maiden_name,names,gender,'
           'public,is_alive,merge_pending,merged_into,unions')
@@ -341,6 +351,8 @@ def execute(config, manifest, client, store, save, clock=time.time, progress=Non
 
 def run(env, progress=None):
     progress = progress or Progress()
+    if env.get('PILOT_DEBUG') == '1':
+        progress.enable_debug()
     require(env.get('PILOT_CONFIRM') == 'CREATE_ONE_PRIVATE_PARENT')
     require(env.get('GITHUB_RUN_ATTEMPT') == '1' and env.get('GITHUB_EVENT_NAME') == 'workflow_dispatch'
             and env.get('GITHUB_REPOSITORY') == 'reihlinstinct/geni-uploader'
@@ -371,6 +383,9 @@ def run(env, progress=None):
     require(output.is_absolute() and not output.exists())
     output.mkdir(mode=0o700)
     def save(report):
+        report = dict(report)
+        if progress.trace is not None:
+            report['debug_trace'] = list(progress.trace)
         report = dict(report, executor_sha=env['GITHUB_SHA'], run_id=env['GITHUB_RUN_ID'],
                       run_attempt=1, recorded_at=int(time.time()))
         ciphertext = encrypt(config['recipient'], canonical(report))
