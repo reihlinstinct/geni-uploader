@@ -57,3 +57,12 @@ Stable consume markers deliberately omit union ID and expiry: changing those
 must not permit recreating the same approved person. No marker reset is exposed.
 A failed batch has no automatic resume operation. A remaining-items plan needs
 fresh review and approval, with all earlier markers preserved.
+
+### Structural failure evidence
+
+Encrypted reports retain the read stage (`read_profile`, `read_union` or
+`read_family`) and, for transport failures, a fixed host, fixed error type and
+HTTP status class when known. No response body, arbitrary header or exception
+text is copied into this failure summary. Already-captured parsed responses stay
+encrypted as before. Non-transport seam exceptions become a fixed failure code.
+No additional read or retry occurs after a failure.

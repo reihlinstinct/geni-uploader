@@ -7,6 +7,7 @@ import time
 from geni_uploader.core.parent_contract import payload, profile_id
 from geni_uploader.core.people import Blocked, exact, require
 from one_time_parent_pilot import (
+    TransportStop,
     canonical,
     canonical_union_reference,
     merge_clear,
@@ -113,6 +114,7 @@ def execute(value, io, store, save, clock=time.time):
 
     def observe(kind, target):
         now()
+        report['stage'] = 'read_' + kind
         actual = (io.get_profile(target) if kind == 'profile' else
                   io.get_family(target) if kind == 'family' else io.get_union(target))
         report['responses'].append({'kind': kind, 'target': target, 'value': actual})
@@ -180,7 +182,9 @@ def execute(value, io, store, save, clock=time.time):
         report['stage'], report['phase'] = 'complete', 'VERIFIED'
         save(copy.deepcopy(report))
     except (Blocked, OSError, ValueError, TypeError, KeyError, AttributeError,
-            RecursionError, http.client.HTTPException):
+            RecursionError, http.client.HTTPException) as exc:
+        if isinstance(exc, TransportStop):
+            report['transport_failure'] = {'code': exc.code, **exc.evidence}
         # Deliberately no further remote effects after any anomaly or storage failure.
         report['phase'] = 'STOPPED'
         save(copy.deepcopy(report))
