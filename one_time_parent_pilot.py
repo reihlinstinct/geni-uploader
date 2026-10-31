@@ -16,7 +16,7 @@ from parent_probe import encrypt
 
 LIMIT = 1024 * 1024
 STAGES = frozenset(('setup', 'config', 'manifest', 'output', 'github_credential',
-                    'encryption', 'private_source', 'credential', 'preflight',
+                    'encryption', 'private_source', 'recovery', 'credential', 'preflight',
                     'preflight_evidence', 'consume', 'send', 'ack', 'readback', 'final'))
 
 
@@ -201,14 +201,17 @@ class PrivateGit:
         return self.client.request('GET', self.prefix + suffix)
 
     def load(self, path):
+        return decode(self.load_bytes(path, self.data_sha))
+
+    def load_bytes(self, path, commit):
         repo = self.get('')
         require(repo.get('private') is True and repo.get('full_name') == self.prefix[7:])
-        r = self.get('/contents/' + urllib.parse.quote(path, safe='/') + '?ref=' + self.data_sha)
+        r = self.get('/contents/' + urllib.parse.quote(path, safe='/') + '?ref=' + commit)
         require(r.get('type') == 'file' and r.get('encoding') == 'base64'
                 and type(r.get('size')) is int and 0 < r['size'] <= 65536)
         content = base64.b64decode(''.join(r['content'].split()), validate=True)
         require(len(content) == r['size'])
-        return decode(content)
+        return content
 
     def consume(self):
         # Atomic create, no update/delete/reset. Existing tag means STOP, even after failure.
@@ -238,7 +241,9 @@ class PrivateGit:
 
 
 def configuration(value):
-    exact(value, ('schema', 'data_repo', 'data_sha', 'data_path', 'owner', 'expect_name',
+    require(type(value) is dict)
+    recovery = ('recovery',) if 'recovery' in value else ()
+    exact(value, (*recovery, 'schema', 'data_repo', 'data_sha', 'data_path', 'owner', 'expect_name',
                   'recipient', 'allow_unknown_merge', 'accept_hidden_parent_risk',
                   'accept_private_create_risk', 'expires_at'))
     require(value['schema'] == 1 and type(value['schema']) is int)
@@ -254,7 +259,53 @@ def configuration(value):
     require(type(value['allow_unknown_merge']) is bool)
     require(value['accept_hidden_parent_risk'] is True and value['accept_private_create_risk'] is True)
     require(type(value['expires_at']) is int and 0 < value['expires_at'] < 2 ** 40)
+    if recovery:
+        recovery_config(value['recovery'])
     return value
+
+
+def recovery_config(r):
+    exact(r, ('attempt_id', 'run_id', 'attestation_sha', 'attestation_path',
+              'attestation_digest', 'ciphertext_digest', 'report_digest', 'accept_uncertainty'))
+    require(type(r['attempt_id']) is str and re.fullmatch(r'[a-z0-9][a-z0-9-]{7,47}', r['attempt_id']))
+    require(type(r['run_id']) is str and re.fullmatch(r'[0-9]{1,20}', r['run_id']))
+    require(type(r['attestation_sha']) is str and re.fullmatch(r'[a-f0-9]{40}', r['attestation_sha']))
+    require(type(r['attestation_path']) is str and re.fullmatch(
+        r'(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_.-]+\.json', r['attestation_path'])
+        and '..' not in r['attestation_path'])
+    for key in ('attestation_digest', 'ciphertext_digest', 'report_digest'):
+        require(type(r[key]) is str and re.fullmatch(r'[a-f0-9]{64}', r[key]))
+    require(r['accept_uncertainty'] is True)
+    return r
+
+
+def admit_recovery(store, c, manifest):
+    """Owner-reviewed local decryption attestation, not an age proof in this runner."""
+    r = recovery_config(c['recovery'])
+    raw = store.load_bytes(r['attestation_path'], r['attestation_sha'])
+    require(sha(raw) == r['attestation_digest'])
+    a = decode(raw)
+    exact(a, ('schema', 'kind', 'run_id', 'ciphertext_b64', 'report', 'accept_uncertainty'))
+    require(a['schema'] == 1 and type(a['schema']) is int
+            and a['kind'] == 'locally_decrypted_reconcile_attestation'
+            and a['accept_uncertainty'] is True and a['run_id'] == r['run_id'])
+    require(type(a['ciphertext_b64']) is str)
+    cipher = base64.b64decode(a['ciphertext_b64'], validate=True)
+    require(cipher.startswith(b'age-encryption.org/v1\n') and sha(cipher) == r['ciphertext_digest'])
+    report = a['report']
+    require(type(report) is dict and sha(canonical(report)) == r['report_digest'])
+    require(report.get('run_id') == r['run_id'] and report.get('mode') == 'get_only_reconcile'
+            and report.get('phase') == 'READ_ONLY_COMPLETE' and report.get('stage') == 'complete'
+            and report.get('create_enabled') is False and report.get('owner') == c['owner']
+            and report.get('data_sha') == c['data_sha'] and report.get('data_path') == c['data_path']
+            and report.get('payload_sha256') == sha(canonical(payload(manifest['payload']))))
+    observed = report.get('reconciliation')
+    require(type(observed) is dict and observed.get('observed_profile_ids') == []
+            and observed.get('checked') == [] and observed.get('completeness') == 'UNPROVED'
+            and observed.get('parenthood') == 'UNPROVED')
+    # Select only after every pin and observation check. Legacy refs are never changed.
+    store.marker = 'pilot-parent-consumed-v2-' + sha(canonical({
+        'owner': c['owner'], 'attempt_id': r['attempt_id']}))
 
 
 def merge_clear(value, allow_unknown):
@@ -340,8 +391,12 @@ def execute(config, manifest, client, store, save, clock=time.time, progress=Non
     wire = vendor_payload(approved)
     report = {'schema': 1, 'mode': 'one_time_parent_pilot', 'data_sha': config['data_sha'],
               'data_path': config['data_path'], 'owner': config['owner'],
-              'payload_sha256': sha(canonical(approved)),
-              'wire_payload_sha256': sha(canonical(wire)), 'retry_allowed': False}
+              'wire_payload_sha256': sha(canonical(wire)),
+              'payload_sha256': sha(canonical(approved)), 'retry_allowed': False}
+    if 'recovery' in config:
+        r = config['recovery']
+        report['recovery'] = {k: r[k] for k in (
+            'attempt_id', 'run_id', 'report_digest', 'ciphertext_digest', 'accept_uncertainty')}
     progress.enter('preflight')
     report['preflight'] = preflight(client, config)
     require(clock() < config['expires_at'])
@@ -409,6 +464,9 @@ def run(env, progress=None):
     store = PrivateGit(github, config['data_repo'], config['data_sha'], config['owner'])
     progress.enter('private_source')
     manifest = store.load(config['data_path'])
+    if 'recovery' in config:
+        progress.enter('recovery')
+        admit_recovery(store, config, manifest)
     progress.enter('credential')
     client = HTTPS('www.geni.com', env.get('GENI_SECONDARY_ACCESS_TOKEN', ''),
                    capture_failure=True)

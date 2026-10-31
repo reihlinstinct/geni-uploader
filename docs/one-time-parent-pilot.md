@@ -167,6 +167,34 @@ statuses and Location on other routes, methods, statuses or vendor responses.
 This narrow metadata exception does not change authorization, retry or create
 gates and does not authorize any new run.
 
+## Explicit reconciled recovery namespace (#536)
+
+Legacy consumed and evidence refs remain immutable. There is no reset/delete
+command. An optional recovery config selects a new attempt_id namespace only
+following a separately approved local-decryption attestation and fresh final-go.
+Changing namespaces weakens the owner-global duplicate guard. A hidden/unlinked
+object may already exist even when immediate-family GETs observe no relatives.
+This residual duplicate risk must be named in the final-go. No absence proof is
+claimed and every namespace remains one-shot with the ordinary isolated-root
+live preflight, private receipts and atomic consumption before its sole POST.
+
+The closed recovery object pins attempt_id, run_id, attestation_sha (immutable
+private commit), attestation_path, attestation_digest, ciphertext_digest,
+report_digest and accept_uncertainty=true. Digests are SHA256, with report_digest
+computed over canonical JSON. The immutable private attestation contains schema=1,
+kind=locally_decrypted_reconcile_attestation, run_id, ciphertext_b64, the decrypted
+report and accept_uncertainty=true. It must be prepared by local decryption and
+reviewed by the owner; writing it needs separate private-repository approval.
+
+Runtime reads that file at its exact commit, checks all digests, exact run,
+owner, source and proposal payload pins, READ_ONLY_COMPLETE and zero observed
+related profile IDs/checked profiles. It preserves UNPROVED completeness and
+parenthood. It receives no decryption key: the report/ciphertext correspondence
+is trusted through the owner-reviewed attestation/config, not cryptographically
+proved by runtime decryption. Do not call this an authenticated vendor absence
+proof. A forged owner-approved attestation could bypass this observational check.
+The selected v2 namespace hashes owner plus attempt_id, never a run timestamp or
+random retry identifier. An existing namespace still stops; no automatic fallback.
 ## Wire locale adapter and vendor failure evidence (#534)
 
 The immutable internal proposal keeps he/en intent labels. Only the create wire
