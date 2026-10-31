@@ -50,3 +50,9 @@ The active credential is redacted from retained strings. No other response
 headers/body are retained. Public output remains fixed stage/error wording.
 No retry, redirect, refresh or new route is added. Existing create paths do not
 enable this capture. HTTP status alone does not prove a credential's root cause.
+
+Credential syntax is checked offline at github_credential and
+secondary_credential before transport construction. Missing/malformed values
+stop there with encrypted local evidence, after encryption/output setup succeeds.
+Syntax validity is not authentication: a well-formed but denied credential still
+fails at the actual private_repository or vendor_reads HTTP boundary.

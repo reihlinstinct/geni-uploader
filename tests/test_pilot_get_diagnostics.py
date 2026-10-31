@@ -271,3 +271,36 @@ def test_http_failure_details_bounded_and_encrypted_only(monkeypatch, body, caps
     with pytest.raises(p.TransportStop) as default:
         p.HTTPS('api.github.com', 'ZZ-token', github=True).request('GET', '/repos/zz/zz')
     assert default.value.evidence == {}
+
+
+@pytest.mark.parametrize('key,stage', [('FAMILY_TREE_PAT', 'github_credential'),
+    ('GENI_SECONDARY_ACCESS_TOKEN', 'secondary_credential')])
+@pytest.mark.parametrize('value', [None, '', 'ZZ bad', 'short', 'x' * 4097, 'ZZtoken123\n', 123])
+def test_run_bad_credential_stops_at_named_stage_without_transport(monkeypatch, tmp_path,
+                                                                  key, stage, value):
+    from tests.test_one_time_parent_pilot import pilot_environment
+    env = pilot_environment(tmp_path)
+    c = dict(C, expires_at=2**39)
+    raw = d.canonical(c)
+    env.update(DIAGNOSTIC_CONFIRM='READ_ONLY_NO_CREATE', DIAGNOSTIC_CONFIG_JSON=raw.decode(),
+               DIAGNOSTIC_CONFIG_SHA256=d.sha(raw), DIAGNOSTIC_EXECUTOR_SHA=env['GITHUB_SHA'],
+               DIAGNOSTIC_OUTPUT_DIR=str(tmp_path / 'diagnostic'))
+    if value is None:
+        del env[key]
+    else:
+        env[key] = value
+    reports = []
+    def encrypt(recipient, body):
+        if body != b'diagnostic preflight':
+            reports.append(d.decode(body))
+        return b'age-encryption.org/v1\nZZciphertext'
+    def forbidden(*a, **kw):
+        pytest.fail('transport constructed')
+    monkeypatch.setattr(d, 'encrypt', encrypt)
+    monkeypatch.setattr(d, 'HTTPS', forbidden)
+    progress = {}
+    with pytest.raises(Blocked):
+        d.run(env, progress)
+    assert progress['stage'] == stage and reports[0]['stage'] == stage
+    assert reports[0]['phase'] == 'STOPPED' and reports[0]['create_enabled'] is False
+    assert len(list((tmp_path / 'diagnostic').iterdir())) == 1
