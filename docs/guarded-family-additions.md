@@ -77,3 +77,7 @@ HTTP status class when known. No response body, arbitrary header or exception
 text is copied into this failure summary. Already-captured parsed responses stay
 encrypted as before. Non-transport seam exceptions become a fixed failure code.
 No additional read or retry occurs after a failure.
+
+Remaining names must also differ from verified-child names. A local name match,
+reused prior key, unlisted prior ID, or mismatched prior profile/family readback
+blocks before any send. This guard does not prove remote duplicate absence.

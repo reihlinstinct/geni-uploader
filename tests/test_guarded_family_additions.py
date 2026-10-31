@@ -232,3 +232,40 @@ def test_union_get_transport_failure_retains_read_stage():
     r = g.execute(cfg, io, Store(), lambda r: b'ZZ-cipher', lambda: 200)
     assert r['stage'] == 'read_union' and r['phase'] == 'STOPPED'
     assert r['transport_failure']['status_class'] == '5xx' and len(io.posts) == 1
+
+
+def remaining_fixture():
+    cfg = fixture('siblings')
+    prior = cfg['entries'].pop(0)
+    cfg['children'].append('profile-999009')
+    cfg['verified_children'] = [dict(prior, id='profile-999009')]
+    return cfg, prior
+
+
+@pytest.mark.parametrize('anomaly', ['key', 'id', 'name'])
+def test_invalid_verified_child_plan_rejected_before_reads_or_sends(anomaly):
+    cfg, prior = remaining_fixture()
+    if anomaly == 'key':
+        cfg['entries'][0]['key'] = prior['key']
+    elif anomaly == 'id':
+        cfg['verified_children'][0]['id'] = 'profile-999008'
+    else:
+        cfg['entries'][0]['payload'] = copy.deepcopy(prior['payload'])
+    io = IO(cfg)
+    with pytest.raises(Blocked):
+        g.execute(cfg, io, Store(), lambda r: b'ZZ-cipher', lambda: 200)
+    assert io.posts == [] and io.gets == 0
+
+
+@pytest.mark.parametrize('anomaly', ['payload', 'family'])
+def test_verified_child_readback_mismatch_stops_before_send(anomaly):
+    cfg, prior = remaining_fixture()
+    io = IO(cfg)
+    io.profiles['profile-999009'] = dict(g.vendor_payload(prior['payload']), id='profile-999009')
+    if anomaly == 'payload':
+        io.profiles['profile-999009']['public'] = True
+    else:
+        io.get_family = lambda target: {'focus': {'id': target}, 'nodes': {}}
+    st = Store()
+    r = g.execute(cfg, io, st, lambda r: b'ZZ-cipher', lambda: 200)
+    assert r['phase'] == 'STOPPED' and io.posts == [] and st.consumed == set()
