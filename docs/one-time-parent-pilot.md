@@ -195,3 +195,21 @@ proved by runtime decryption. Do not call this an authenticated vendor absence
 proof. A forged owner-approved attestation could bypass this observational check.
 The selected v2 namespace hashes owner plus attempt_id, never a run timestamp or
 random retry identifier. An existing namespace still stops; no automatic fallback.
+## Wire locale adapter and vendor failure evidence (#534)
+
+The immutable internal proposal keeps he/en intent labels. Only the create wire
+representation maps en to the documented Geni locale en-US, preserving Hebrew
+and all name values, privacy and living status. Encrypted evidence records both
+payload_sha256 (intent) and wire_payload_sha256; readback compares the wire fields.
+See https://www.geni.com/platform/developer/help/locales . This does not prove
+that a locale mismatch caused any prior HTTP 500 and does not authorize a run.
+
+When capture_failure is enabled, a failed Geni response retains numeric status,
+up to 256 printable characters each of JSON error.type/error.message, and decimal
+X-API-Rate-Limit/Remaining/Window values (at most ten digits). Error JSON reads
+are bounded to 4097 bytes and rejected above 4096. The token is redacted before
+truncation and HTTP URLs are replaced. Malformed/oversized error bodies cannot
+replace the original status. These details remain in encrypted evidence only;
+no raw error or rate values are printed publicly. Arbitrary vendor message text
+can contain private data, so it must never be copied to a public issue or log.
+The capture never retries a request or adds a vendor call.

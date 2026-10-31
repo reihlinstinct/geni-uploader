@@ -109,6 +109,26 @@ class HTTPS:
                 evidence = {}
                 if self.capture_failure:
                     evidence['http_status'] = response.status
+                    if not self.github:
+                        for field in ('Limit', 'Remaining', 'Window'):
+                            value = response.getheader('X-API-Rate-' + field)
+                            if type(value) is str and re.fullmatch(r'[0-9]{1,10}', value):
+                                evidence['geni_rate_' + field.lower()] = int(value)
+                        try:
+                            raw = response.read(4097)
+                            if len(raw) <= 4096:
+                                error = decode(raw).get('error')
+                                if type(error) is dict:
+                                    for key in ('type', 'message'):
+                                        value = error.get(key)
+                                        if type(value) is str:
+                                            value = value.replace(self.token, '[REDACTED]')
+                                            value = re.sub(r'https?://[^\s]+', '[URL]', value)
+                                            evidence['geni_error_' + key] = ''.join(
+                                                c for c in value if c.isprintable())[:256]
+                        except (Blocked, OSError, ValueError, TypeError, AttributeError,
+                                http.client.HTTPException):
+                            pass
                     if self.github:
                         def bounded(value):
                             return ''.join(c for c in value.replace(self.token, '[REDACTED]')
@@ -349,6 +369,13 @@ def verify(client, config, created_id, expected):
     return {'object_id': created_id, 'vendor_url': url, 'profile': actual, 'union': union}
 
 
+def vendor_payload(approved):
+    """Internal en is an intent label; Geni documents English as en-US."""
+    approved = payload(approved)
+    return dict(approved, names={'he': dict(approved['names']['he']),
+                                 'en-US': dict(approved['names']['en'])})
+
+
 def execute(config, manifest, client, store, save, clock=time.time, progress=None):
     """Tests inject all effects. The protected action supplies the only live wiring."""
     progress = progress or Progress()
@@ -361,8 +388,10 @@ def execute(config, manifest, client, store, save, clock=time.time, progress=Non
             and manifest['creation_enabled'] is False and manifest['target'] == config['owner'])
     approved = payload(manifest['payload'])
     require(approved['gender'] == 'male' and approved['is_alive'] is True)
+    wire = vendor_payload(approved)
     report = {'schema': 1, 'mode': 'one_time_parent_pilot', 'data_sha': config['data_sha'],
               'data_path': config['data_path'], 'owner': config['owner'],
+              'wire_payload_sha256': sha(canonical(wire)),
               'payload_sha256': sha(canonical(approved)), 'retry_allowed': False}
     if 'recovery' in config:
         r = config['recovery']
@@ -380,7 +409,7 @@ def execute(config, manifest, client, store, save, clock=time.time, progress=Non
     try:
         require(clock() < config['expires_at'])
         progress.enter('send')
-        response = client.request('POST', '/api/' + config['owner'] + '/add-parent', approved)
+        response = client.request('POST', '/api/' + config['owner'] + '/add-parent', wire)
         report['create_response'] = response
         require(type(response) is dict and 'error' not in response)
         created_id = response.get('id')
@@ -393,7 +422,7 @@ def execute(config, manifest, client, store, save, clock=time.time, progress=Non
         store.receipt('ack', save(report))
         require(clock() < config['expires_at'])
         progress.enter('readback')
-        report['readback'] = verify(client, config, created_id, approved)
+        report['readback'] = verify(client, config, created_id, wire)
         report['phase'] = 'VERIFIED'
     except (Blocked, OSError, ValueError, TypeError, KeyError, RecursionError, AttributeError,
                 http.client.HTTPException, subprocess.SubprocessError) as exc:
