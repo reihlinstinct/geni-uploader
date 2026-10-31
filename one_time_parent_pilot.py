@@ -80,6 +80,62 @@ class HTTPS:
         self.host, self.token, self.github = host, token, github
         self.calls, self.last, self.posted = 0, None, False
 
+    def vendor_failure(self, response):
+        # Structural diagnostics only. Never retain arbitrary headers or raw response text.
+        evidence = {}
+        content_type = response.getheader('Content-Type')
+        media = content_type.split(';', 1)[0].strip().lower() if type(content_type) is str else ''
+        evidence['body_media'] = (media if media in (
+            'application/json', 'text/html', 'text/plain') else 'other' if media else 'absent')
+        for field in ('Limit', 'Remaining', 'Window'):
+            value = response.getheader('X-API-Rate-' + field)
+            valid = type(value) is str and re.fullmatch(r'[0-9]{1,10}', value)
+            evidence['geni_rate_' + field.lower() + '_state'] = (
+                'absent' if value is None else 'numeric' if valid else 'invalid')
+            if valid:
+                evidence['geni_rate_' + field.lower()] = int(value)
+        retry = response.getheader('Retry-After')
+        valid_retry = type(retry) is str and re.fullmatch(r'[0-9]{1,10}', retry)
+        evidence['retry_after_state'] = (
+            'absent' if retry is None else 'numeric' if valid_retry else 'other')
+        if valid_retry:
+            evidence['retry_after_seconds'] = int(retry)
+        evidence['request_id_present'] = any(response.getheader(k) is not None for k in (
+            'X-Request-ID', 'X-Correlation-ID'))
+        evidence['body_parse'] = 'read_error'
+        try:
+            raw = response.read(4097)
+            evidence['body_bytes_observed'] = len(raw)
+            evidence['body_over_cap'] = len(raw) > 4096
+            if len(raw) > 4096:
+                evidence['body_parse'] = 'over_cap'
+                return evidence
+            if not raw:
+                evidence['body_parse'] = 'empty'
+                return evidence
+            try:
+                decoded = decode(raw)
+            except (Blocked, ValueError, TypeError, RecursionError):
+                evidence['body_parse'] = 'invalid_json'
+                return evidence
+            evidence['body_parse'] = 'json'
+            error = decoded.get('error') if type(decoded) is dict else None
+            evidence['error_shape'] = (
+                'object' if type(error) is dict else 'other' if type(decoded) is dict
+                and 'error' in decoded else 'absent' if type(decoded) is dict else 'non_object')
+            if type(error) is dict:
+                for key in ('type', 'message'):
+                    value = error.get(key)
+                    if type(value) is str:
+                        value = value.replace(self.token, '[REDACTED]')
+                        value = re.sub(r'https?://[^\s]+', '[URL]', value)
+                        evidence['geni_error_' + key] = ''.join(
+                            c for c in value if c.isprintable())[:256]
+        except (Blocked, OSError, ValueError, TypeError, KeyError, RecursionError,
+                AttributeError, http.client.HTTPException):
+            pass  # The original status remains available even if capture fails.
+        return evidence
+
     def request(self, method, route, body=None):
         require(method in ('GET', 'POST') and type(route) is str and route.startswith('/'))
         require(not any(c in route for c in '\r\n#') and len(route) <= 2048)
@@ -110,25 +166,7 @@ class HTTPS:
                 if self.capture_failure:
                     evidence['http_status'] = response.status
                     if not self.github:
-                        for field in ('Limit', 'Remaining', 'Window'):
-                            value = response.getheader('X-API-Rate-' + field)
-                            if type(value) is str and re.fullmatch(r'[0-9]{1,10}', value):
-                                evidence['geni_rate_' + field.lower()] = int(value)
-                        try:
-                            raw = response.read(4097)
-                            if len(raw) <= 4096:
-                                error = decode(raw).get('error')
-                                if type(error) is dict:
-                                    for key in ('type', 'message'):
-                                        value = error.get(key)
-                                        if type(value) is str:
-                                            value = value.replace(self.token, '[REDACTED]')
-                                            value = re.sub(r'https?://[^\s]+', '[URL]', value)
-                                            evidence['geni_error_' + key] = ''.join(
-                                                c for c in value if c.isprintable())[:256]
-                        except (Blocked, OSError, ValueError, TypeError, AttributeError,
-                                http.client.HTTPException):
-                            pass
+                        evidence.update(self.vendor_failure(response))
                     if self.github:
                         def bounded(value):
                             return ''.join(c for c in value.replace(self.token, '[REDACTED]')
