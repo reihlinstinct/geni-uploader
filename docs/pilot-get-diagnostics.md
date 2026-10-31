@@ -38,3 +38,15 @@ An encryption/setup failure before artifact creation may still have only a fixed
 public stage. Diagnostic completion does not prove create readiness or authorize a
 write. Inspect the encrypted result and report the actual failing stage privately.
 No real provider/network request is made by implementation or tests.
+
+## Bounded encrypted HTTP failures (#520)
+
+Only this GET-only entry point enables failure-detail capture. A non-success
+response retains its numeric HTTP status in encrypted evidence. GitHub errors
+may also retain the error JSON message and X-Accepted-GitHub-Permissions hint,
+each stripped of control characters and capped at 256 characters. Error JSON
+is read once with a 4096-byte limit; malformed or oversized content is omitted.
+The active credential is redacted from retained strings. No other response
+headers/body are retained. Public output remains fixed stage/error wording.
+No retry, redirect, refresh or new route is added. Existing create paths do not
+enable this capture. HTTP status alone does not prove a credential's root cause.

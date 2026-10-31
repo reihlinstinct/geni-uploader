@@ -227,3 +227,47 @@ def test_real_wiring_fake_https_collects_all_five_gets(monkeypatch, tmp_path):
     monkeypatch.setattr(d, 'encrypt', lambda *a: b'age-encryption.org/v1\nZZciphertext')
     assert d.run(environment(tmp_path), {}) is True
     assert len(calls) == 5 and all(method == 'GET' and body is None for method, _, body in calls)
+
+
+@pytest.mark.parametrize('body', [b'{"message":"ZZ-denied"}', b'ZZbad', b'x' * 4097])
+def test_http_failure_details_bounded_and_encrypted_only(monkeypatch, body, capsys):
+    import one_time_parent_pilot as p
+    reads = []
+    class Response:
+        status = 403
+        def getheader(self, name):
+            return 'contents=read;ZZ-token\n' + 'x' * 400
+        def read(self, size):
+            reads.append(size)
+            return body
+    class Connection:
+        def __init__(self, *a, **kw):
+            pass
+        def request(self, *a, **kw):
+            pass
+        def getresponse(self):
+            return Response()
+        def close(self):
+            pass
+    monkeypatch.setattr(p.http.client, 'HTTPSConnection', Connection)
+    with pytest.raises(p.TransportStop) as exc:
+        p.HTTPS('api.github.com', 'ZZ-token', github=True,
+                capture_failure=True).request('GET', '/repos/zz/zz')
+    e = exc.value
+    assert str(e) == 'response_status' and e.evidence['http_status'] == 403
+    assert reads == [4097]
+    assert len(e.evidence['github_permissions_hint']) == 256
+    assert 'ZZ-token' not in str(e.evidence) and '\n' not in str(e.evidence)
+    assert ('github_message' in e.evidence) == (body.startswith(b'{'))
+    gh, vendor, _ = clients()
+    monkeypatch.setattr(gh, 'request', lambda *a: (_ for _ in ()).throw(e))
+    saved = []
+    r = d.diagnose(C, gh, vendor, saved.append, lambda: 200)
+    assert r['http_failure'] == e.evidence and saved == [r]
+    assert not vendor.seen and capsys.readouterr().out == ''
+    monkeypatch.setattr(d, 'run', lambda *a: (_ for _ in ()).throw(e))
+    assert d.main() == 1
+    assert '403' not in capsys.readouterr().out
+    with pytest.raises(p.TransportStop) as default:
+        p.HTTPS('api.github.com', 'ZZ-token', github=True).request('GET', '/repos/zz/zz')
+    assert default.value.evidence == {}
