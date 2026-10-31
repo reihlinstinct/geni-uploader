@@ -22,7 +22,8 @@ ERRORS = (Blocked, OSError, ValueError, TypeError, KeyError, RecursionError, Att
 def configuration(c):
     exact(c, ('schema', 'mode', 'data_repo', 'data_sha', 'data_path', 'owner',
               'expect_name', 'recipient', 'allow_unknown_merge', 'expires_at'))
-    require(type(c['schema']) is int and c['schema'] == 1 and c['mode'] == 'get_only_diagnostic')
+    require(type(c['schema']) is int and c['schema'] == 1 and c['mode'] in (
+        'get_only_diagnostic', 'get_only_reconcile'))
     require(type(c['data_repo']) is str and re.fullmatch(
         r'[A-Za-z0-9_-]{1,100}/[A-Za-z0-9_-]{1,100}', c['data_repo']))
     require(type(c['data_sha']) is str and re.fullmatch(r'[a-f0-9]{40}', c['data_sha']))
@@ -71,7 +72,7 @@ def diagnose(c, github, vendor, save, clock=time.time):
     """Every network dependency must already be wrapped in GetOnly."""
     require(type(github) is GetOnly and type(vendor) is GetOnly)
     c = configuration(c)
-    report = {'schema': 1, 'mode': 'get_only_diagnostic', 'phase': 'STOPPED',
+    report = {'schema': 1, 'mode': c['mode'], 'phase': 'STOPPED',
               'stage': 'private_repository', 'data_sha': c['data_sha'],
               'data_path': c['data_path'], 'owner': c['owner'], 'create_enabled': False}
     prefix, source, _ = routes(c)
@@ -96,7 +97,10 @@ def diagnose(c, github, vendor, save, clock=time.time):
         report['payload_sha256'] = sha(canonical(approved))
         report['stage'] = 'vendor_reads'
         require(clock() < c['expires_at'])
-        report['preflight'] = preflight(vendor, c)
+        if c['mode'] == 'get_only_reconcile':
+            reconcile(vendor, c, approved, report, clock)
+        else:
+            report['preflight'] = preflight(vendor, c)
         require(clock() < c['expires_at'])
         report['phase'], report['stage'] = 'READ_ONLY_COMPLETE', 'complete'
     except ERRORS as exc:
@@ -105,6 +109,56 @@ def diagnose(c, github, vendor, save, clock=time.time):
             report['http_failure'] = exc.evidence
     save(report)
     return report
+
+
+def reconcile(vendor, c, approved, report, clock):
+    """Bounded immediate-family observations, not creation/completeness proof."""
+    from one_time_parent_pilot import FIELDS, get_profile
+    from parent_probe import profile
+    owner = c['owner']
+    def locale_keys(value):
+        names = value.get('names', {})
+        require(type(names) is dict and len(names) <= 20)
+        require(all(type(k) is str and re.fullmatch(r'[a-z]{2,3}(?:-[A-Za-z]{2,4})?', k)
+                    for k in names))
+        return sorted(names)
+    report['root_name_locales'] = []
+    for route in ('profile', owner):
+        require(clock() < c['expires_at'])
+        root = profile(get_profile(vendor, route), owner, c['expect_name'],
+                       allow_unknown_merge=c['allow_unknown_merge'])
+        report['root_name_locales'].append(locale_keys(root))
+    require(clock() < c['expires_at'])
+    family = vendor.request('GET', '/api/' + owner + '/immediate-family?only_ids=true')
+    require(type(family) is dict and set(family) <= {'focus', 'nodes'})
+    profile(family.get('focus'), owner, c['expect_name'],
+            allow_unknown_merge=c['allow_unknown_merge'])
+    nodes = family.get('nodes')
+    require(type(nodes) is dict and len(nodes) <= 20)
+    for key, value in nodes.items():
+        require(type(key) is str and re.fullmatch(r'(?:profile|union)-[0-9]{1,30}', key)
+                and type(value) is dict and value.get('id') == key)
+    ids = sorted(key for key in nodes if key.startswith('profile-') and key != owner)
+    report['reconciliation'] = {'observed_profile_ids': ids, 'checked': [],
+        'completeness': 'UNPROVED', 'parenthood': 'UNPROVED'}
+    require(len(ids) <= 8)  # no graph traversal or pagination
+    def name(value):
+        require(type(value) is dict)
+        parts = [value.get(k, '') for k in ('first_name', 'middle_name', 'last_name')]
+        require(all(type(v) is str and len(v) <= 256 for v in parts))
+        return ' '.join(' '.join(parts).split()).casefold()
+    expected = {name(approved)}
+    expected.update(name(v) for v in approved.get('names', {}).values())
+    for node in ids:
+        route = '/api/' + node + '?fields=' + FIELDS + '&only_ids=true'
+        vendor.routes = vendor.routes | {route}  # only validated immediate-family IDs
+        require(clock() < c['expires_at'])
+        actual = vendor.request('GET', route)
+        require(type(actual) is dict and actual.get('id') == node and 'error' not in actual
+                and not any(k in actual for k in ('next_page', 'paging', 'pagination')))
+        # A name match is only a candidate, never proof of this write or relationship.
+        report['reconciliation']['checked'].append({'id': node,
+            'name_match': name(actual) in expected, 'name_locales': locale_keys(actual)})
 
 
 def run(env, progress):
@@ -121,6 +175,7 @@ def run(env, progress):
             and env.get('GITHUB_TRIGGERING_ACTOR') == 'reihlinstinct')
     raw = env.get('DIAGNOSTIC_CONFIG_JSON', '').encode()
     c = configuration(decode(raw))
+    require(c['mode'] == env.get('DIAGNOSTIC_MODE', 'get_only_diagnostic'))
     require(env.get('DIAGNOSTIC_CONFIG_SHA256') == sha(raw)
             and env.get('DIAGNOSTIC_EXECUTOR_SHA') == env.get('GITHUB_SHA')
             and re.fullmatch(r'[a-f0-9]{40}', env.get('GITHUB_SHA', '')))
@@ -153,7 +208,7 @@ def run(env, progress):
         stage(report['stage'])
         return report['phase'] == 'READ_ONLY_COMPLETE'
     except ERRORS as exc:
-        save({'schema': 1, 'mode': 'get_only_diagnostic', 'phase': 'STOPPED',
+        save({'schema': 1, 'mode': c['mode'], 'phase': 'STOPPED',
               'stage': progress['stage'], 'create_enabled': False,
               'failure_code': exc.code if isinstance(exc, TransportStop) else 'validation_or_setup',
               **({'http_failure': exc.evidence} if isinstance(exc, TransportStop)
