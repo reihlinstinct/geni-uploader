@@ -49,7 +49,10 @@ class GetOnly:
         require(method == 'GET' and body is None and route in self.routes and route not in self.seen)
         self.seen.add(route)  # consume before construction; no retry even on failure
         if self.transport is None:
-            self.transport = self.factory(self.host, self.token, github=self.host == 'api.github.com')
+            options = {'github': self.host == 'api.github.com'}
+            if self.factory is HTTPS:
+                options['capture_failure'] = True
+            self.transport = self.factory(self.host, self.token, **options)
         return self.transport.request('GET', route)
 
 
@@ -98,6 +101,8 @@ def diagnose(c, github, vendor, save, clock=time.time):
         report['phase'], report['stage'] = 'READ_ONLY_COMPLETE', 'complete'
     except ERRORS as exc:
         report['failure_code'] = exc.code if isinstance(exc, TransportStop) else 'validation_or_setup'
+        if isinstance(exc, TransportStop) and exc.evidence:
+            report['http_failure'] = exc.evidence
     save(report)
     return report
 
@@ -146,7 +151,9 @@ def run(env, progress):
     except ERRORS as exc:
         save({'schema': 1, 'mode': 'get_only_diagnostic', 'phase': 'STOPPED',
               'stage': progress['stage'], 'create_enabled': False,
-              'failure_code': exc.code if isinstance(exc, TransportStop) else 'validation_or_setup'})
+              'failure_code': exc.code if isinstance(exc, TransportStop) else 'validation_or_setup',
+              **({'http_failure': exc.evidence} if isinstance(exc, TransportStop)
+                 and exc.evidence else {})})
         raise
 
 

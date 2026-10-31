@@ -22,10 +22,11 @@ STAGES = frozenset(('setup', 'config', 'manifest', 'output', 'github_credential'
 
 class TransportStop(Blocked):
     """Fixed non-identifying diagnostics only; never response values or exceptions."""
-    def __init__(self, code):
+    def __init__(self, code, *, evidence=None):
         require(code in ('transport_unavailable', 'response_oversize', 'response_deadline',
                          'response_status', 'response_redirect', 'response_malformed'))
         self.code = code
+        self.evidence = evidence or {}
         super().__init__(code)
 
 
@@ -62,9 +63,10 @@ def sha(value):
 
 class HTTPS:
     """Fixed host, bounded body, no redirects/proxy/refresh/retry or raw exceptions."""
-    def __init__(self, host, token, *, github=False):
+    def __init__(self, host, token, *, github=False, capture_failure=False):
         require(host == ('api.github.com' if github else 'www.geni.com'))
         require(type(token) is str and re.fullmatch(r'[A-Za-z0-9._~-]{8,4096}', token))
+        self.capture_failure = capture_failure
         self.host, self.token, self.github = host, token, github
         self.calls, self.last, self.posted = 0, None, False
 
@@ -94,7 +96,26 @@ class HTTPS:
                            headers=headers)
             response = client.getresponse()
             if not 200 <= response.status < 300:
-                raise TransportStop('response_status')
+                evidence = {}
+                if self.capture_failure:
+                    evidence['http_status'] = response.status
+                    if self.github:
+                        def bounded(value):
+                            return ''.join(c for c in value.replace(self.token, '[REDACTED]')
+                                           if c.isprintable())[:256]
+                        hint = response.getheader('X-Accepted-GitHub-Permissions')
+                        if type(hint) is str:
+                            evidence['github_permissions_hint'] = bounded(hint)
+                        try:
+                            raw = response.read(4097)
+                            if len(raw) <= 4096:
+                                message = decode(raw).get('message')
+                                if type(message) is str:
+                                    evidence['github_message'] = bounded(message)
+                        except (Blocked, OSError, ValueError, TypeError, AttributeError,
+                                http.client.HTTPException):
+                            pass  # original status must survive malformed error content
+                raise TransportStop('response_status', evidence=evidence)
             if response.getheader('Location') or response.getheader('Link'):
                 raise TransportStop('response_redirect')
             # Per-read socket timeout is supplemented by a whole-response deadline.
