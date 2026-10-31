@@ -126,7 +126,12 @@ class HTTPS:
                                 http.client.HTTPException):
                             pass  # original status must survive malformed error content
                 raise TransportStop('response_status', evidence=evidence)
-            if response.getheader('Location') or response.getheader('Link'):
+            # 201 creation metadata is not a redirect. Never follow its value.
+            created_metadata = (self.github and method == 'POST' and response.status == 201
+                and re.fullmatch(r'/repos/[A-Za-z0-9_-]{1,100}/[A-Za-z0-9_-]{1,100}/git/(?:tags|refs)',
+                                 route))
+            if response.getheader('Link') or (response.getheader('Location')
+                                              and not created_metadata):
                 raise TransportStop('response_redirect', evidence=(
                     {'http_status': response.status,
                      'location_present': bool(response.getheader('Location')),
