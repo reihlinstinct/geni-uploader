@@ -14,3 +14,4 @@ PILOT_GET_DIAGNOSTIC_JSON # workflow secret name; injected into the diagnostic a
 PILOT_PRIVATE_EVIDENCE_WRITER # create-workflow secret mapped into FAMILY_TREE_PAT; not a code-read env name
 
 PILOT_GET_RECONCILE_JSON # Protected workflow secret mapped to DIAGNOSTIC_CONFIG_JSON, never read directly by Python.
+PILOT_GET_MATCHES_JSON # Protected workflow secret mapped to DIAGNOSTIC_CONFIG_JSON, not a Python environment read.

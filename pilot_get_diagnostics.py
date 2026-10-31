@@ -23,10 +23,15 @@ def configuration(c):
     exact(c, ('schema', 'mode', 'data_repo', 'data_sha', 'data_path', 'owner',
               'expect_name', 'recipient', 'allow_unknown_merge', 'expires_at',
               *(('created_id', 'union_id') if c.get('mode') == 'get_only_verify' else ()),
+              *(('discovery_id',) if c.get('mode') == 'get_only_matches' else ()),
               *(('target_payload', 'expected_parents', 'expected_children')
                 if 'target_payload' in c else ())))
     require(type(c['schema']) is int and c['schema'] == 1 and c['mode'] in (
-        'get_only_diagnostic', 'get_only_reconcile', 'get_only_verify'))
+        'get_only_diagnostic', 'get_only_reconcile', 'get_only_verify', 'get_only_matches'))
+    if c['mode'] == 'get_only_matches':
+        require(type(c['discovery_id']) is str
+                and re.fullmatch(r'profile-[0-9]{1,30}', c['discovery_id'])
+                and c['discovery_id'] != c['owner'])
     if c['mode'] == 'get_only_verify':
         require(type(c['created_id']) is str and re.fullmatch(r'profile-[0-9]{1,30}', c['created_id'])
                 and c['created_id'] != c['owner'])
@@ -79,6 +84,10 @@ def routes(c):
     source = prefix + '/contents/' + urllib.parse.quote(c['data_path'], safe='/') + '?ref=' + c['data_sha']
     # Reuse the same fixed field list as the reviewed read preflight, not create/receipt logic.
     from one_time_parent_pilot import FIELDS
+    if c['mode'] == 'get_only_matches':
+        return prefix, source, [
+            '/api/' + c['discovery_id'] + '?fields=' + MATCH_FIELDS + '&only_ids=true',
+            '/api/' + c['discovery_id'] + '/tree_matches?only_ids=true']
     if c['mode'] == 'get_only_verify':
         return prefix, source, ['/api/' + c['created_id'] + '?fields=' + FIELDS + '&only_ids=true',
                                 '/api/' + c['union_id'] + '?only_ids=true',
@@ -119,7 +128,9 @@ def diagnose(c, github, vendor, save, clock=time.time):
         report['payload_sha256'] = sha(canonical(approved))
         report['stage'] = 'vendor_reads'
         require(clock() < c['expires_at'])
-        if c['mode'] == 'get_only_verify':
+        if c['mode'] == 'get_only_matches':
+            discover_matches(vendor, c, report, save, clock)
+        elif c['mode'] == 'get_only_verify':
             verify_read_only(vendor, c, approved, report, save, clock)
         elif c['mode'] == 'get_only_reconcile':
             reconcile(vendor, c, approved, report, clock)
@@ -133,6 +144,36 @@ def diagnose(c, github, vendor, save, clock=time.time):
             report['http_failure'] = exc.evidence
     save(report)
     return report
+
+
+MATCH_FIELDS = ('id,guid,name,profile_url,public,managers,merge_pending,merged_into,'
+                'requested_merges,unions')
+
+
+def discover_matches(vendor, c, report, save, clock):
+    """Two fixed reads only; capture unknown schemas without candidate traversal."""
+    import copy
+
+    report['discovery'] = {'responses': {}, 'identity': 'UNPROVED',
+                           'duplicate_absence': 'UNPROVED'}
+    evidence = report['discovery']['responses']
+    for label, route in zip(('profile', 'matches'), routes(c)[2]):
+        require(clock() < c['expires_at'])
+        evidence[label] = vendor.request('GET', route)
+        save(copy.deepcopy(report))
+        value = evidence[label]
+        require(len(canonical(value)) <= 262144)
+        if label == 'profile':
+            require(type(value) is dict and value.get('id') == c['discovery_id']
+                    and 'error' not in value)
+        else:
+            # No undocumented nested schema assumptions or automatic follow-up.
+            entries = value if type(value) is list else (
+                value.get('results') if type(value) is dict else None)
+            require(type(entries) is list and len(entries) <= 20
+                    and all(type(v) is dict and 'error' not in v for v in entries))
+            require(type(value) is list or (set(value) <= {'results'}))
+    report['discovery']['candidate_count'] = len(entries)
 
 
 def verify_read_only(vendor, c, approved, report, save, clock):
@@ -282,7 +323,7 @@ def run(env, progress):
                       recorded_at=int(time.time()))
         ciphertext = encrypt(c['recipient'], canonical(report))
         filename = ('diagnostic-' + str(save_count) + '.age'
-                    if c['mode'] == 'get_only_verify' else 'diagnostic.age')
+                    if c['mode'] in ('get_only_verify', 'get_only_matches') else 'diagnostic.age')
         save_count += 1
         fd = os.open(output / filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, 'wb') as f:
