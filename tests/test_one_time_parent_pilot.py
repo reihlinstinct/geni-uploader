@@ -32,9 +32,9 @@ class Client:
                 raise OSError('ZZ-SENTINEL')
             if self.change == 'malformed':
                 return {'not_id': 'ZZ-SENTINEL'}
-            return {'id': FATHER, **BODY, 'ZZ-extra-provider-field': 'ZZ-SENTINEL'}
+            return {'id': FATHER, **p.vendor_payload(BODY), 'ZZ-extra-provider-field': 'ZZ-SENTINEL'}
         if route.startswith('/api/' + FATHER):
-            result = {'id': FATHER, **copy.deepcopy(BODY), 'unions': [UNION],
+            result = {'id': FATHER, **p.vendor_payload(copy.deepcopy(BODY)), 'unions': [UNION],
                       'profile_url': 'https://www.geni.com/zz-invented',
                       'url': 'https://www.geni.com/api/' + FATHER}
             if self.change == 'privacy':
@@ -98,7 +98,7 @@ def test_full_profile_response_persisted_before_readback_and_verified():
     assert result == 'VERIFIED' and store.consumed
     assert store.receipts == ['before', 'ack', 'final']
     assert [x[0] for x in client.calls] == ['GET', 'GET', 'GET', 'POST', 'GET', 'GET']
-    assert client.calls[3] == ('POST', '/api/' + OWNER + '/add-parent', BODY)
+    assert client.calls[3] == ('POST', '/api/' + OWNER + '/add-parent', p.vendor_payload(BODY))
     assert reports[0]['preflight']['merge_evidence'] == ['UNKNOWN'] * 3
     assert reports[-1]['object_id'] == FATHER
     assert reports[-1]['create_response']['ZZ-extra-provider-field'] == 'ZZ-SENTINEL'
@@ -247,13 +247,13 @@ def test_transport_fixed_host_bound_body_no_redirect_or_retry(monkeypatch, kind)
     monkeypatch.setattr(p.time, 'sleep', lambda _: None)
     client = p.HTTPS('www.geni.com', 'ZZ-token')
     if kind == 'normal':
-        assert client.request('POST', '/api/' + OWNER + '/add-parent', BODY)['id'] == FATHER
+        assert client.request('POST', '/api/' + OWNER + '/add-parent', p.vendor_payload(BODY))['id'] == FATHER
     else:
         with pytest.raises(p.TransportStop):
-            client.request('POST', '/api/' + OWNER + '/add-parent', BODY)
+            client.request('POST', '/api/' + OWNER + '/add-parent', p.vendor_payload(BODY))
     assert len([x for x in seen if x[0] == 'request']) == 1 and closed == [True]
     with pytest.raises(Blocked):
-        client.request('POST', '/api/' + OWNER + '/add-parent', BODY)
+        client.request('POST', '/api/' + OWNER + '/add-parent', p.vendor_payload(BODY))
     if kind in ('redirect', 'link', 'status'):
         assert not any(x[0] == 'read' for x in seen)
     if kind == 'oversize':
@@ -709,3 +709,67 @@ def test_creation_location_narrow_exception_never_follows(monkeypatch, github, m
         assert 'zz.invalid' not in str(exc.value.evidence)
         assert reads == ([4097] if status >= 300 else [])
     assert len(calls) == 1 and calls[0][:2] == (method, route) and closed == [True]
+
+
+def test_wire_locale_adapter_preserves_intent_and_separate_hashes():
+    original = copy.deepcopy(BODY)
+    wire = p.vendor_payload(BODY)
+    assert BODY == original and set(wire['names']) == {'en-US', 'he'}
+    assert wire['names']['he'] == BODY['names']['he']
+    assert wire['names']['en-US'] == BODY['names']['en']
+    assert {k:v for k,v in wire.items() if k != 'names'} == {
+        k:v for k,v in BODY.items() if k != 'names'}
+    wire['names']['he']['first_name'] = 'ZZ-changed'
+    assert BODY == original
+    result, _client, _store, reports = run()
+    assert result == 'VERIFIED'
+    assert reports[-1]['payload_sha256'] == p.sha(p.canonical(BODY))
+    assert reports[-1]['wire_payload_sha256'] == p.sha(p.canonical(p.vendor_payload(BODY)))
+    assert reports[-1]['payload_sha256'] != reports[-1]['wire_payload_sha256']
+
+
+@pytest.mark.parametrize('kind', ['good', 'badjson', 'oversize', 'wrongtypes', 'timeout'])
+def test_vendor_error_capture_bounded_redacted_local_only(monkeypatch, kind):
+    token = 'ZZ-token'
+    calls, closed = [], []
+    class Response:
+        status = 500
+        def getheader(self, name):
+            return {'X-API-Rate-Limit':'10', 'X-API-Rate-Remaining':'0',
+                    'X-API-Rate-Window':'60'}.get(name)
+        def read(self, size):
+            assert size == 4097
+            if kind == 'timeout':
+                raise TimeoutError('ZZ-private')
+            if kind == 'badjson':
+                return b'ZZbad'
+            if kind == 'oversize':
+                return b'Z'*4097
+            if kind == 'wrongtypes':
+                return p.canonical({'error':{'type':42, 'message':[]}})
+            return p.canonical({'error':{'type':'ApiException',
+                'message':token+' https://zz.invalid/ZZ-private\n'+'Z'*1000}})
+    class Connection:
+        def __init__(self, *a, **kw):
+            pass
+        def request(self, *a, **kw):
+            calls.append(a)
+        def getresponse(self):
+            return Response()
+        def close(self):
+            closed.append(True)
+    monkeypatch.setattr(p.http.client, 'HTTPSConnection', Connection)
+    with pytest.raises(p.TransportStop) as exc:
+        p.HTTPS('www.geni.com', token, capture_failure=True).request(
+            'POST', '/api/profile-999001/add-parent', p.vendor_payload(BODY))
+    e = exc.value.evidence
+    assert exc.value.code == 'response_status' and e['http_status'] == 500
+    assert e['geni_rate_limit'] == 10 and e['geni_rate_remaining'] == 0 and e['geni_rate_window'] == 60
+    assert token not in str(e) and 'zz.invalid' not in str(e)
+    if kind == 'good':
+        assert e['geni_error_type'] == 'ApiException'
+        assert len(e['geni_error_message']) <= 256
+        assert '[REDACTED]' in e['geni_error_message'] and '[URL]' in e['geni_error_message']
+    else:
+        assert 'geni_error_message' not in e
+    assert len(calls) == 1 and closed == [True]
