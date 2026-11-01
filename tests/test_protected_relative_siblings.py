@@ -316,3 +316,39 @@ def test_workflow_gate_is_a_single_conjunction_of_every_admission_term():
         "inputs.confirm == 'CREATE_APPROVED_RELATIVE_SIBLINGS'",
     }
 
+
+
+def test_pending_latch_requires_exact_spouse_boundary_proof():
+    from tests.test_bounded_parent_addition import SPOUSE
+    from tests.test_guarded_family_additions import Store
+    c = plan()
+    c['external_edges'] = {SPOUSE: {'union-991088': 'child'}}
+    v, model, calls = wired(c)
+    r = p.core.execute(c, p.IO(v), Store(), lambda _: b'ZZ-cipher', lambda: 200)
+    assert r['phase'] == 'VERIFIED' and len(model.posts) == 2 and not v.pending
+    assert all('/api/union-991088' not in route for _, route, _ in calls)
+
+
+@pytest.mark.parametrize('change', ['missing', 'wrong_role', 'extra'])
+def test_corrupted_cached_boundary_never_reopens_latch(change):
+    from tests.test_bounded_parent_addition import SPOUSE
+    c = plan()
+    c['external_edges'] = {SPOUSE: {'union-991088': 'child'}}
+    v, model, calls = wired(c)
+    io = p.IO(v)
+    io.add_sibling(ANCHOR, p.core.parent.vendor_parent_payload(c['entries'][0]['payload']))
+    io.get_family(ANCHOR)
+    io.get_family(v.created[-1])
+    edges = io.anchor_after['nodes'][SPOUSE]['edges']
+    if change == 'missing':
+        del edges['union-991088']
+    elif change == 'wrong_role':
+        edges['union-991088'] = {'rel': 'partner'}
+    else:
+        edges['union-991089'] = {'rel': 'child'}
+    count = len(calls)
+    with pytest.raises(p.Blocked):
+        io.get_union(PARENTS)
+    assert len(calls) == count and v.pending and len(model.posts) == 1
+    with pytest.raises(p.Blocked):
+        io.add_sibling(ANCHOR, p.core.parent.vendor_parent_payload(c['entries'][1]['payload']))
