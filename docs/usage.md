@@ -36,7 +36,8 @@ the image, printed, or committed:
 - GitHub token (read+write on your data repo): save in `~/.gh-token`,
   mode 600. Mounted at `/run/gh-token`. Inside the container it reaches
   git only through an ask-pass helper that answers github.com prompts
-  exclusively; interactive prompts are disabled.
+  exclusively; interactive prompts are disabled. The entrypoint reads it
+  from `GH_TOKEN_FILE` (default `/run/gh-token`).
 - Geni access token: save in `~/.geni-token`, mode 600 (see
   docs/geni-token.md). Mounted at `/run/geni-token`.
 
@@ -144,6 +145,12 @@ Rules enforced by the loader (it fails loudly, before any network call):
       --token-file /run/geni-token plan \
       --manifest packages/my-batch/upload-manifest.yaml
 
+Set `GENI_PLAN_REPORT` to a file path to also write a value-free,
+machine-readable plan report (counts and check statuses only, never
+manifest values); a new run deletes any stale report at that path first,
+and a failed plan writes a report with `complete: false`. Only a report
+that itself fails validation or cannot be written is removed.
+
 `plan` performs only GET requests: it loads the manifest, checks every
 referenced file, fetches each profile and its document/photo listings,
 verifies the expected name, and reports which items would upload and
@@ -243,6 +250,26 @@ status-file push back to the repo failed (the next run retries the sync);
   status commit failed (read-only GitHub token or a moved remote). The
   next run retries the sync.
 
+## Diagnostic subcommands
+
+Read-only diagnostics, run directly against the pinned uploader in the image
+(or a checkout). All take the global `--token-file`; all but `auth-url` and
+`whoami` require `--manifest`:
+
+```
+python geni_upload.py --token-file <private-file> auth-url --client-id <app-id>
+python geni_upload.py --token-file <private-file> whoami
+python geni_upload.py --token-file <private-file> contrast --manifest <file>
+python geni_upload.py --token-file <private-file> guidmap --manifest <file>
+python geni_upload.py --token-file <private-file> pguid --manifest <file>
+python geni_upload.py --token-file <private-file> listing-shape --manifest <file>
+```
+
+`auth-url` prints the OAuth authorization URL (`--redirect-uri` only when your
+app settings define a callback URL). `whoami` prints the token's user shape.
+`contrast`, `guidmap`, `pguid` and `listing-shape` are read-only diagnostics
+for the allowlisted listing endpoints.
+
 ## 9. Revoking access when you are done
 
 - Geni: remove the application in your Geni account settings
@@ -270,6 +297,14 @@ the user's manual citations). The top level has `schema_version: 1` and `items`.
 No webpage GUID is guessed as a source node ID. Empty or mismatched reads stop.
 
 Run `python source_details.py validate --manifest <file>` offline first.
+All four metadata modes have container aliases: `details-validate`,
+`details-plan`, `details-repair` and `details-snapshot`.
+`details-snapshot` also requires `--output <private-file>` for the
+allowlisted-field export, and refuses to run without it. `details-repair`
+requires `--state <durable-path>` for its flock-protected checkpoint
+journal, and `--sync-state` commits the pending checkpoint to the private
+git data branch before any mutation.
+
 Container metadata modes must be the first argument, before `--token-file`,
 so the entrypoint selects the metadata CLI. For example:
 `<pinned-image> details-plan --token-file /run/geni-token --manifest <file>`.

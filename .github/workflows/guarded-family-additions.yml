@@ -1,0 +1,68 @@
+name: Guarded family additions (protected)
+on:
+  workflow_dispatch:
+    inputs:
+      executor_sha:
+        description: Exact reviewed executor commit, matching master
+        required: true
+        type: string
+      config_sha256:
+        description: Exact approved private config SHA256 (no identifying values)
+        required: true
+        type: string
+      debug:
+        description: Required structural read-error diagnostics encrypted only
+        required: true
+        default: true
+        type: boolean
+      confirm:
+        description: Type CREATE_APPROVED_FAMILY_ADDITIONS; no retries or other changes
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: one-time-parent-pilot
+  cancel-in-progress: false
+jobs:
+  pilot:
+    if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && github.sha == inputs.executor_sha && github.actor == 'reihlinstinct' && github.triggering_actor == 'reihlinstinct' && github.run_attempt == 1 && inputs.debug == true && inputs.confirm == 'CREATE_APPROVED_FAMILY_ADDITIONS' }}
+    environment: father-create
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Install reviewed age release
+        env:
+          AGE_VERSION: v1.3.2
+          AGE_SHA256: cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/FiloSottile/age/releases/download/${AGE_VERSION}/age-${AGE_VERSION}-linux-amd64.tar.gz" -o "$RUNNER_TEMP/age.tgz"
+          echo "${AGE_SHA256}  $RUNNER_TEMP/age.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/age.tgz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/age" >> "$GITHUB_PATH"
+      - name: Exact guarded family additions
+        env:
+          FAMILY_DEBUG: ${{ inputs.debug && '1' || '0' }}
+          FAMILY_CONFIG_JSON: ${{ secrets.GUARDED_FAMILY_ADDITIONS_JSON }}
+          FAMILY_TREE_PAT: ${{ secrets.PILOT_PRIVATE_EVIDENCE_WRITER }}
+          GENI_SECONDARY_ACCESS_TOKEN: ${{ secrets.GENI_SECONDARY_ACCESS_TOKEN }}
+          FAMILY_EXECUTOR_SHA: ${{ inputs.executor_sha }}
+          FAMILY_CONFIG_SHA256: ${{ inputs.config_sha256 }}
+          FAMILY_CONFIRM: ${{ inputs.confirm }}
+          FAMILY_OUTPUT_DIR: ${{ runner.temp }}/family-evidence
+        run: |
+          set +x
+          PYTHONPATH=src python3 protected_family_additions.py
+      - name: Retain encrypted evidence even on uncertain outcome
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: guarded-family-evidence
+          path: ${{ runner.temp }}/family-evidence/*.age
+          if-no-files-found: ignore
+          retention-days: 1

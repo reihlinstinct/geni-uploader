@@ -11,6 +11,7 @@ from contextlib import ExitStack
 from pathlib import Path
 from urllib.parse import urlsplit
 
+import cli_spec
 import geni_upload as api
 import plan_report
 
@@ -437,14 +438,19 @@ def snapshot(items, token, output):
 
 
 def main():
+    # All user-facing text comes from cli_spec, the single source of truth that
+    # also feeds the man pages (issue #515). Only parser mechanics live here.
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=["validate", "plan", "repair", "snapshot"])
-    parser.add_argument("--manifest", required=True)
-    parser.add_argument("--token-file")
-    parser.add_argument("--confirm", default="")
-    parser.add_argument("--output")
-    parser.add_argument("--state")
-    parser.add_argument("--sync-state", action="store_true")
+    parser.add_argument("mode", choices=["validate", "plan", "repair", "snapshot"],
+                        help=cli_spec.DETAILS_MODE_HELP)
+    parser.add_argument("--manifest", required=True,
+                        help=cli_spec.details_opt("--manifest").help)
+    parser.add_argument("--token-file", help=cli_spec.details_opt("--token-file").help)
+    parser.add_argument("--confirm", default="", help=cli_spec.details_opt("--confirm").help)
+    parser.add_argument("--output", help=cli_spec.details_opt("--output").help)
+    parser.add_argument("--state", help=cli_spec.details_opt("--state").help)
+    parser.add_argument("--sync-state", action="store_true",
+                        help=cli_spec.details_opt("--sync-state").help)
     args = parser.parse_args()
     stack = ExitStack()
     summary = plan_report.report("details-plan")
