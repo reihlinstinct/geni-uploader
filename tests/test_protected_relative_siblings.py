@@ -243,3 +243,52 @@ def test_get_error_structure_is_private_and_post_body_not_forwarded():
     with pytest.raises(p.parent.TransportStop) as caught:
         io.add_sibling(ANCHOR, p.core.parent.vendor_parent_payload(c['entries'][0]['payload']))
     assert 'debug' not in caught.value.evidence and 'http_status' not in caught.value.evidence
+
+
+
+@pytest.mark.parametrize('key,value', [('RELATIVE_DEBUG', 'false'), ('GITHUB_RUN_ATTEMPT', '2'),
+    ('GITHUB_EVENT_NAME', 'push'), ('GITHUB_REPOSITORY', 'ZZ-owner/ZZ-other'),
+    ('GITHUB_REF', 'refs/heads/ZZ'), ('GITHUB_ACTOR', 'ZZ'),
+    ('GITHUB_TRIGGERING_ACTOR', 'ZZ'), ('RELATIVE_EXECUTOR_SHA', 'c' * 40),
+    ('RELATIVE_CONFIG_SHA256', '0' * 64), ('RELATIVE_CONFIRM', 'ZZ')])
+def test_each_env_guard_is_the_only_rejection(tmp_path, monkeypatch, key, value):
+    """Positive control (#620): every other input is perfect and unexpired, so
+    only the named guard can stop admission. The encryption preflight is armed
+    as a sentinel: if the guard is deleted the run reaches it and fails here."""
+    e = env(plan(), tmp_path)
+    e[key] = value
+    monkeypatch.setattr(p, 'HTTPS', lambda *a, **k: pytest.fail('credential boundary reached'))
+    def preflight_sentinel(*a, **k):
+        raise AssertionError('encryption preflight reached; guard deleted: ' + key)
+    monkeypatch.setattr(p, 'encrypt', preflight_sentinel)
+    with pytest.raises(p.Blocked):
+        p.run(e)
+
+
+def test_expiry_guard_is_the_only_rejection(tmp_path, monkeypatch):
+    """Positive control (#620): expired config with every other input perfect;
+    only the expiry require can stop admission before the encryption preflight."""
+    e = env(plan(), tmp_path)
+    monkeypatch.setattr(p.time, 'time', lambda: 999)
+    monkeypatch.setattr(p, 'HTTPS', lambda *a, **k: pytest.fail('credential boundary reached'))
+    def preflight_sentinel(*a, **k):
+        raise AssertionError('encryption preflight reached; expiry guard deleted')
+    monkeypatch.setattr(p, 'encrypt', preflight_sentinel)
+    with pytest.raises(p.Blocked):
+        p.run(e)
+
+
+def test_workflow_gate_contains_every_admission_term():
+    """Sentinel (#620): every term of the protected job gate is load-bearing;
+    deleting any one of them must fail this test."""
+    s = (Path(__file__).resolve().parents[1] / '.github/workflows/protected-relative-siblings.yml').read_text()
+    for term in ("github.repository == 'reihlinstinct/geni-uploader'",
+                 "github.event_name == 'workflow_dispatch'",
+                 "github.ref == 'refs/heads/master'",
+                 "github.sha == inputs.executor_sha",
+                 "github.actor == 'reihlinstinct'",
+                 "github.triggering_actor == 'reihlinstinct'",
+                 "github.run_attempt == 1",
+                 "inputs.debug == true",
+                 "inputs.confirm == 'CREATE_APPROVED_RELATIVE_SIBLINGS'"):
+        assert term in s, 'protected job gate lost term: ' + term
