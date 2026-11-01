@@ -32,6 +32,9 @@ ENTRY_POINTS = {
 
 # Environment variable -> designated docs that must mention it.
 ENV_DOCS = {
+    **{key: ['docs/protected-relative-siblings.md'] for key in (
+        'RELATIVE_CONFIG_JSON', 'RELATIVE_CONFIG_SHA256', 'RELATIVE_EXECUTOR_SHA',
+        'RELATIVE_CONFIRM', 'RELATIVE_OUTPUT_DIR', 'RELATIVE_DEBUG', 'RELATIVE_TREE_PAT')},
     **{key: ['docs/parent-boundary-reconciliation.md'] for key in (
         'RECONCILE_CONFIG_JSON', 'RECONCILE_CONFIG_SHA256', 'RECONCILE_EXECUTOR_SHA',
         'RECONCILE_CONFIRM', 'RECONCILE_OUTPUT_DIR', 'RECONCILE_DEBUG', 'RECONCILE_TREE_PAT')},
@@ -94,7 +97,7 @@ ENV_DOCS = {
 ENV_TOKEN = re.compile(
     r'\b(GENI_[A-Z0-9_]+|FATHER_JOB_[A-Z0-9_]+|PILOT_[A-Z0-9_]+'
     r'|(?:SECONDARY_)?PROBE_[A-Z0-9_]+|ONE_TIME_[A-Z0-9_]+'
-    r'|RECONCILE_[A-Z0-9_]+|PARENT_[A-Z0-9_]+|GITHUB_[A-Z0-9_]+|GH_TOKEN_FILE|TOKEN_PROBE_CREDENTIAL|FAMILY_TREE_PAT)\b')
+    r'|RELATIVE_[A-Z0-9_]+|RECONCILE_[A-Z0-9_]+|PARENT_[A-Z0-9_]+|GITHUB_[A-Z0-9_]+|GH_TOKEN_FILE|TOKEN_PROBE_CREDENTIAL|FAMILY_TREE_PAT)\b')
 
 # Command spans are scanned only after one of these markers; the marker
 # selects the entry point whose surface is valid there.
