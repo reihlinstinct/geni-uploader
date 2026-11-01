@@ -322,3 +322,34 @@ def test_workflow_gate_contains_every_admission_term():
                  "inputs.debug == true",
                  "inputs.confirm == 'READ_ONLY_EXISTING_PARENT'"):
         assert term in s, 'protected job gate lost term: ' + term
+
+
+
+def test_github_sha_hex_shape_guard_is_the_only_rejection(tmp_path, monkeypatch):
+    """Positive control (#619): executor SHA equality holds but the value is not
+    lowercase hex, so only the GITHUB_SHA hex-shape clause can stop admission."""
+    c = plan()
+    e = _perfect_env(tmp_path, c)
+    e['GITHUB_SHA'] = 'g' * 40
+    e['RECONCILE_EXECUTOR_SHA'] = 'g' * 40
+    monkeypatch.setattr(r.time, 'time', lambda: 200)
+    monkeypatch.setattr(r, 'HTTPS', lambda *a, **k: pytest.fail('credential boundary reached'))
+    def preflight_sentinel(*a, **k):
+        raise AssertionError('encryption preflight reached; hex-shape guard deleted')
+    monkeypatch.setattr(r, 'encrypt', preflight_sentinel)
+    with pytest.raises(r.Blocked):
+        r.run(e)
+
+
+def test_perfect_env_reaches_encryption_preflight(tmp_path, monkeypatch):
+    """Baseline (#619): with every input perfect the run must reach the
+    encryption preflight, proving the positive controls' sentinel premise."""
+    c = plan()
+    e = _perfect_env(tmp_path, c)
+    monkeypatch.setattr(r.time, 'time', lambda: 200)
+    monkeypatch.setattr(r, 'HTTPS', lambda *a, **k: pytest.fail('credential boundary reached'))
+    def preflight_sentinel(*a, **k):
+        raise AssertionError('encryption preflight reached')
+    monkeypatch.setattr(r, 'encrypt', preflight_sentinel)
+    with pytest.raises(AssertionError, match='encryption preflight reached'):
+        r.run(e)
