@@ -104,6 +104,41 @@ def union_state(actual, target, parents, children):
     require(actual.get('adopted_children', []) == [] and actual.get('foster_children', []) == [])
 
 
+
+def family_graph(actual, focus, target, parents, children):
+    """Validate the bounded immediate-family graph, not a direct union record."""
+    exact(actual, ('focus', 'nodes'))
+    require(type(actual['focus']) is dict and actual['focus'].get('id') == focus
+            and 'error' not in actual['focus'])
+    require(type(parents) is list and type(children) is list
+            and len(set(parents + children)) == len(parents) + len(children)
+            and focus in children)
+    expected = {node: 'partner' for node in parents}
+    expected.update({node: 'child' for node in children})
+    nodes = actual['nodes']
+    require(type(nodes) is dict and set(nodes) == set(expected) | {target})
+    union = nodes[target]
+    require(type(union) is dict)
+    exact(union, ('edges', 'status', 'url', *(('id',) if 'id' in union else ())))
+    require(union.get('id', target) == target and union['status'] == 'spouse'
+            and union['url'] == 'https://www.geni.com/api/' + target)
+    require(type(union['edges']) is dict and set(union['edges']) == set(expected))
+    for node, role in expected.items():
+        require(union['edges'][node] == {'rel': role})
+        profile = nodes[node]
+        require(type(profile) is dict and profile.get('id') == node
+                and profile.get('url') == 'https://www.geni.com/api/' + node
+                and 'error' not in profile
+                and 'adopted_children' not in profile and 'foster_children' not in profile)
+        require(profile.get('edges') == {target: {'rel': role}})
+    focus_value = actual['focus']
+    require('adopted_children' not in focus_value and 'foster_children' not in focus_value)
+    if 'url' in focus_value:
+        require(focus_value['url'] == 'https://www.geni.com/api/' + focus)
+    if 'edges' in focus_value:
+        require(focus_value['edges'] == {target: {'rel': expected[focus]}})
+
+
 def marker(plan_value, entry):
     """No attempt namespace: the same approved operation cannot be retried by changing expiry."""
     return 'family-add-consumed-v1-' + sha(canonical({
@@ -155,9 +190,7 @@ def execute(value, io, store, save, clock=time.time):
             actual = observe('profile', child['id'])
             profile_fields(actual, child['payload'], child['id'], c['allow_unknown_merge'])
             family = observe('family', child['id'])
-            require(type(family) is dict and family.get('focus', {}).get('id') == child['id']
-                    and type(family.get('nodes')) is dict)
-            union_state(family['nodes'].get(c['union_id']), c['union_id'], parents, children)
+            family_graph(family, child['id'], c['union_id'], parents, children)
         for entry in c['entries']:
             union_state(observe('union', c['union_id']), c['union_id'], parents, children)
             item = {'key': entry['key'], 'marker': marker(c, entry), 'phase': 'NOT_SENT',
@@ -195,9 +228,7 @@ def execute(value, io, store, save, clock=time.time):
             union_state(observe('union', c['union_id']), c['union_id'], parents, children)
             if c['mode'] == 'siblings':
                 family = observe('family', created)
-                require(type(family) is dict and family.get('focus', {}).get('id') == created
-                        and type(family.get('nodes')) is dict)
-                union_state(family['nodes'].get(c['union_id']), c['union_id'], parents, children)
+                family_graph(family, created, c['union_id'], parents, children)
             known.add(created)
             item['phase'] = 'VERIFIED'
             report['stage'] = 'final'

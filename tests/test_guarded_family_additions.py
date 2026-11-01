@@ -32,6 +32,16 @@ def fixture(mode='mother'):
             'accept_union_selection_risk': True}
 
 
+def graph(focus, union, parents, children):
+    roles = dict.fromkeys(parents, 'partner')
+    roles.update(dict.fromkeys(children, 'child'))
+    nodes = {node: {'id': node, 'url': 'https://www.geni.com/api/' + node,
+                    'edges': {union: {'rel': role}}} for node, role in roles.items()}
+    nodes[union] = {'url': 'https://www.geni.com/api/' + union, 'status': 'spouse',
+                    'edges': {node: {'rel': role} for node, role in roles.items()}}
+    return {'focus': {'id': focus}, 'nodes': nodes}
+
+
 class IO:
     def __init__(self, cfg, anomaly=None):
         self.cfg = cfg
@@ -57,8 +67,8 @@ class IO:
         return {'id': target, 'partners': list(self.parents), 'children': list(self.children)}
 
     def get_family(self, target):
-        return {'focus': {'id': target}, 'nodes': {self.cfg['union_id']:
-                self.get_union(self.cfg['union_id'])}}
+        self.gets += 1
+        return graph(target, self.cfg['union_id'], self.parents, self.children)
 
     def add(self, owner, route, body):
         self.posts.append((owner, route, body))
@@ -269,3 +279,111 @@ def test_verified_child_readback_mismatch_stops_before_send(anomaly):
     st = Store()
     r = g.execute(cfg, io, st, lambda r: b'ZZ-cipher', lambda: 200)
     assert r['phase'] == 'STOPPED' and io.posts == [] and st.consumed == set()
+
+
+def corrupt_graph(value, anomaly, focus, union, parents, children):
+    u = value['nodes'][union]
+    node = parents[0]
+    if anomaly == 'missing_union':
+        del value['nodes'][union]
+    elif anomaly == 'wrong_focus':
+        value['focus']['id'] = node
+    elif anomaly == 'extra_node':
+        value['nodes']['profile-999099'] = {}
+    elif anomaly == 'missing_profile':
+        del value['nodes'][node]
+    elif anomaly == 'wrong_union_url':
+        u['url'] += '?ZZ=1'
+    elif anomaly == 'wrong_union_id':
+        u['id'] = 'union-999099'
+    elif anomaly == 'wrong_status':
+        u['status'] = 'ex_spouse'
+    elif anomaly == 'missing_edge':
+        del u['edges'][node]
+    elif anomaly == 'extra_edge':
+        u['edges']['profile-999099'] = {'rel': 'child'}
+    elif anomaly == 'wrong_role':
+        u['edges'][node] = {'rel': 'child'}
+    elif anomaly == 'adoption_role':
+        u['edges'][children[0]] = {'rel': 'adopted_child'}
+    elif anomaly == 'foster_role':
+        value['nodes'][focus]['edges'][union] = {'rel': 'foster_child'}
+    elif anomaly == 'edge_extra':
+        u['edges'][node]['adopted'] = True
+    elif anomaly == 'adopted_children':
+        u['adopted_children'] = []
+    elif anomaly == 'foster_children':
+        u['foster_children'] = [focus]
+    elif anomaly == 'reciprocal_missing':
+        value['nodes'][node]['edges'] = {}
+    elif anomaly == 'reciprocal_wrong':
+        value['nodes'][node]['edges'][union]['rel'] = 'child'
+    elif anomaly == 'reciprocal_extra':
+        value['nodes'][node]['edges']['union-999099'] = {'rel': 'partner'}
+    elif anomaly == 'profile_id':
+        value['nodes'][node]['id'] = focus
+    elif anomaly == 'profile_url':
+        value['nodes'][node]['url'] = 'https://evil.invalid/' + node
+    elif anomaly == 'focus_url':
+        value['focus']['url'] = 'https://evil.invalid/' + focus
+    elif anomaly == 'focus_edges':
+        value['focus']['edges'] = {union: {'rel': 'partner'}}
+    elif anomaly == 'profile_adopted':
+        value['nodes'][node]['adopted_children'] = []
+    elif anomaly == 'focus_foster':
+        value['focus']['foster_children'] = []
+    elif anomaly == 'top_extra':
+        value['extra'] = True
+    else:
+        raise AssertionError(anomaly)
+    return value
+
+
+GRAPH_ANOMALIES = ['missing_union', 'wrong_focus', 'extra_node', 'missing_profile',
+    'wrong_union_url', 'wrong_union_id', 'wrong_status', 'missing_edge', 'extra_edge',
+    'wrong_role', 'adoption_role', 'foster_role', 'edge_extra', 'adopted_children',
+    'foster_children', 'reciprocal_missing', 'reciprocal_wrong', 'reciprocal_extra',
+    'profile_id', 'profile_url', 'focus_url', 'focus_edges', 'profile_adopted',
+    'focus_foster', 'top_extra']
+
+
+@pytest.mark.parametrize('anomaly', GRAPH_ANOMALIES)
+@pytest.mark.parametrize('existing', [False, True])
+def test_graph_anomaly_stops_at_correct_execution_boundary(anomaly, existing):
+    cfg = fixture('siblings')
+    io, st = IO(cfg), Store()
+    if existing:
+        prior = cfg['entries'].pop(0)
+        cfg['children'].append('profile-999009')
+        cfg['verified_children'] = [dict(prior, id='profile-999009')]
+        io.children.append('profile-999009')
+        io.profiles['profile-999009'] = dict(g.vendor_payload(prior['payload']),
+                                            id='profile-999009')
+    original = io.get_family
+
+    def bad(target):
+        return corrupt_graph(original(target), anomaly, target, cfg['union_id'],
+                             io.parents, io.children)
+    io.get_family = bad
+    r = g.execute(cfg, io, st, lambda r: b'ZZ-cipher', lambda: 200)
+    assert r['phase'] == 'STOPPED' and r['stage'] == 'read_family'
+    assert len(io.posts) == (0 if existing else 1)
+    assert len(st.consumed) == (0 if existing else 1)
+    if existing:
+        assert st.events == [] and r['items'] == []
+    else:
+        assert r['items'][0]['phase'] == 'ACKNOWLEDGED_NOT_VERIFIED'
+
+
+def test_observed_graph_shape_is_pure_and_direct_union_remains_strict():
+    parents, children = ['profile-999002', 'profile-999003'], ['profile-999001']
+    value = graph(children[0], 'union-999001', parents, children)
+    before = copy.deepcopy(value)
+    g.family_graph(value, children[0], 'union-999001', parents, children)
+    assert value == before
+    with pytest.raises(Blocked):
+        g.union_state(value['nodes']['union-999001'], 'union-999001', parents, children)
+    value['nodes']['union-999001']['id'] = 'union-999001'
+    value['focus']['url'] = 'https://www.geni.com/api/' + children[0]
+    value['focus']['edges'] = {'union-999001': {'rel': 'child'}}
+    g.family_graph(value, children[0], 'union-999001', parents, children)
