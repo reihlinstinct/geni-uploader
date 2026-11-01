@@ -66,3 +66,19 @@ base64/decode/canonical-hash path offline and stop before vendor construction.
 The fixture uses invented ZZ names and synthetic profile IDs only. Tests cover
 first/second parent, known living/deceased and unknown, exact graph corruptions,
 profile mismatch, permanent consumption, expiry, storage and uncertain sends.
+
+
+## Pinned spouse boundary
+
+An optional `external_edges` map may pin exactly one omitted parent-union
+`child` edge for the anchor's existing spouse in the owner union. It is not
+permission to traverse that union. Owner and anchor boundaries, partner roles,
+known-union aliases and multiple external edges are rejected. Plans without the
+field keep their previous behavior. Exact graph/node equality still applies
+before send and after create. The new parent's reciprocal graph receives only
+boundary pins for profiles actually in that subgraph. Extra, changed, missing
+or materialized boundary edges stop verification, without repair or retry.
+Consumption markers remain bound to owner, anchor and entry, not boundary or
+expiry, so a revised package cannot recreate a consumed parent operation.
+No transport, route, budget, approval or live behavior is enabled by this model
+extension; a fresh reviewed package and explicit live approval remain necessary.
