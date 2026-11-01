@@ -53,7 +53,7 @@ jobs:
           PROBE_CONFIRM: ${{ inputs.confirm }}
           PROBE_RUN_ATTEMPT: ${{ github.run_attempt }}
           PROBE_OUTPUT_DIR: ${{ runner.temp }}/secondary-evidence
-        run: python3 secondary_probe_action.py
+        run: PYTHONPATH=src python3 -m geni_uploader.workflow.secondary_probe
       - name: Upload ciphertext only
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
