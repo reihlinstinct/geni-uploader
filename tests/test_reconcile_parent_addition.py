@@ -1,5 +1,6 @@
 """Existing-parent read-only reconciliation; invented ZZ fixture only."""
 import copy
+from pathlib import Path
 
 import pytest
 
@@ -307,31 +308,39 @@ def test_expiry_guard_is_the_only_rejection(tmp_path, monkeypatch):
         r.run(e)
 
 
-def test_workflow_gate_contains_every_admission_term():
-    """Sentinel (#619): every term of the protected job gate is load-bearing;
-    deleting any one of them must fail this test."""
-    from pathlib import Path
-    s = Path('.github/workflows/reconcile-parent-addition.yml').read_text()
-    for term in ("github.repository == 'reihlinstinct/geni-uploader'",
-                 "github.event_name == 'workflow_dispatch'",
-                 "github.ref == 'refs/heads/master'",
-                 "github.sha == inputs.executor_sha",
-                 "github.actor == 'reihlinstinct'",
-                 "github.triggering_actor == 'reihlinstinct'",
-                 "github.run_attempt == 1",
-                 "inputs.debug == true",
-                 "inputs.confirm == 'READ_ONLY_EXISTING_PARENT'"):
-        assert term in s, 'protected job gate lost term: ' + term
+def test_workflow_gate_is_a_single_conjunction_of_every_admission_term():
+    """Sentinel (tightened in #624): the protected job gate must be a single
+    && conjunction of exactly these terms. Substring presence is not enough:
+    an 'A || B' rewrite or a silently dropped term must fail here."""
+    import re as _re
+    s = (Path(__file__).resolve().parents[1] / '.github/workflows/reconcile-parent-addition.yml').read_text()
+    m = _re.search(r'^  pilot:\n    if: \$\{\{ (.+) \}\}$', s, _re.MULTILINE)
+    assert m, 'protected job gate not found'
+    expr = m.group(1)
+    assert '||' not in expr, 'gate must be a pure conjunction'
+    assert {t.strip() for t in expr.split('&&')} == {
+        "github.repository == 'reihlinstinct/geni-uploader'",
+        "github.event_name == 'workflow_dispatch'",
+        "github.ref == 'refs/heads/master'",
+        'github.sha == inputs.executor_sha',
+        "github.actor == 'reihlinstinct'",
+        "github.triggering_actor == 'reihlinstinct'",
+        'github.run_attempt == 1',
+        'inputs.debug == true',
+        "inputs.confirm == 'READ_ONLY_EXISTING_PARENT'",
+    }
 
 
 
-def test_github_sha_hex_shape_guard_is_the_only_rejection(tmp_path, monkeypatch):
-    """Positive control (#619): executor SHA equality holds but the value is not
-    lowercase hex, so only the GITHUB_SHA hex-shape clause can stop admission."""
+@pytest.mark.parametrize('bad_sha', ['g' * 40, 'C' * 40])
+def test_github_sha_hex_shape_guard_is_the_only_rejection(tmp_path, monkeypatch, bad_sha):
+    """Positive control (#619, uppercase case in #624): executor SHA equality
+    holds but the value is not lowercase hex, so only the GITHUB_SHA hex-shape
+    clause can stop admission. 'C'*40 pins against case-insensitive relaxation."""
     c = plan()
     e = _perfect_env(tmp_path, c)
-    e['GITHUB_SHA'] = 'g' * 40
-    e['RECONCILE_EXECUTOR_SHA'] = 'g' * 40
+    e['GITHUB_SHA'] = bad_sha
+    e['RECONCILE_EXECUTOR_SHA'] = bad_sha
     monkeypatch.setattr(r.time, 'time', lambda: 200)
     monkeypatch.setattr(r, 'HTTPS', lambda *a, **k: pytest.fail('credential boundary reached'))
     def preflight_sentinel(*a, **k):
