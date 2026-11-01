@@ -5,7 +5,7 @@ import json
 import re
 
 from geni_uploader.core.parent_contract import payload, profile_id
-from geni_uploader.core.people import Blocked, exact, require
+from geni_uploader.core.people import Blocked, exact, require, text
 from one_time_parent_pilot import merge_clear, vendor_payload
 
 
@@ -42,6 +42,21 @@ def vendor_parent_payload(value):
     return vendor_payload(checked)
 
 
+def existing_payload(value):
+    """An established profile may have no multilingual names dictionary."""
+    if type(value) is dict and 'names' in value:
+        return vendor_payload(payload(value))
+    require(type(value) is dict and {'first_name', 'gender', 'is_alive', 'public'} <= set(value)
+            and set(value) <= {'first_name', 'middle_name', 'last_name', 'maiden_name',
+                               'gender', 'is_alive', 'public'})
+    for key in ('first_name', 'middle_name', 'last_name', 'maiden_name'):
+        if key in value:
+            text(value[key])
+    require(value['gender'] in ('male', 'female') and type(value['is_alive']) is bool
+            and value['public'] is False)
+    return copy.deepcopy(value)
+
+
 def graph_spec(value):
     require(type(value) is dict and 1 <= len(value) <= 2)
     for union, members in value.items():
@@ -76,7 +91,7 @@ def plan(value):
             and set(profiles) == {node for members in family.values() for node in members})
     for node, body in profiles.items():
         profile_id(node)
-        payload(body)  # explicit living OR deceased, always private
+        existing_payload(body)  # explicit living OR deceased, always private
     require(value['anchor'] in profiles and value['owner'] in profiles)
     # Anchor must be an existing parent of the authenticated owner in one pinned union.
     owner_unions = [u for u, m in family.items()
@@ -110,7 +125,7 @@ def marker(value):
 def profile_check(actual, expected, node, allow_unknown, *, new_parent=False):
     require(type(actual) is dict and actual.get('id') == node)
     merge_clear(actual, allow_unknown)
-    fields = vendor_parent_payload(expected) if new_parent else vendor_payload(expected)
+    fields = vendor_parent_payload(expected) if new_parent else existing_payload(expected)
     for key, leaf in fields.items():
         require(actual.get(key) == leaf)
 

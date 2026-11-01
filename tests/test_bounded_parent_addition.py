@@ -49,7 +49,7 @@ class IO:
     def __init__(self, c):
         self.c, self.posts, self.reads = c, [], []
         self.spec = copy.deepcopy(c['family'])
-        self.profiles = {p: dict(b.vendor_payload(v), id=p) for p, v in c['profiles'].items()}
+        self.profiles = {p: dict(b.existing_payload(v), id=p) for p, v in c['profiles'].items()}
 
     def get_profile(self, p):
         self.reads.append(('profile', p))
@@ -293,3 +293,21 @@ def test_first_parent_two_new_unions_fail_before_any_union_read():
     r, io, st, _ = execute(c, io)
     assert r['phase'] == 'STOPPED' and len(st.consumed) == 1
     assert not any(kind == 'union' for kind, _ in io.reads)
+
+
+def test_established_owner_without_bilingual_names_is_pinned_not_rewritten():
+    c = plan()
+    c['profiles'][OWNER] = {'first_name': 'ZZ-Root', 'last_name': 'ZZ-Family',
+        'gender': 'male', 'public': False, 'is_alive': True}
+    r, io, _, _ = execute(c)
+    assert r['phase'] == 'VERIFIED' and len(io.posts) == 1
+    assert io.posts[0][0] == ANCHOR
+
+
+@pytest.mark.parametrize('change', [{'public': True}, {'is_alive': None},
+    {'extra': 'ZZ'}, {'first_name': ''}])
+def test_established_profile_snapshot_still_closed_and_private(change):
+    v = {'first_name': 'ZZ-Root', 'gender': 'male', 'public': False, 'is_alive': True}
+    v.update(change)
+    with pytest.raises(b.Blocked):
+        b.existing_payload(v)

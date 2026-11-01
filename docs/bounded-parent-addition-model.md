@@ -46,7 +46,9 @@ fields and privacy but does not promote a vendor-default life status into a
 source-confirmed fact. The item retains source_life_status=null. The later
 protected implementation and approval must disclose this limitation before live
 use; no behavior of the vendor when this field is omitted has been proved here.
-Known existing profiles still require the original strict boolean payload schema.
+Known existing profiles still require explicit boolean life status and private
+visibility. An existing profile without multilingual names is pinned by its
+closed scalar snapshot; it is never rewritten to invent a names dictionary.
 Unknown surnames/dates are omitted, never invented. A future new parent cannot
 be reused as a known anchor payload without an explicit reviewed treatment of
 its source and observed status.
