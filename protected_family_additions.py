@@ -153,8 +153,8 @@ def config(value):
 
 
 def run(env):
-    debug = env.get('FAMILY_DEBUG', '0')
-    require(debug in ('0', '1', 'false', 'true'))
+    debug = env.get('FAMILY_DEBUG')
+    require(debug in ('1', 'true'))
     require(env.get('FAMILY_CONFIRM') == 'CREATE_APPROVED_FAMILY_ADDITIONS')
     for key, expected in (
         ('GITHUB_RUN_ATTEMPT', '1'), ('GITHUB_EVENT_NAME', 'workflow_dispatch'),
