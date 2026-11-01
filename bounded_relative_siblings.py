@@ -11,7 +11,8 @@ def plan(value):
     exact(value, ('schema', 'owner', 'expect_name', 'anchor', 'profiles', 'family',
                   'parent_union', 'entries', 'expires_at', 'allow_unknown_merge',
                   'accept_hidden_duplicate_risk', 'accept_private_create_risk',
-                  'accept_union_selection_risk'))
+                  'accept_union_selection_risk',
+                  *(('external_edges',) if 'external_edges' in value else ())))
     require(type(value['schema']) is int and value['schema'] == 1)
     profile_id(value['owner'])
     profile_id(value['anchor'])
@@ -42,6 +43,15 @@ def plan(value):
     parents = [p for p, role in members.items() if role == 'partner']
     require(value['owner'] not in members
             and {profiles[p]['gender'] for p in parents} == {'male', 'female'})
+    boundary = value.get('external_edges', {})
+    spouses = {p for u in owner_unions for p, role in family[u].items()
+               if role == 'partner' and p != value['anchor']}
+    require(type(boundary) is dict and set(boundary) <= spouses)
+    for edges in boundary.values():
+        require(type(edges) is dict and len(edges) == 1)
+        for union, role in edges.items():
+            parent.union_id(union)
+            require(union not in family and role == 'child')
     entries = value['entries']
     require(type(entries) is list and 1 <= len(entries) <= 4
             and len(members) + len(entries) <= 10 and len(profiles) + len(entries) <= 12)
@@ -98,7 +108,8 @@ def execute(value, io, store, save, clock):
         for node, body in c['profiles'].items():
             actual = owner if node == c['owner'] else read('profile', node)
             parent.profile_check(actual, body, node, c['allow_unknown_merge'])
-        parent.graph_check(read('family', c['anchor']), c['anchor'], graph)
+        parent.graph_check(read('family', c['anchor']), c['anchor'], graph,
+                           external_edges=c.get('external_edges', {}))
         for entry in c['entries']:
             parent.direct_union_check(read('union', target), target, graph[target])
             item = {'key': entry['key'], 'marker': marker(c, entry), 'phase': 'NOT_SENT'}
@@ -124,7 +135,8 @@ def execute(value, io, store, save, clock):
             parent.profile_check(read('profile', created), entry['payload'], created,
                                  c['allow_unknown_merge'], new_parent=True)
             graph[target][created] = 'child'
-            parent.graph_check(read('family', c['anchor']), c['anchor'], graph)
+            parent.graph_check(read('family', c['anchor']), c['anchor'], graph,
+                           external_edges=c.get('external_edges', {}))
             parent.graph_check(read('family', created), created, {target: graph[target]},
                                external_edges=parent.boundary_edges(c, target, graph[target]))
             parent.direct_union_check(read('union', target), target, graph[target])

@@ -81,7 +81,8 @@ class IO(parent.IO):
         graph = self.expected_graph()
         if c.pending:
             require(c.created and self.anchor_after is not None and self.reciprocal_after is not None)
-            core.parent.graph_check(self.anchor_after, c.plan['anchor'], graph)
+            core.parent.graph_check(self.anchor_after, c.plan['anchor'], graph,
+                                    external_edges=c.plan.get('external_edges', {}))
             core.parent.graph_check(self.reciprocal_after, c.created[-1], {target: graph[target]},
                                     external_edges=core.parent.boundary_edges(c.plan, target, graph[target]))
         actual = self.request('GET', '/api/' + target + '?only_ids=true')

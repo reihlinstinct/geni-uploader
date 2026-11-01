@@ -33,3 +33,17 @@ Before any live use, a separate protected transport/workflow must be designed,
 reviewed and tested against real package admission. The owner must approve that
 exact immutable private package, scope, risks and bounded window. This model is
 not a dispatch route and must not replace the existing owner-focused sibling core.
+
+
+## Exact spouse boundary pins
+
+An optional `external_edges` map may pin one omitted parent-union `child` edge
+for the anchor's existing spouse in the owner union. It never admits owner,
+anchor or other-relative boundaries, partner roles, known unions or traversal.
+Plans without the field retain their behavior. Full anchor graph equality checks
+preserve the pin before send and after every create. The protected transport
+also revalidates the cached pin before a successful direct union read can reopen
+the next-send latch. Missing, changed, extra or materialized boundary edges stop
+the batch. Existing route sets, request caps, pacing, approval gates and stable
+consumption markers are unchanged. Earlier verified creates remain created if a
+later item stops; no retry, rollback or automatic resume is introduced.
