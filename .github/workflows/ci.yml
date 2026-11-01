@@ -56,7 +56,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13", "3.15"]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -80,6 +80,20 @@ jobs:
           name: junit-${{ matrix.python-version }}
           path: junit.xml
           retention-days: 7
+
+  container-smoke:
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Build exact runtime Dockerfile without publication
+        run: docker build --pull -t zz-uploader-smoke .
+      - name: Verify runtime bytes and offline commands without credentials
+        run: bash scripts/ci/container_smoke.sh zz-uploader-smoke
 
   coverage:
     needs: [changes]
@@ -113,7 +127,7 @@ jobs:
       contents: read
     name: Run summary
     if: always()
-    needs: [changes, test, coverage]
+    needs: [changes, test, coverage, container-smoke]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
