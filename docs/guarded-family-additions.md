@@ -103,3 +103,19 @@ one-per-ten-second rate window. This is conservative pacing, not a diagnosis of
 an earlier unknown 4xx. No retry is added. The finite forty-call budget and
 expiry checks remain. If expiry occurs during a wait, admission stops before the
 next request is sent.
+
+
+## Required encrypted diagnostics (#574)
+
+Detailed structural GET-error diagnostics are mandatory for protected family
+runs. The workflow requires its boolean debug input, defaults it to true and
+will not start the protected job when it is false. The executor independently
+requires FAMILY_DEBUG to be exactly the string 1 or true before encryption,
+output creation or any transport. Missing, false or invalid values stop.
+The full-run wiring passes debug=True to the encrypted-only error wrapper.
+
+This does not log raw private response/error strings publicly. Existing numeric
+HTTP status and fixed structural diagnostic filters remain unchanged. Successful
+responses are still encrypted before validation. Local validation failures do
+not become HTTP failures or receive invented status codes. No new route, retry,
+permission, pacing change or execution approval is introduced.

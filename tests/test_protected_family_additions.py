@@ -17,7 +17,7 @@ def env(tmp_path, mode='mother'):
     c = {k: v for k, v in C.items()}
     c.update(expires_at=plan['expires_at'], plan_sha256=p.sha(p.canonical(plan)))
     raw = p.canonical(c)
-    return plan, c, {'FAMILY_CONFIG_JSON': raw.decode(), 'FAMILY_CONFIG_SHA256': p.sha(raw),
+    return plan, c, {'FAMILY_DEBUG': 'true', 'FAMILY_CONFIG_JSON': raw.decode(), 'FAMILY_CONFIG_SHA256': p.sha(raw),
         'FAMILY_EXECUTOR_SHA': 'b'*40, 'GITHUB_SHA': 'b'*40,
         'FAMILY_CONFIRM': 'CREATE_APPROVED_FAMILY_ADDITIONS', 'GITHUB_RUN_ATTEMPT': '1',
         'GITHUB_EVENT_NAME': 'workflow_dispatch', 'GITHUB_REPOSITORY': 'reihlinstinct/geni-uploader',
@@ -28,8 +28,10 @@ def env(tmp_path, mode='mother'):
 
 
 @pytest.mark.parametrize('mode,count', [('mother', 1), ('siblings', 4)])
-def test_full_wiring_with_fake_provider_encrypted_only(monkeypatch, tmp_path, mode, count):
+@pytest.mark.parametrize('debug_value', ['1', 'true'])
+def test_full_wiring_with_fake_provider_encrypted_only(monkeypatch, tmp_path, mode, count, debug_value):
     plan, cfg, e = env(tmp_path, mode)
+    e['FAMILY_DEBUG'] = debug_value
     io = FakeIO(plan)
     calls, consumed, receipts, snapshots = [], set(), [], []
 
@@ -66,12 +68,20 @@ def test_full_wiring_with_fake_provider_encrypted_only(monkeypatch, tmp_path, mo
     def encrypt(recipient, raw):
         snapshots.append(raw)
         return b'ZZ-cipher' + str(len(snapshots)).encode()
+    original_io = p.IO
+    debug_values = []
+
+    def checked_io(client, *, debug=False):
+        debug_values.append(debug)
+        return original_io(client, debug=debug)
+    monkeypatch.setattr(p, 'IO', checked_io)
     monkeypatch.setattr(p, 'HTTPS', Git)
     monkeypatch.setattr(p, 'PrivateGit', Private)
     monkeypatch.setattr(p.ScopedVendor, 'request', request)
     monkeypatch.setattr(p.time, 'sleep', lambda _: None)
     monkeypatch.setattr(p, 'encrypt', encrypt)
     assert p.run(e) is True
+    assert debug_values == [True]
     assert len([x for x in calls if x[0] == 'POST']) == count
     assert len(consumed) == count and receipts == ['before', 'ack', 'final'] * count
     files = list((tmp_path / 'out').glob('*.age'))
@@ -131,6 +141,9 @@ def test_workflow_protected_pins_and_shared_concurrency():
     assert 'github.run_attempt == 1' in s and 'github.sha == inputs.executor_sha' in s
     assert 'contents: read' in s and 'CREATE_APPROVED_FAMILY_ADDITIONS' in s
     assert 'if: always()' in s and 'set +x' in s
+    assert 'inputs.debug == true' in s
+    assert 'required: true\n        default: true\n        type: boolean' in s
+    assert "FAMILY_DEBUG: ${{ inputs.debug && '1' || '0' }}" in s
 
 
 def test_scoped_add_body_cannot_drift_before_send():
@@ -247,11 +260,18 @@ def test_debug_structure_rejects_arbitrary_values_and_post_diagnostics():
     assert 'http_status' not in caught.value.evidence and 'debug' not in caught.value.evidence
 
 
-def test_invalid_debug_stops_before_any_transport(tmp_path):
+@pytest.mark.parametrize('value', [None, '0', 'false', 'False', '', 'ZZ-invalid', True, 1])
+def test_disabled_missing_invalid_debug_stops_before_effects(monkeypatch, tmp_path, value):
     _, _, e = env(tmp_path)
-    e['FAMILY_DEBUG'] = 'ZZ-invalid'
+    if value is None:
+        del e['FAMILY_DEBUG']
+    else:
+        e['FAMILY_DEBUG'] = value
+    for seam in ('encrypt', 'HTTPS', 'PrivateGit', 'ScopedVendor', 'IO'):
+        monkeypatch.setattr(p, seam, lambda *a, **kw: pytest.fail('effect before debug guard'))
     with pytest.raises(Blocked):
         p.run(e)
+    assert not (tmp_path / 'out').exists()
 
 
 @pytest.mark.parametrize('elapsed,delay', [(0, 15), (4, 11), (10, 5), (14.5, 0.5), (16, 0)])

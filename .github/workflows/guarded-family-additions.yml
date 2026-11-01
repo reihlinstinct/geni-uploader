@@ -11,9 +11,9 @@ on:
         required: true
         type: string
       debug:
-        description: Retain structural read-error diagnostics encrypted only
-        required: false
-        default: false
+        description: Required structural read-error diagnostics encrypted only
+        required: true
+        default: true
         type: boolean
       confirm:
         description: Type CREATE_APPROVED_FAMILY_ADDITIONS; no retries or other changes
@@ -26,7 +26,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   pilot:
-    if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && github.sha == inputs.executor_sha && github.actor == 'reihlinstinct' && github.triggering_actor == 'reihlinstinct' && github.run_attempt == 1 && inputs.confirm == 'CREATE_APPROVED_FAMILY_ADDITIONS' }}
+    if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && github.sha == inputs.executor_sha && github.actor == 'reihlinstinct' && github.triggering_actor == 'reihlinstinct' && github.run_attempt == 1 && inputs.debug == true && inputs.confirm == 'CREATE_APPROVED_FAMILY_ADDITIONS' }}
     environment: father-create
     runs-on: ubuntu-24.04
     timeout-minutes: 20
