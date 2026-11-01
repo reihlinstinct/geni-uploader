@@ -7,10 +7,10 @@ from pathlib import Path
 
 import bounded_parent_addition as core
 from geni_uploader.core.people import Blocked, exact, require
-from one_time_parent_pilot import FIELDS, HTTPS, PrivateGit, canonical, decode, sha
+from one_time_parent_pilot import FIELDS, HTTPS, PrivateGit, TransportStop, canonical, decode, sha
 from parent_probe import encrypt
 from pilot_get_diagnostics import GetOnly, configuration
-from protected_family_additions import setup_failure
+from protected_family_additions import read_error_structure, setup_failure
 
 
 def plan(value):
@@ -113,7 +113,17 @@ def observe(approved, client, save, clock):
         require(clock() < c['expires_at'])
         result.update(phase='READ_ONLY_BASELINE_VERIFIED', stage='complete')
         save(copy.deepcopy(result))
-    except (Blocked, OSError, ValueError, TypeError, KeyError, AttributeError, RecursionError):
+    except (Blocked, OSError, ValueError, TypeError, KeyError, AttributeError, RecursionError) as exc:
+        result['failure_code'] = exc.code if isinstance(exc, TransportStop) else 'validation_or_storage'
+        if isinstance(exc, TransportStop):
+            evidence = read_error_structure(exc.evidence)
+            status = exc.evidence.get('http_status')
+            if type(status) is int and 100 <= status <= 599:
+                evidence['http_status'] = status
+            for key in ('location_present', 'link_present'):
+                if type(exc.evidence.get(key)) is bool:
+                    evidence[key] = exc.evidence[key]
+            result['http_failure'] = evidence
         save(copy.deepcopy(result))
     return result
 
