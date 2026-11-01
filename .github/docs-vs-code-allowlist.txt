@@ -17,3 +17,4 @@ PILOT_GET_RECONCILE_JSON # Protected workflow secret mapped to DIAGNOSTIC_CONFIG
 PILOT_GET_MATCHES_JSON # Protected workflow secret mapped to DIAGNOSTIC_CONFIG_JSON, not a Python environment read.
 
 PILOT_GET_PROFILE_JSON # Protected workflow secret mapped to DIAGNOSTIC_CONFIG_JSON.
+RELATIVE_SIBLINGS_JSON # Protected workflow secret mapped to RELATIVE_CONFIG_JSON; not a Python environment read.
