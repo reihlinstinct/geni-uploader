@@ -7,7 +7,7 @@
 # packages/ out of the daemon):
 #   podman build -f scripts/geni_upload/podman/Dockerfile -t geni-uploader scripts/geni_upload
 # Base pinned by multi-arch index digest (resolved 2026-10-25).
-FROM python:3.12-slim@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704
+FROM python:3.15-slim@sha256:94d3426f1def7db4a106a232ac121bfd975393e5dfd40a619b955fae45fe7913
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates \
