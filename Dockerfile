@@ -6,7 +6,17 @@
 # Build context: the repository root (publish-image.yml builds with `docker build .`):
 #   docker build -t geni-uploader .
 # Base pinned by multi-arch index digest (resolved 2026-10-25).
-FROM python:3.12-slim@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704
+# Test stage (issue #607): runs the full offline suite inside the image
+# environment - `docker build --target test .` fails the build on a red test.
+# The published runtime stage below is unchanged by anything here.
+FROM python:3.12-slim@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704 AS test
+ENV PYTHONDONTWRITEBYTECODE=1
+WORKDIR /src
+COPY . .
+RUN pip install --no-cache-dir -r requirements-dev.txt
+RUN python -m pytest tests -q
+
+FROM python:3.12-slim@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704 AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates \
@@ -21,4 +31,3 @@ COPY entrypoint.sh /usr/local/bin/geni-uploader-entrypoint
 RUN chmod 755 /usr/local/bin/geni-uploader-entrypoint
 ENTRYPOINT ["/usr/local/bin/geni-uploader-entrypoint"]
 CMD []
-
