@@ -278,17 +278,24 @@ def test_expiry_guard_is_the_only_rejection(tmp_path, monkeypatch):
         p.run(e)
 
 
-def test_workflow_gate_contains_every_admission_term():
-    """Sentinel (#620): every term of the protected job gate is load-bearing;
-    deleting any one of them must fail this test."""
+def test_workflow_gate_is_a_single_conjunction_of_every_admission_term():
+    """Sentinel (tightened in #624): the protected job gate must be a single
+    && conjunction of exactly these terms. Substring presence is not enough:
+    an 'A || B' rewrite or a silently dropped term must fail here."""
+    import re as _re
     s = (Path(__file__).resolve().parents[1] / '.github/workflows/protected-relative-siblings.yml').read_text()
-    for term in ("github.repository == 'reihlinstinct/geni-uploader'",
-                 "github.event_name == 'workflow_dispatch'",
-                 "github.ref == 'refs/heads/master'",
-                 "github.sha == inputs.executor_sha",
-                 "github.actor == 'reihlinstinct'",
-                 "github.triggering_actor == 'reihlinstinct'",
-                 "github.run_attempt == 1",
-                 "inputs.debug == true",
-                 "inputs.confirm == 'CREATE_APPROVED_RELATIVE_SIBLINGS'"):
-        assert term in s, 'protected job gate lost term: ' + term
+    m = _re.search(r'^  pilot:\n    if: \$\{\{ (.+) \}\}$', s, _re.MULTILINE)
+    assert m, 'protected job gate not found'
+    expr = m.group(1)
+    assert '||' not in expr, 'gate must be a pure conjunction'
+    assert {t.strip() for t in expr.split('&&')} == {
+        "github.repository == 'reihlinstinct/geni-uploader'",
+        "github.event_name == 'workflow_dispatch'",
+        "github.ref == 'refs/heads/master'",
+        'github.sha == inputs.executor_sha',
+        "github.actor == 'reihlinstinct'",
+        "github.triggering_actor == 'reihlinstinct'",
+        'github.run_attempt == 1',
+        'inputs.debug == true',
+        "inputs.confirm == 'CREATE_APPROVED_RELATIVE_SIBLINGS'",
+    }
