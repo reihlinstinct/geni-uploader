@@ -273,3 +273,54 @@ def test_workflow_gate_and_secret_are_separate():
         'if: always()', 'retention-days: 1', 'persist-credentials: false']:
         assert required in s
     assert 'GUARDED_FAMILY_ADDITIONS_JSON' not in s
+
+
+def test_valid_entry_reaches_credential_boundary_under_live_fixture_clock(tmp_path, monkeypatch):
+    e = env(plan(), tmp_path)
+    assert p.time.time() == 200 < json.loads(e['PARENT_CONFIG_JSON'])['expires_at']
+    reached = []
+
+    class Boundary(BaseException):
+        pass
+
+    def github(*a, **kw):
+        reached.append(True)
+        raise Boundary()
+    monkeypatch.setattr(p, 'encrypt', lambda *a: b'ZZ-offline')
+    monkeypatch.setattr(p, 'HTTPS', github)
+    with pytest.raises(Boundary):
+        p.run(e)
+    assert reached == [True]
+
+
+def test_wrong_body_stops_before_any_post_route():
+    v = p.ScopedVendor(TOKEN, plan())
+    io = p.IO(v)
+    with pytest.raises(p.Blocked):
+        io.add_parent(ANCHOR, {'ZZ-wrong': True})
+    assert v.post_count == 0 and v.calls == 0
+
+
+def test_post_failure_after_consume_is_terminal_and_private():
+    from tests.test_guarded_family_additions import Store
+    c = plan()
+    v = p.ScopedVendor(TOKEN, c)
+    model = IO(c)
+    st = Store()
+    post_calls = []
+
+    def request(method, route, body=None):
+        if method == 'GET':
+            node = route.split('/api/', 1)[1].split('?', 1)[0]
+            return model.get_family(ANCHOR) if '/immediate-family' in node else model.get_profile(node)
+        post_calls.append(route)
+        assert len(st.consumed) == 1
+        raise p.TransportStop('response_status', evidence={'http_status': 500,
+            'geni_error_message': 'ZZ-private-vendor-text'})
+    v.request = request
+    snapshots = []
+    result = p.core.execute(c, p.IO(v, debug=True), st,
+        lambda x: snapshots.append(json.dumps(x)) or b'ZZ-cipher', lambda: 200)
+    assert len(post_calls) == 1 and len(st.consumed) == 1
+    assert result['phase'] == 'STOPPED' and result['item']['phase'] == 'UNCERTAIN'
+    assert not any('ZZ-private-vendor-text' in x for x in snapshots)
