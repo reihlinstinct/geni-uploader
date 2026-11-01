@@ -288,3 +288,49 @@ def test_validation_failure_has_fixed_code_not_exception_text():
     r = b.observe(approved(), Failure(), lambda _: None, lambda: 200)
     assert r['failure_code'] == 'validation_or_storage'
     assert 'http_failure' not in r and 'ZZ-private-exception' not in json.dumps(r)
+
+
+def test_pacing_waits_the_full_15_seconds(monkeypatch):
+    # #638: the pacing constant is load-bearing (vendor request rate), not any
+    # small delay: 15 -> 1 must fail a test.
+    monkeypatch.setattr(b.time, 'time', lambda: 200)
+    monkeypatch.setattr(b.time, 'monotonic', lambda: 100.0)
+    waits = []
+    monkeypatch.setattr(b.time, 'sleep', waits.append)
+    v = b.ReadOnlyVendor(TOKEN, approved())
+    v.admit_vendor('GET', '/api/profile?fields='+b.FIELDS+'&only_ids=true')
+    v.admit_vendor('GET', '/api/'+ANCHOR+'?fields='+b.FIELDS+'&only_ids=true')
+    assert waits == [15]
+
+
+def test_failed_admission_still_consumes_the_route(monkeypatch):
+    # #638: a route is consumed before the pacing wait: an admission that
+    # fails only at the post-wait expiry recheck has still spent its route,
+    # so it can never be retried.
+    monkeypatch.setattr(b.time, 'time', lambda: 200)
+    v = b.ReadOnlyVendor(TOKEN, approved())
+    v.admit_vendor('GET', '/api/profile?fields='+b.FIELDS+'&only_ids=true')
+    family_route = '/api/'+ANCHOR+'/immediate-family?only_ids=true'
+
+    def wait(_):
+        monkeypatch.setattr(b.time, 'time', lambda: 999)
+    monkeypatch.setattr(b.time, 'sleep', wait)
+    with pytest.raises(b.Blocked):
+        v.admit_vendor('GET', family_route)
+    monkeypatch.setattr(b.time, 'time', lambda: 200)
+    monkeypatch.setattr(b.time, 'sleep', lambda _: None)
+    with pytest.raises(b.Blocked):
+        v.admit_vendor('GET', family_route)
+
+
+def test_expiry_at_final_check_stops_before_verified():
+    # #638: plan expiry is re-checked after the last read, before the snapshot
+    # may be called VERIFIED: expiry in that gap stops the run.
+    c = approved()
+    v = client(c)
+    total_reads = len(c['profiles']) + 1 + len(c['family'])
+
+    def clock():
+        return 999 if len(v.trace) >= total_reads else 200
+    assert b.observe(c, v, lambda _: None, clock)['phase'] == 'STOPPED'
+    assert len(v.trace) == total_reads
