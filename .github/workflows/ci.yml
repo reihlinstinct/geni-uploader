@@ -120,7 +120,8 @@ jobs:
         with:
           persist-credentials: false
       - name: Run the test suite inside the image build
-        run: docker build --target test .
+        # Dockerfile.test's final RUN is the suite; a red test fails the build.
+        run: docker build -f Dockerfile.test .
       - name: Build the image (not pushed)
         run: docker build --pull -t geni-uploader:ci .
       - name: Baked files are byte-identical to the repo files
