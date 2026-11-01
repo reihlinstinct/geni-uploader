@@ -19,13 +19,16 @@ const integer = (x) => need(Number.isSafeInteger(x) && x >= 0 && x < 2 ** 40);
 const credential = (x) => need(typeof x === 'string' && x.length > 0 && x.length <= 16384 && !/[\s\x00-\x1f\x7f]/.test(x));
 const ID = /^[1-9][0-9]{0,19}(?![\s\S])/;
 const NAME = /^[A-Za-z0-9_.-]{1,100}(?![\s\S])/;
+// A URL path segment of '.' or '..' is collapsed by URL resolution, so it is never a name.
+const pathName = (x) => { text(x, NAME); need(x !== '.' && x !== '..'); };
+const BASE64_CHUNK = 0x8000; // Bytes per String.fromCharCode call; never spreads the whole ciphertext.
 
 function entry(slot, value) {
   text(slot, /^[a-z][a-z0-9-]{0,31}(?![\s\S])/);
   exact(value, ENTRY_KEYS);
   text(value.owner, /^profile-[1-9][0-9]{0,29}(?![\s\S])/);
-  text(value.repository_owner, NAME);
-  text(value.repository_name, NAME);
+  pathName(value.repository_owner);
+  pathName(value.repository_name);
   text(value.repository_id, ID);
   text(value.environment, /^[A-Za-z0-9_-]{1,80}(?![\s\S])/);
   text(value.secret, /^GENI_[A-Z0-9_]{1,80}(?![\s\S])/);
@@ -84,6 +87,22 @@ async function boundedJson(response) {
   return value;
 }
 
+// Chunked so the argument count per call stays bounded; output is identical to btoa of the whole string.
+function base64Bytes(bytes) {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += BASE64_CHUNK) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + BASE64_CHUNK));
+  return btoa(binary);
+}
+
+// Releases a response body without reading it. Best effort: a missing body or a
+// cancel that throws or rejects never changes the result and never surfaces provider text.
+function discardBody(response) {
+  try {
+    const stream = response && response.body;
+    if (stream && typeof stream.cancel === 'function') Promise.resolve(stream.cancel()).catch(() => {});
+  } catch { /* ignored: the body is never read */ }
+}
+
 async function sha256Hex(raw) {
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw)));
   return Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('');
@@ -137,7 +156,10 @@ export function createEnvironmentSecretCustody(config, deps) {
       try {
         const body = await timed(pending, async (signal) => {
           const response = await fetch(base + 'public-key', { method: 'GET', headers: { ...headers }, redirect: 'manual', signal });
-          need(response && response.status === 200 && response.redirected !== true && response.type !== 'opaqueredirect');
+          if (!(response && response.status === 200 && response.redirected !== true && response.type !== 'opaqueredirect')) {
+            discardBody(response); // A rejected public-key response is never read either.
+            throw new Blocked();
+          }
           return boundedJson(response);
         });
         exact(body, ['key_id', 'key']);
@@ -149,7 +171,7 @@ export function createEnvironmentSecretCustody(config, deps) {
         const message = new TextEncoder().encode(raw);
         const cipher = await seal(message, key.key.slice());
         need(cipher instanceof Uint8Array && cipher.length === message.length + SEAL_OVERHEAD);
-        encrypted = btoa(String.fromCharCode(...cipher));
+        encrypted = base64Bytes(cipher);
       } catch { return { status: 'seal_failed' }; }
       try {
         const put = JSON.stringify({ encrypted_value: encrypted, key_id: key.key_id });
@@ -157,6 +179,7 @@ export function createEnvironmentSecretCustody(config, deps) {
           const response = await fetch(base + encodeURIComponent(fixed.secret), {
             method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' }, redirect: 'manual', body: put, signal,
           });
+          discardBody(response); // Every status: the provider body is never read.
           need(response && (response.status === 201 || response.status === 204) && response.redirected !== true);
           return response.status;
         });
