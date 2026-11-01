@@ -141,6 +141,26 @@ jobs:
           echo "$OUT"
           echo "$OUT" | grep -q 'error: set GENI_UPLOAD_REPO'
 
+  py315:
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
+    # Informational Python 3.15 check (#608): continue-on-error, never a
+    # gate. Runtime stays 3.12; known 3.15 failures tracked in #599.
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.15'
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Tests (informational)
+        run: python -m pytest tests/ -q
+
   summary:
     permissions:
       contents: read
