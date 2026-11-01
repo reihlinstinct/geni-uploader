@@ -221,8 +221,22 @@ def cli_surface_text(text):
     return surface
 
 
+FACADE = re.compile(r"from (geni_uploader(?:\.[a-z_]+)+) import ([a-z_]+) as _implementation")
+
+
+def _facade_target(text):
+    facade = FACADE.search(text)
+    if facade and 'sys.modules[__name__] = _implementation' in text:
+        return 'src/' + facade.group(1).replace('.', '/') + '/' + facade.group(2) + '.py'
+    return None
+
+
 def cli_surface(script):
-    return cli_surface_text((ROOT / script).read_text(encoding='utf-8'))
+    text = (ROOT / script).read_text(encoding='utf-8')
+    target = _facade_target(text)
+    if target:
+        text = (ROOT / target).read_text(encoding='utf-8')
+    return cli_surface_text(text)
 
 
 def entrypoint_aliases():
@@ -460,10 +474,15 @@ class CliDocsTest(unittest.TestCase):
 
     def test_every_argparse_script_is_covered(self):
         allowed = allowlist()
+        facade_targets = set()
+        for entry in ENTRY_POINTS:
+            target = _facade_target((ROOT / entry).read_text(encoding='utf-8'))
+            if target:
+                facade_targets.add(target)
         uncovered = []
         for path in code_files():
             rel = str(path.relative_to(ROOT))
-            if rel in ENTRY_POINTS or rel in allowed:
+            if rel in ENTRY_POINTS or rel in allowed or rel in facade_targets:
                 continue
             if 'add_argument(' in path.read_text(encoding='utf-8'):
                 uncovered.append(rel)

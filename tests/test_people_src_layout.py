@@ -43,9 +43,10 @@ def test_runtime_callers_use_canonical_import_not_legacy_facade():
                 assert node.module != "people_core", path.name
             if isinstance(node, ast.Import):
                 assert all(alias.name != "people_core" for alias in node.names), path.name
-    # This first offline core move does not change image/runtime entrypoints.
+    # Stage 6: the image carries the packaged presentation modules under
+    # /opt/pkg; people_core remains banned from the image.
     docker = (ROOT / "Dockerfile").read_text()
-    assert "people_core" not in docker and "geni_uploader" not in docker
+    assert "people_core" not in docker
     assert "COPY geni_upload.py /opt/geni_upload.py" in docker
     assert "COPY source_details.py /opt/source_details.py" in docker
 
