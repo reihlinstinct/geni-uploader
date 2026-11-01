@@ -99,7 +99,7 @@ jobs:
         run: pip install -r requirements-dev.txt
       - name: Measure production coverage
         run: |
-          python -m coverage run --include=geni_upload.py,source_details.py -m pytest tests/ -q
+          python -m coverage run --include=src/geni_uploader/client/upload.py,src/geni_uploader/client/source_details.py -m pytest tests/ -q
           python -m coverage json -o coverage.json
           python -m coverage report -m
       - name: Coverage summary

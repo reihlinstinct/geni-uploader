@@ -40,7 +40,7 @@ def test_base_allowlist_snapshot_in_fresh_interpreter():
 
 
 def _widening_calls():
-    tree = ast.parse((ROOT / "source_details.py").read_text(encoding="utf-8"))
+    tree = ast.parse((ROOT / "src" / "geni_uploader" / "client" / "source_details.py").read_text(encoding="utf-8"))
     calls = []
     for node in ast.walk(tree):
         if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
@@ -205,7 +205,7 @@ def test_effective_runtime_allowlist_of_source_details_main(tmp_path):
     "setattr(api, 'ALLOWLIST', api.ALLOWLIST | {('POST', 'photo_delete')})",
 ])
 def test_runtime_snapshot_catches_planted_widening(tmp_path, mutation):
-    source = (ROOT / "source_details.py").read_text(encoding="utf-8")
+    source = (ROOT / "src" / "geni_uploader" / "client" / "source_details.py").read_text(encoding="utf-8")
     anchor = '("POST", "document_update"), ("POST", "photo_update")})\n'
     assert source.count(anchor) == 1
     mutated = tmp_path / "mutated"

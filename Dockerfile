@@ -22,6 +22,10 @@ COPY src/geni_uploader/__init__.py /opt/pkg/geni_uploader/__init__.py
 COPY src/geni_uploader/presentation/__init__.py /opt/pkg/geni_uploader/presentation/__init__.py
 COPY src/geni_uploader/presentation/plan_report.py /opt/pkg/geni_uploader/presentation/plan_report.py
 COPY src/geni_uploader/presentation/visual_plan.py /opt/pkg/geni_uploader/presentation/visual_plan.py
+COPY src/geni_uploader/client/__init__.py /opt/pkg/geni_uploader/client/__init__.py
+COPY src/geni_uploader/client/cli_spec.py /opt/pkg/geni_uploader/client/cli_spec.py
+COPY src/geni_uploader/client/upload.py /opt/pkg/geni_uploader/client/upload.py
+COPY src/geni_uploader/client/source_details.py /opt/pkg/geni_uploader/client/source_details.py
 COPY entrypoint.sh /usr/local/bin/geni-uploader-entrypoint
 RUN chmod 755 /usr/local/bin/geni-uploader-entrypoint
 ENTRYPOINT ["/usr/local/bin/geni-uploader-entrypoint"]
