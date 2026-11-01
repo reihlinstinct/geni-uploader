@@ -7,6 +7,9 @@ updates:
       day: sunday
   - package-ecosystem: docker
     directory: /
+    ignore:
+      - dependency-name: python
+        update-types: [version-update:semver-major]
     schedule:
       interval: weekly
       day: sunday
