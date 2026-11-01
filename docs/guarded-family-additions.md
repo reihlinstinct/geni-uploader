@@ -119,3 +119,24 @@ HTTP status and fixed structural diagnostic filters remain unchanged. Successful
 responses are still encrypted before validation. Local validation failures do
 not become HTTP failures or receive invented status codes. No new route, retry,
 permission, pacing change or execution approval is introduced.
+
+## Safe setup failure evidence (#576)
+
+Once encrypted output is available, outer setup/storage failures retain a fixed
+setup_stage and allowlisted exception_type in encrypted evidence only. Stages
+separate GitHub credential construction, private source load, canonical plan
+hash, plan schema, plan/config agreement, vendor credential construction and
+execution/storage. These labels narrow the failing boundary, not necessarily
+its underlying cause. TransportStop may retain its fixed code, bounded numeric
+HTTP status and boolean redirect/link presence; messages and arbitrary evidence
+are discarded. Unknown exception types become other. Public output stays fixed.
+Failures before encryption/output setup may still have no encrypted artifact.
+
+The plan hash is SHA256(canonical(decoded_plan)), using UTF-8 Unicode without
+ASCII escaping, sorted keys and compact separators. A raw-file hash is equal
+only when the source bytes are already canonical. Never substitute a raw-file
+hash for this contract. A Unicode regression exercises the actual private-source
+base64/decode and executor hash path, proving a mismatched raw hash stops before
+vendor construction while the canonical hash reaches that boundary. Package
+preflight must replay this path offline with the exact proposed source/config,
+stopping at vendor construction, and provide the output for review.

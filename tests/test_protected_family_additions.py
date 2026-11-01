@@ -301,3 +301,120 @@ def test_expiry_during_margin_blocks_before_socket(monkeypatch):
     with pytest.raises(Blocked):
         v.request('GET', '/api/' + c['union_id'] + '?only_ids=true')
     assert v.calls == 0
+
+
+@pytest.mark.parametrize('stage', ['github_credential', 'private_source', 'plan_hash',
+    'plan_schema', 'plan_config_consistency', 'vendor_credential', 'execute_or_storage'])
+def test_encrypted_setup_failure_stage_and_type_only(monkeypatch, tmp_path, stage):
+    plan, cfg, e = env(tmp_path)
+    snapshots = []
+
+    class Git:
+        def __init__(self, *a, **kw):
+            if stage == 'github_credential':
+                raise ValueError('ZZ-secret-must-not-survive')
+
+    class Private:
+        def __init__(self, *a):
+            pass
+
+        def load(self, *a):
+            if stage == 'private_source':
+                raise p.TransportStop('response_status', evidence={
+                    'http_status': 403, 'message': 'ZZ-token', 'location_present': False})
+            return copy.deepcopy(plan)
+
+    if stage == 'plan_hash':
+        cfg['plan_sha256'] = '0' * 64
+    if stage == 'plan_schema':
+        plan['entries'] = []
+    if stage == 'plan_config_consistency':
+        plan['expect_name'] = 'ZZ-Other ZZ-Family'
+    if stage in ('plan_schema', 'plan_config_consistency'):
+        cfg['plan_sha256'] = p.sha(p.canonical(plan))
+    raw = p.canonical(cfg)
+    e.update(FAMILY_CONFIG_JSON=raw.decode(), FAMILY_CONFIG_SHA256=p.sha(raw))
+
+    def vendor(*a):
+        assert stage in ('vendor_credential', 'execute_or_storage')
+        if stage == 'vendor_credential':
+            raise TypeError('ZZ-vendor-token')
+        return object()
+
+    def execute(*a):
+        assert stage == 'execute_or_storage'
+        raise OSError('ZZ-private-storage-message')
+
+    def encrypt(recipient, raw):
+        snapshots.append(raw)
+        return b'ZZ-cipher'
+    monkeypatch.setattr(p, 'HTTPS', Git)
+    monkeypatch.setattr(p, 'PrivateGit', Private)
+    monkeypatch.setattr(p, 'ScopedVendor', vendor)
+    monkeypatch.setattr(p.core, 'execute', execute)
+    monkeypatch.setattr(p, 'encrypt', encrypt)
+    assert p.run(e) is False
+    r = json.loads(snapshots[-1])
+    assert r['failure']['setup_stage'] == stage
+    assert r['stage'] == 'setup_or_storage' and r['retry_allowed'] is False
+    expected = {'github_credential': 'ValueError', 'private_source': 'TransportStop',
+        'plan_hash': 'Blocked', 'plan_schema': 'Blocked',
+        'plan_config_consistency': 'Blocked', 'vendor_credential': 'TypeError',
+        'execute_or_storage': 'OSError'}
+    assert r['failure']['exception_type'] == expected[stage]
+    assert b'ZZ-' not in snapshots[-1]
+    if stage == 'private_source':
+        assert r['failure']['http_status'] == 403
+        assert r['failure']['transport_code'] == 'response_status'
+        assert r['failure']['location_present'] is False
+
+
+def test_setup_failure_filter_drops_unknown_type_and_arbitrary_evidence():
+    class ZZSecretError(Exception):
+        pass
+    assert p.setup_failure('private_source', ZZSecretError('ZZ-token')) == {
+        'setup_stage': 'private_source', 'exception_type': 'other'}
+    exc = p.TransportStop('response_status', evidence={
+        'http_status': True, 'location_present': 'ZZ-url', 'link_present': 1,
+        'token': 'ZZ-secret', 'message': 'ZZ-private'})
+    assert p.setup_failure('private_source', exc) == {'setup_stage': 'private_source',
+        'exception_type': 'TransportStop', 'transport_code': 'response_status'}
+
+
+def test_unicode_raw_hash_mismatch_and_canonical_source_replay(monkeypatch, tmp_path):
+    import base64
+
+    plan, cfg, e = env(tmp_path)
+    plan['entries'][0]['payload']['names']['he'] = {
+        'first_name': 'בדיקה', 'last_name': 'בדיקה'}
+    # Same decoded plan, different wire bytes. Runtime intentionally pins canonical hash.
+    source = json.dumps(plan, sort_keys=True, separators=(',', ':')).encode()
+    assert source != p.canonical(plan)
+    reached, snapshots = [], []
+
+    class Git:
+        def __init__(self, *a, **kw):
+            pass
+
+        def request(self, method, route):
+            assert method == 'GET'
+            if '/contents/' in route:
+                return {'type': 'file', 'encoding': 'base64', 'size': len(source),
+                        'content': base64.b64encode(source).decode()}
+            return {'private': True, 'full_name': cfg['data_repo']}
+
+    def vendor(*a):
+        reached.append('vendor_boundary')
+        raise ValueError('ZZ-intentional-boundary-stop')
+    monkeypatch.setattr(p, 'HTTPS', Git)
+    monkeypatch.setattr(p, 'ScopedVendor', vendor)
+    monkeypatch.setattr(p, 'encrypt', lambda recipient, raw: snapshots.append(raw) or b'ZZ-cipher')
+    for canonical_pin in (False, True):
+        cfg['plan_sha256'] = p.sha(p.canonical(plan) if canonical_pin else source)
+        raw = p.canonical(cfg)
+        e.update(FAMILY_CONFIG_JSON=raw.decode(), FAMILY_CONFIG_SHA256=p.sha(raw),
+                 FAMILY_OUTPUT_DIR=str(tmp_path / str(canonical_pin)))
+        assert p.run(e) is False
+        failure = json.loads(snapshots[-1])['failure']
+        assert failure['setup_stage'] == ('vendor_credential' if canonical_pin else 'plan_hash')
+        assert reached == (['vendor_boundary'] if canonical_pin else [])
