@@ -24,10 +24,16 @@ def configuration(c):
               'expect_name', 'recipient', 'allow_unknown_merge', 'expires_at',
               *(('created_id', 'union_id') if c.get('mode') == 'get_only_verify' else ()),
               *(('discovery_id',) if c.get('mode') == 'get_only_matches' else ()),
+              *(('target_id', 'debug') if c.get('mode') == 'get_only_profile' else ()),
               *(('target_payload', 'expected_parents', 'expected_children')
                 if 'target_payload' in c else ())))
     require(type(c['schema']) is int and c['schema'] == 1 and c['mode'] in (
-        'get_only_diagnostic', 'get_only_reconcile', 'get_only_verify', 'get_only_matches'))
+        'get_only_diagnostic', 'get_only_reconcile', 'get_only_verify', 'get_only_matches',
+        'get_only_profile'))
+    if c['mode'] == 'get_only_profile':
+        require(type(c['target_id']) is str
+                and re.fullmatch(r'profile-[0-9]{1,30}', c['target_id'])
+                and type(c['debug']) is bool)
     if c['mode'] == 'get_only_matches':
         require(type(c['discovery_id']) is str
                 and re.fullmatch(r'profile-[0-9]{1,30}', c['discovery_id'])
@@ -113,6 +119,9 @@ def routes(c):
     source = prefix + '/contents/' + urllib.parse.quote(c['data_path'], safe='/') + '?ref=' + c['data_sha']
     # Reuse the same fixed field list as the reviewed read preflight, not create/receipt logic.
     from one_time_parent_pilot import FIELDS
+    if c['mode'] == 'get_only_profile':
+        return prefix, source, [
+            '/api/' + c['target_id'] + '?fields=' + FIELDS + '&only_ids=true']
     if c['mode'] == 'get_only_matches':
         return prefix, source, [
             '/api/' + c['discovery_id'] + '?fields=' + MATCH_FIELDS + '&only_ids=true',
@@ -157,7 +166,9 @@ def diagnose(c, github, vendor, save, clock=time.time):
         report['payload_sha256'] = sha(canonical(approved))
         report['stage'] = 'vendor_reads'
         require(clock() < c['expires_at'])
-        if c['mode'] == 'get_only_matches':
+        if c['mode'] == 'get_only_profile':
+            single_profile(vendor, c, report, save, clock)
+        elif c['mode'] == 'get_only_matches':
             discover_matches(vendor, c, report, save, clock)
         elif c['mode'] == 'get_only_verify':
             verify_read_only(vendor, c, approved, report, save, clock)
@@ -170,9 +181,29 @@ def diagnose(c, github, vendor, save, clock=time.time):
     except ERRORS as exc:
         report['failure_code'] = exc.code if isinstance(exc, TransportStop) else 'validation_or_setup'
         if isinstance(exc, TransportStop) and exc.evidence:
-            report['http_failure'] = exc.evidence
+            if c['mode'] == 'get_only_profile':
+                from protected_family_additions import read_error_structure
+                report['http_failure'] = {}
+                status = exc.evidence.get('http_status')
+                if type(status) is int and 100 <= status <= 599:
+                    report['http_failure']['http_status'] = status
+                if c['debug']:
+                    report['http_failure']['debug'] = read_error_structure(exc.evidence)
+            else:
+                report['http_failure'] = exc.evidence
     save(report)
     return report
+
+
+def single_profile(vendor, c, report, save, clock):
+    """One fixed profile read, with no owner/family/union calls or follow-up."""
+    import copy
+
+    require(clock() < c['expires_at'])
+    value = vendor.request('GET', routes(c)[2][0])
+    report['profile_diagnostic'] = {'target': c['target_id'], 'response': value}
+    save(copy.deepcopy(report))
+    require(type(value) is dict and value.get('id') == c['target_id'] and 'error' not in value)
 
 
 MATCH_FIELDS = ('id,guid,name,profile_url,public,managers,merge_pending,merged_into,'
@@ -336,6 +367,9 @@ def run(env, progress):
     raw = env.get('DIAGNOSTIC_CONFIG_JSON', '').encode()
     c = configuration(decode(raw))
     require(c['mode'] == env.get('DIAGNOSTIC_MODE', 'get_only_diagnostic'))
+    if c['mode'] == 'get_only_profile':
+        require(env.get('DIAGNOSTIC_DEBUG', '0') in ('0', '1'))
+        require(c['debug'] == (env.get('DIAGNOSTIC_DEBUG', '0') == '1'))
     require(env.get('DIAGNOSTIC_CONFIG_SHA256') == sha(raw)
             and env.get('DIAGNOSTIC_EXECUTOR_SHA') == env.get('GITHUB_SHA')
             and re.fullmatch(r'[a-f0-9]{40}', env.get('GITHUB_SHA', '')))
@@ -352,7 +386,7 @@ def run(env, progress):
                       recorded_at=int(time.time()))
         ciphertext = encrypt(c['recipient'], canonical(report))
         filename = ('diagnostic-' + str(save_count) + '.age'
-                    if c['mode'] in ('get_only_verify', 'get_only_matches') else 'diagnostic.age')
+                    if c['mode'] in ('get_only_verify', 'get_only_matches', 'get_only_profile') else 'diagnostic.age')
         save_count += 1
         fd = os.open(output / filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, 'wb') as f:
