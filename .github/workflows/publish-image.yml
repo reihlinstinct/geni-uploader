@@ -40,7 +40,12 @@ jobs:
           set -euo pipefail
           # #517: every Dockerfile COPY destination, matching the descriptor's
           # coverage - not only /opt/geni_upload.py.
-          python3 tools/image_descriptor.py --list-copies | while read -r SRC DEST; do
+          mapfile -t COPIES < <(python3 tools/image_descriptor.py --list-copies)
+          # #647: an empty pair list must fail, never pass the loop vacuously.
+          [ "${#COPIES[@]}" -gt 0 ]
+          for PAIR in "${COPIES[@]}"; do
+            SRC="${PAIR% *}"
+            DEST="${PAIR##* }"
             BAKED="$(docker run --rm --network none --entrypoint sha256sum "$TAG" "$DEST" | cut -d' ' -f1)"
             REPO="$(sha256sum "$SRC" | cut -d' ' -f1)"
             echo "$DEST baked: $BAKED"
