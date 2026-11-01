@@ -7,6 +7,7 @@ Geni.
 """
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -202,6 +203,18 @@ def test_shipped_dockerfile_destinations():
     ])
 
 
+def test_list_copies_matches_dockerfile_layout():
+    out = subprocess.run(
+        [sys.executable, "tools/image_descriptor.py", "--list-copies"],
+        capture_output=True, text=True, check=True, cwd=ROOT).stdout
+    pairs = [tuple(line.split(" ")) for line in out.strip().splitlines()]
+    copies, _ = ip.dockerfile_layout((ROOT / "Dockerfile").read_text(encoding="utf-8"))
+    assert pairs == sorted((src, dest) for dest, src in copies.items())
+    for src, dest in pairs:
+        assert (ROOT / src).is_file(), src
+        assert dest.startswith("/")
+
+
 # --- publish-image.yml contract -------------------------------------------------
 
 def _build_steps():
@@ -230,6 +243,20 @@ def test_publish_image_emits_descriptor_after_the_push():
     up = steps[upload]
     assert up["uses"] == "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9"
     assert up["with"]["if-no-files-found"] == "error"
+
+
+def test_publish_image_byte_check_covers_every_copy_destination():
+    _, steps = _build_steps()
+    names = [s.get("name") for s in steps]
+    verify = steps[names.index("Verify baked files are byte-identical to the repo files")]
+    push = names.index("Push to ghcr.io")
+    assert names.index("Verify baked files are byte-identical to the repo files") < push
+    run = verify["run"]
+    assert "set -euo pipefail" in run
+    assert "tools/image_descriptor.py --list-copies" in run
+    assert '--network none --entrypoint sha256sum "$TAG" "$DEST"' in run
+    assert 'sha256sum "$SRC"' in run
+    assert '[ "$BAKED" = "$REPO" ]' in run
 
 
 def test_publish_image_authority_is_unchanged():

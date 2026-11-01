@@ -11,6 +11,7 @@ descriptor and CI runs the strict check against it.
 
 Usage:
   python tools/image_descriptor.py --list-destinations
+  python tools/image_descriptor.py --list-copies
   python tools/image_descriptor.py --image <ref@sha256:...> --revision <40-hex>
       --hashes <sha256sum output> --out <descriptor.json>
 
@@ -38,6 +39,12 @@ HASH_LINE_RE = re.compile(r"^([0-9a-f]{64}) [ *](/\S+)$")
 def destinations(root: Path) -> list[str]:
     copies, _ = ip.dockerfile_layout((root / "Dockerfile").read_text(encoding="utf-8"))
     return sorted(copies)
+
+
+def copy_pairs(root: Path) -> list[tuple[str, str]]:
+    """(repo source, image destination) for every Dockerfile COPY, dest-sorted."""
+    copies, _ = ip.dockerfile_layout((root / "Dockerfile").read_text(encoding="utf-8"))
+    return sorted((src, dest) for dest, src in copies.items())
 
 
 def parse_hashes(text: str, expected: list[str]) -> dict[str, str]:
@@ -92,6 +99,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--list-destinations", action="store_true")
+    parser.add_argument("--list-copies", action="store_true")
     parser.add_argument("--image")
     parser.add_argument("--revision")
     parser.add_argument("--hashes", type=Path)
@@ -100,6 +108,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.list_destinations:
             print("\n".join(destinations(args.root)))
+            return 0
+        if args.list_copies:
+            print("\n".join(f"{src} {dest}" for src, dest in copy_pairs(args.root)))
             return 0
         if not (args.image and args.revision and args.hashes and args.out):
             parser.error("--image, --revision, --hashes and --out are required")
