@@ -252,3 +252,32 @@ def test_invalid_debug_stops_before_any_transport(tmp_path):
     e['FAMILY_DEBUG'] = 'ZZ-invalid'
     with pytest.raises(Blocked):
         p.run(e)
+
+
+@pytest.mark.parametrize('elapsed,delay', [(0, 15), (4, 11), (10, 5), (14.5, 0.5), (16, 0)])
+def test_guarded_request_start_pacing_has_fifteen_second_margin(monkeypatch, elapsed, delay):
+    c = fixture()
+    c['expires_at'] = 2**39
+    v = p.ScopedVendor('ZZ-token', c)
+    v.last = 100
+    sleeps = []
+    monkeypatch.setattr(p.time, 'monotonic', lambda: 100 + elapsed)
+    monkeypatch.setattr(p.time, 'sleep', sleeps.append)
+    v.admit_vendor('GET', '/api/' + c['union_id'] + '?only_ids=true')
+    assert sleeps == [delay] and v.calls == 1
+
+
+def test_expiry_during_margin_blocks_before_socket(monkeypatch):
+    c = fixture()
+    c['expires_at'] = 999
+    v = p.ScopedVendor('ZZ-token', c)
+    v.last = 100
+    clock = [990]
+    monkeypatch.setattr(p.time, 'time', lambda: clock[0])
+    monkeypatch.setattr(p.time, 'monotonic', lambda: 100)
+    monkeypatch.setattr(p.time, 'sleep', lambda delay: clock.__setitem__(0, 1005))
+    monkeypatch.setattr(p.core.http.client, 'HTTPSConnection',
+                        lambda *a, **kw: pytest.fail('socket constructed after expiry'))
+    with pytest.raises(Blocked):
+        v.request('GET', '/api/' + c['union_id'] + '?only_ids=true')
+    assert v.calls == 0

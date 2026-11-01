@@ -46,7 +46,8 @@ class ScopedVendor(HTTPS):
             self.unknown_send = True
             self.post_count += 1
         if self.last is not None:
-            time.sleep(max(0, 10 - (time.monotonic() - self.last)))
+            time.sleep(max(0, 15 - (time.monotonic() - self.last)))
+        require(time.time() < c['expires_at'])
         self.calls += 1
         self.last = time.monotonic()
 
