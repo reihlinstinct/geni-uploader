@@ -190,6 +190,10 @@ def test_shipped_dockerfile_destinations():
     assert idesc.destinations(ROOT) == sorted([
         "/opt/geni_upload.py", "/opt/source_details.py", "/opt/plan_report.py",
         "/opt/visual_plan.py", "/opt/cli_spec.py",
+        "/opt/pkg/geni_uploader/__init__.py",
+        "/opt/pkg/geni_uploader/presentation/__init__.py",
+        "/opt/pkg/geni_uploader/presentation/plan_report.py",
+        "/opt/pkg/geni_uploader/presentation/visual_plan.py",
         "/usr/local/bin/geni-uploader-entrypoint",
     ])
 
