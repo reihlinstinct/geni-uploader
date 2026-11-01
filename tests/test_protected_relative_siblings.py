@@ -278,6 +278,22 @@ def test_expiry_guard_is_the_only_rejection(tmp_path, monkeypatch):
         p.run(e)
 
 
+@pytest.mark.parametrize('bad_sha', ['g' * 40, 'C' * 40])
+def test_github_sha_hex_shape_guard_is_the_only_rejection(tmp_path, monkeypatch, bad_sha):
+    """Positive control (#627): executor SHA equality holds but the value is
+    not lowercase hex, so only the GITHUB_SHA hex-shape clause can stop
+    admission. 'C'*40 pins against case-insensitive relaxation."""
+    e = env(plan(), tmp_path)
+    e['GITHUB_SHA'] = bad_sha
+    e['RELATIVE_EXECUTOR_SHA'] = bad_sha
+    monkeypatch.setattr(p, 'HTTPS', lambda *a, **k: pytest.fail('credential boundary reached'))
+    def preflight_sentinel(*a, **k):
+        raise AssertionError('encryption preflight reached; hex-shape guard deleted')
+    monkeypatch.setattr(p, 'encrypt', preflight_sentinel)
+    with pytest.raises(p.Blocked):
+        p.run(e)
+
+
 def test_workflow_gate_is_a_single_conjunction_of_every_admission_term():
     """Sentinel (tightened in #624): the protected job gate must be a single
     && conjunction of exactly these terms. Substring presence is not enough:
@@ -299,3 +315,4 @@ def test_workflow_gate_is_a_single_conjunction_of_every_admission_term():
         'inputs.debug == true',
         "inputs.confirm == 'CREATE_APPROVED_RELATIVE_SIBLINGS'",
     }
+
