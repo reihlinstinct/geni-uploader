@@ -55,10 +55,12 @@ mutation run that disables each guard in turn was killed by the suite every time
 
 After the push, `publish-image.yml` runs `tools/image_descriptor.py`:
 
-1. `--list-destinations` prints every Dockerfile `COPY` destination.
+1. `--list-destinations` prints every Dockerfile `COPY` destination;
+   `--list-copies` prints `<repo source> <destination>` pairs (the byte-check
+   step uses it to compare every baked file, not only `/opt/geni_upload.py`).
    The full interface: `--root <repo>` (default as above) and either
-   `--list-destinations` or all four of `--image <ref>`, `--revision <sha>`,
-   `--hashes <file>` and `--out <file>`.
+   `--list-destinations`, `--list-copies` or all four of `--image <ref>`,
+   `--revision <sha>`, `--hashes <file>` and `--out <file>`.
 2. `docker run --rm --network none --entrypoint sha256sum "$TAG" <destinations>` hashes
    those files **inside the pushed image**.
 3. The tool builds a schema-1 descriptor from the pushed digest (`RepoDigests`),

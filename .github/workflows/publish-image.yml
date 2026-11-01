@@ -4,7 +4,7 @@ name: Publish uploader image (manual)
 # registry credentials). The image is GENERIC by design: it carries only the
 # reviewed pinned uploader script and entrypoint - no data, no credentials,
 # no repository names. This workflow proves that before pushing:
-#   1. the baked /opt/geni_upload.py is byte-identical to the repo file;
+#   1. every baked COPY destination is byte-identical to its repo file;
 #   2. the full layer history is printed for audit.
 # Manual image publishing permits the human operator and project automation.
 # The separate source-upload workflow remains human-only.
@@ -35,14 +35,18 @@ jobs:
           TAG="ghcr.io/${GITHUB_REPOSITORY}:${GITHUB_SHA}"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
           docker build --pull -t "$TAG" .
-      - name: Verify baked uploader is byte-identical to the repo file
+      - name: Verify baked files are byte-identical to the repo files
         run: |
           set -euo pipefail
-          BAKED="$(docker run --rm --entrypoint sha256sum "$TAG" /opt/geni_upload.py | cut -d' ' -f1)"
-          REPO="$(sha256sum geni_upload.py | cut -d' ' -f1)"
-          echo "baked: $BAKED"
-          echo "repo:  $REPO"
-          [ "$BAKED" = "$REPO" ]
+          # #517: every Dockerfile COPY destination, matching the descriptor's
+          # coverage - not only /opt/geni_upload.py.
+          python3 tools/image_descriptor.py --list-copies | while read -r SRC DEST; do
+            BAKED="$(docker run --rm --network none --entrypoint sha256sum "$TAG" "$DEST" | cut -d' ' -f1)"
+            REPO="$(sha256sum "$SRC" | cut -d' ' -f1)"
+            echo "$DEST baked: $BAKED"
+            echo "$DEST repo:  $REPO"
+            [ "$BAKED" = "$REPO" ]
+          done
       - name: Audit layer history
         run: docker history --no-trunc "$TAG"
       - name: Push to ghcr.io
