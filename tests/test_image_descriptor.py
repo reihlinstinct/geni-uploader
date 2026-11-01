@@ -254,6 +254,8 @@ def test_publish_image_byte_check_covers_every_copy_destination():
     run = verify["run"]
     assert "set -euo pipefail" in run
     assert "tools/image_descriptor.py --list-copies" in run
+    # #647: an empty pair list fails the step instead of passing vacuously.
+    assert '[ "${#COPIES[@]}" -gt 0 ]' in run
     assert '--network none --entrypoint sha256sum "$TAG" "$DEST"' in run
     assert 'sha256sum "$SRC"' in run
     assert '[ "$BAKED" = "$REPO" ]' in run
