@@ -152,6 +152,24 @@ def config(value):
     return value
 
 
+
+def setup_failure(stage, exc):
+    """Fixed enums and bounded structural values only, for encrypted evidence."""
+    allowed = (Blocked, OSError, ValueError, TypeError, KeyError, AttributeError,
+               RecursionError, TransportStop)
+    kind = next((t.__name__ for t in allowed if type(exc) is t), 'other')
+    result = {'setup_stage': stage, 'exception_type': kind}
+    if type(exc) is TransportStop:
+        result['transport_code'] = exc.code
+        status = exc.evidence.get('http_status')
+        if type(status) is int and 100 <= status <= 599:
+            result['http_status'] = status
+        for key in ('location_present', 'link_present'):
+            if type(exc.evidence.get(key)) is bool:
+                result[key] = exc.evidence[key]
+    return result
+
+
 def run(env):
     debug = env.get('FAMILY_DEBUG')
     require(debug in ('1', 'true'))
@@ -188,21 +206,28 @@ def run(env):
             os.fsync(f.fileno())
         return cipher
 
+    stage = 'github_credential'
     try:
         github = HTTPS('api.github.com', env.get('FAMILY_TREE_PAT', ''), github=True,
                        capture_failure=True)
+        stage = 'private_source'
         private = PrivateGit(github, c['data_repo'], c['data_sha'], c['owner'])
         approved = private.load(c['data_path'])
+        stage = 'plan_hash'
         require(sha(canonical(approved)) == c['plan_sha256'])
+        stage = 'plan_schema'
         approved = core.plan(approved)
+        stage = 'plan_config_consistency'
         require(all(approved[key] == c[key] for key in
                     ('owner', 'expect_name', 'allow_unknown_merge', 'expires_at')))
+        stage = 'vendor_credential'
         vendor = ScopedVendor(env.get('GENI_SECONDARY_ACCESS_TOKEN', ''), approved)
+        stage = 'execute_or_storage'
         report = core.execute(approved, IO(vendor, debug=debug in ('1', 'true')), Store(private), save)
         return report['phase'] == 'VERIFIED'
     except Exception as exc:  # noqa: BLE001 - terminal boundary, no external text
-        _ = type(exc)  # never print external exception contents
-        save({'phase': 'STOPPED', 'retry_allowed': False, 'stage': 'setup_or_storage'})
+        save({'phase': 'STOPPED', 'retry_allowed': False, 'stage': 'setup_or_storage',
+              'failure': setup_failure(stage, exc)})
         return False
 
 
