@@ -45,7 +45,7 @@ jobs:
           echo "${AGE_SHA256}  $RUNNER_TEMP/age.tgz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/age.tgz" -C "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/age" >> "$GITHUB_PATH"
-      - name: Exact one parent addition
+      - name: Read-only existing parent reconciliation
         env:
           RECONCILE_DEBUG: ${{ inputs.debug && '1' || '0' }}
           RECONCILE_CONFIG_JSON: ${{ secrets.RECONCILE_PARENT_ADDITION_JSON }}
