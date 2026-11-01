@@ -239,3 +239,52 @@ def test_all_allowlisted_routes_exhaust_and_no_other_method(monkeypatch):
     for method in ('GET', 'POST', 'PUT', 'DELETE', 'PATCH'):
         with pytest.raises(b.Blocked):
             v.admit_vendor(method, next(iter(v.routes)))
+
+
+@pytest.mark.parametrize('code', ['transport_unavailable', 'response_oversize',
+    'response_deadline', 'response_status', 'response_redirect', 'response_malformed'])
+def test_first_read_transport_failure_retains_safe_enum_and_structure(code):
+    c = approved()
+    trace = []
+    secret = 'ZZ-must-not-survive'
+
+    class Failure:
+        def request(self, method, route):
+            trace.append((method, route))
+            raise b.TransportStop(code, evidence={'http_status': 401,
+                'body_media': 'application/json', 'body_parse': 'json', 'error_shape': 'object',
+                'retry_after_state': 'numeric', 'retry_after_seconds': 60,
+                'body_over_cap': False, 'body_bytes_observed': 42,
+                'location_present': True, 'link_present': False,
+                'geni_error_message': secret, 'geni_error_type': secret,
+                'Location': secret, 'token': secret, 'url': secret})
+    snapshots = []
+    r = b.observe(c, Failure(), snapshots.append, lambda: 200)
+    assert r['phase'] == 'STOPPED' and r['responses'] == [] and len(trace) == 1
+    assert r['failure_code'] == code and r['http_failure']['http_status'] == 401
+    assert r['http_failure']['retry_after_seconds'] == 60
+    assert r['http_failure']['location_present'] is True
+    assert secret not in json.dumps(snapshots)
+    assert r['create_enabled'] is False and r['retry_allowed'] is False
+
+
+@pytest.mark.parametrize('evidence', [
+    {'http_status': True, 'body_media': 'ZZ-private', 'body_bytes_observed': -1,
+     'location_present': 'ZZ-private', 'link_present': 1},
+    {'http_status': 999, 'retry_after_seconds': 10**20, 'request_id_present': 'ZZ-private'},
+])
+def test_failure_evidence_rejects_nonstructural_or_out_of_range_values(evidence):
+    class Failure:
+        def request(self, method, route):
+            raise b.TransportStop('response_status', evidence=evidence)
+    r = b.observe(approved(), Failure(), lambda _: None, lambda: 200)
+    assert r['http_failure'] == {}
+
+
+def test_validation_failure_has_fixed_code_not_exception_text():
+    class Failure:
+        def request(self, method, route):
+            raise ValueError('ZZ-private-exception')
+    r = b.observe(approved(), Failure(), lambda _: None, lambda: 200)
+    assert r['failure_code'] == 'validation_or_storage'
+    assert 'http_failure' not in r and 'ZZ-private-exception' not in json.dumps(r)

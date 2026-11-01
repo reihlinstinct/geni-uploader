@@ -21,3 +21,7 @@ Each bounded parsed response is encrypted to a new local evidence file before va
 - GENI_SECONDARY_ACCESS_TOKEN: existing protected vendor credential; token-self must match the pinned owner. This change does not assert the token is read-scoped; the transport is GET-only.
 
 The standard GITHUB_RUN_ATTEMPT, GITHUB_EVENT_NAME, GITHUB_REPOSITORY, GITHUB_REF, GITHUB_ACTOR, GITHUB_TRIGGERING_ACTOR, GITHUB_SHA and GITHUB_RUN_ID values bind the protected first-attempt run and encrypted evidence.
+
+## Stopped-read diagnostics
+
+A stopped read preserves failure_code as a fixed transport enum or validation_or_storage. Transport failures retain only bounded HTTP status, allowlisted structural enums, booleans and numeric counters in http_failure, encrypted with the rest of the evidence. No raw error text, exception strings, headers, URLs, credential values or arbitrary evidence fields are copied. A first-read failure can have an empty responses list while retaining these diagnostics. This does not prove token validity; an authentication error needs separate interpretation. No retry, credential refresh or follow-up read is added.
