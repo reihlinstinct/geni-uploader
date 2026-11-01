@@ -174,7 +174,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
       - name: Tests (informational)
-        run: python -m pytest tests/ -q
+        run: python -m pytest tests/ -q --junitxml=junit.xml
+      - name: Per-test report
+        if: always()
+        run: python .github/test_summary.py junit.xml >> "$GITHUB_STEP_SUMMARY"
 
   summary:
     permissions:
