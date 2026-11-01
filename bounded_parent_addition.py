@@ -130,12 +130,16 @@ def profile_check(actual, expected, node, allow_unknown, *, new_parent=False):
         require(actual.get(key) == leaf)
 
 
-def graph_check(actual, focus, expected):
+def graph_check(actual, focus, expected, *, external_edges=None):
     """Strict observed graph shape, with exact reciprocal edges and no extra relatives."""
     exact(actual, ('focus', 'nodes'))
     require(type(actual['focus']) is dict and actual['focus'].get('id') == focus
             and 'error' not in actual['focus'])
+    if external_edges is None:
+        external_edges = {}
+    require(type(external_edges) is dict)
     profiles = {node for members in expected.values() for node in members}
+    require(set(external_edges) <= profiles)
     require(focus in profiles and type(actual['nodes']) is dict
             and set(actual['nodes']) == profiles | set(expected))
     for union, members in expected.items():
@@ -147,6 +151,10 @@ def graph_check(actual, focus, expected):
     for profile in profiles:
         node = actual['nodes'][profile]
         edges = {u: {'rel': m[profile]} for u, m in expected.items() if profile in m}
+        for union, role in external_edges.get(profile, {}).items():
+            union_id(union)
+            require(union not in expected and role in ('partner', 'child'))
+            edges[union] = {'rel': role}
         require(type(node) is dict and node.get('id') == profile
                 and node.get('url') == 'https://www.geni.com/api/' + profile
                 and node.get('edges') == edges and 'error' not in node
@@ -177,6 +185,13 @@ def parent_union_after(actual, value, created):
         expected[target][value['existing_parent']] = 'partner'
     graph_check(actual, value['anchor'], expected)
     return target, expected[target]
+
+
+def boundary_edges(value, target, members):
+    """Only approved edges to omitted unions, for relatives in the returned subgraph."""
+    return {profile: {union: roles[profile] for union, roles in value['family'].items()
+                     if union != target and profile in roles}
+            for profile in members}
 
 
 def direct_union_check(actual, target, members):
@@ -243,7 +258,8 @@ def execute(value, io, store, save, clock):
         anchor_family = observe('family', c['anchor'])
         target, members = parent_union_after(anchor_family, c, created)
         r['item']['union_id'] = target
-        graph_check(observe('family', created), created, {target: members})
+        graph_check(observe('family', created), created, {target: members},
+                    external_edges=boundary_edges(c, target, members))
         direct_union_check(observe('union', target), target, members)
         r['stage'], r['item']['phase'] = 'final', 'VERIFIED'
         now()
