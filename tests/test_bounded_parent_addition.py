@@ -64,6 +64,10 @@ class IO:
                 if profile in self.c['profiles']:
                     result['nodes'][profile]['edges'].update({u: {'rel': m[profile]}
                         for u, m in self.c['family'].items() if profile in m and u not in spec})
+        for profile, edges in self.c.get('external_edges', {}).items():
+            if profile in result['nodes']:
+                result['nodes'][profile]['edges'].update({u: {'rel': role}
+                    for u, role in edges.items()})
         return result
 
     def get_union(self, u):
@@ -379,3 +383,74 @@ def test_preconsume_expiry_no_marker_or_post():
     st.receipt = receipt
     result, io, st, _ = execute(c, io, st, clock=lambda: 999 if expired else 200)
     assert result['phase'] == 'STOPPED' and not io.posts and not st.consumed
+
+
+EXTERNAL = 'union-991088'
+
+
+@pytest.mark.parametrize('existing', [False, True])
+def test_exact_spouse_parent_boundary_preserved(existing):
+    c = plan(existing)
+    c['external_edges'] = {SPOUSE: {EXTERNAL: 'child'}}
+    original = copy.deepcopy(c)
+    r, io, st, _ = execute(c)
+    assert r['phase'] == 'VERIFIED' and len(io.posts) == 1
+    assert st.events == ['before', 'consume', 'ack', 'final']
+    assert c == original
+    assert all(target != EXTERNAL for _, target in io.reads)
+
+
+@pytest.mark.parametrize('boundary', [None, [], {OWNER: {EXTERNAL: 'child'}},
+    {ANCHOR: {EXTERNAL: 'child'}}, {OLD: {EXTERNAL: 'child'}},
+    {SPOUSE: {}}, {SPOUSE: {EXTERNAL: 'partner'}},
+    {SPOUSE: {FAMILY: 'child'}}, {SPOUSE: {'union-ZZ': 'child'}},
+    {SPOUSE: {EXTERNAL: 'child', 'union-991089': 'child'}},
+    {SPOUSE: {EXTERNAL: {'rel': 'child'}}}])
+def test_invalid_spouse_boundary_rejected_before_reads(boundary):
+    c = plan()
+    c['external_edges'] = boundary
+    io = IO(c)
+    with pytest.raises(b.Blocked):
+        execute(c, io)
+    assert not io.reads and not io.posts
+
+
+@pytest.mark.parametrize('post', [False, True])
+@pytest.mark.parametrize('corruption', ['missing', 'wrong_role', 'extra', 'materialized'])
+def test_spouse_boundary_mismatch_stops_at_exact_graph(post, corruption):
+    c = plan()
+    c['external_edges'] = {SPOUSE: {EXTERNAL: 'child'}}
+    io = IO(c)
+    original = io.get_family
+
+    def bad(p):
+        f = original(p)
+        if p != ANCHOR or bool(io.posts) != post:
+            return f
+        edges = f['nodes'][SPOUSE]['edges']
+        if corruption == 'missing':
+            del edges[EXTERNAL]
+        elif corruption == 'wrong_role':
+            edges[EXTERNAL] = {'rel': 'partner'}
+        elif corruption == 'extra':
+            edges['union-991089'] = {'rel': 'child'}
+        else:
+            f['nodes'][EXTERNAL] = {}
+        return f
+    io.get_family = bad
+    r, io, st, _ = execute(c, io)
+    assert r['phase'] == 'STOPPED' and len(io.posts) == int(post)
+    assert len(st.consumed) == int(post)
+    assert not any(kind == 'union' for kind, _ in io.reads)
+
+
+def test_boundary_and_window_never_reset_consumption_marker():
+    c = plan()
+    old = b.marker(c)
+    c['external_edges'] = {SPOUSE: {EXTERNAL: 'child'}}
+    c['expires_at'] += 100
+    assert b.marker(c) == old
+    _, _, store, _ = execute(c)
+    c['external_edges'] = {}
+    r, io, _, _ = execute(c, st=store)
+    assert r['phase'] == 'STOPPED' and not io.posts

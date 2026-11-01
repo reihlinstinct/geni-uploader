@@ -74,7 +74,8 @@ def plan(value):
     exact(value, ('schema', 'owner', 'expect_name', 'anchor', 'profiles', 'family',
                   'parent_union', 'existing_parent', 'entry', 'expires_at',
                   'allow_unknown_merge', 'accept_hidden_duplicate_risk',
-                  'accept_private_create_risk', 'accept_union_selection_risk'))
+                  'accept_private_create_risk', 'accept_union_selection_risk',
+                  *(('external_edges',) if 'external_edges' in value else ())))
     require(type(value['schema']) is int and value['schema'] == 1)
     profile_id(value['owner'])
     profile_id(value['anchor'])
@@ -107,6 +108,17 @@ def plan(value):
         require(existing not in (value['owner'], value['anchor'])
                 and parent_unions == [parent_union] and len(family) == 2)
         require(family[parent_union] == {existing: 'partner', value['anchor']: 'child'})
+    # Only an existing spouse's omitted parent-union child edge is admissible.
+    # Owner/anchor edges must remain fully represented by the pinned family graph.
+    boundary = value.get('external_edges', {})
+    spouses = {p for u in owner_unions for p, role in family[u].items()
+               if role == 'partner' and p != value['anchor']}
+    require(type(boundary) is dict and set(boundary) <= spouses)
+    for edges in boundary.values():
+        require(type(edges) is dict and len(edges) == 1)
+        for union, role in edges.items():
+            union_id(union)
+            require(union not in family and role == 'child')
     entry = value['entry']
     exact(entry, ('key', 'payload'))
     require(type(entry['key']) is str and re.fullmatch(r'[a-z][a-z0-9-]{1,48}', entry['key']))
@@ -183,15 +195,19 @@ def parent_union_after(actual, value, created):
     expected[target] = {value['anchor']: 'child', created: 'partner'}
     if value['existing_parent'] is not None:
         expected[target][value['existing_parent']] = 'partner'
-    graph_check(actual, value['anchor'], expected)
+    graph_check(actual, value['anchor'], expected,
+                external_edges=value.get('external_edges', {}))
     return target, expected[target]
 
 
 def boundary_edges(value, target, members):
     """Only approved edges to omitted unions, for relatives in the returned subgraph."""
-    return {profile: {union: roles[profile] for union, roles in value['family'].items()
-                     if union != target and profile in roles}
-            for profile in members}
+    result = {profile: {union: roles[profile] for union, roles in value['family'].items()
+                        if union != target and profile in roles}
+              for profile in members}
+    for profile in members:
+        result[profile].update(value.get('external_edges', {}).get(profile, {}))
+    return result
 
 
 def direct_union_check(actual, target, members):
@@ -232,7 +248,8 @@ def execute(value, io, store, save, clock):
         for node, body in c['profiles'].items():
             actual = owner if node == c['owner'] else observe('profile', node)
             profile_check(actual, body, node, c['allow_unknown_merge'])
-        graph_check(observe('family', c['anchor']), c['anchor'], c['family'])
+        graph_check(observe('family', c['anchor']), c['anchor'], c['family'],
+                    external_edges=c.get('external_edges', {}))
         r['item'] = {'marker': marker(c), 'key': c['entry']['key'], 'phase': 'NOT_SENT'}
         r['stage'] = 'before'
         now()
