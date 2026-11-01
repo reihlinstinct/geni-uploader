@@ -21,3 +21,4 @@ COPY entrypoint.sh /usr/local/bin/geni-uploader-entrypoint
 RUN chmod 755 /usr/local/bin/geni-uploader-entrypoint
 ENTRYPOINT ["/usr/local/bin/geni-uploader-entrypoint"]
 CMD []
+
