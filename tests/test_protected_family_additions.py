@@ -192,4 +192,63 @@ def test_transport_failure_encrypted_fields_are_structural_only():
     with pytest.raises(p.TransportStop) as caught:
         p.IO(Client()).get_union('union-999001')
     assert caught.value.evidence == {'host': 'www.geni.com',
-        'error_type': 'response_status', 'status_class': '5xx'}
+        'error_type': 'response_status', 'status_class': '5xx', 'http_status': 500}
+
+
+@pytest.mark.parametrize('status', [400, 401, 403, 404, 429, 500])
+@pytest.mark.parametrize('debug', [False, True])
+def test_real_read_error_status_and_debug_shape(monkeypatch, status, debug):
+    class Response:
+        def __init__(self):
+            self.status = status
+            self.raw = b'{"error":{"type":"ZZ-private","message":"ZZ-secret"}}'
+        def getheader(self, key):
+            return {'Content-Type': 'application/json', 'X-API-Rate-Limit': '1',
+                    'X-API-Rate-Remaining': '0', 'X-API-Rate-Window': '10'}.get(key)
+        def read(self, size):
+            result, self.raw = self.raw[:size], self.raw[size:]
+            return result
+    class Socket:
+        def __init__(self, *a, **kw):
+            pass
+        def request(self, method, route, **kw):
+            assert method == 'GET'
+        def getresponse(self):
+            return Response()
+        def close(self):
+            pass
+    monkeypatch.setattr(p.core.http.client, 'HTTPSConnection', Socket)
+    c = fixture()
+    c['expires_at'] = 2**39
+    v = p.ScopedVendor('ZZ-token', c)
+    with pytest.raises(p.TransportStop) as caught:
+        p.IO(v, debug=debug).get_profile(c['parents'][0]['id'])
+    evidence = caught.value.evidence
+    assert evidence['http_status'] == status
+    assert ('debug' in evidence) is debug
+    assert 'ZZ-private' not in str(evidence) and 'ZZ-secret' not in str(evidence)
+    if debug:
+        assert evidence['debug']['body_parse'] == 'json'
+        assert evidence['debug']['error_shape'] == 'object'
+        assert evidence['debug']['geni_rate_window'] == 10
+
+
+def test_debug_structure_rejects_arbitrary_values_and_post_diagnostics():
+    result = p.read_error_structure({'body_parse': 'ZZ-private', 'http_status': 403,
+        'geni_error_message': 'ZZ-secret', 'body_bytes_observed': True,
+        'geni_rate_limit': -1, 'request_id_present': 'ZZ-header'})
+    assert result == {}
+    class Client:
+        def request(self, *a):
+            raise p.TransportStop('response_status', evidence={'http_status': 403,
+                'body_parse': 'json', 'error_shape': 'object'})
+    with pytest.raises(p.TransportStop) as caught:
+        p.IO(Client(), debug=True).request('POST', '/api/profile-999001/add-sibling')
+    assert 'http_status' not in caught.value.evidence and 'debug' not in caught.value.evidence
+
+
+def test_invalid_debug_stops_before_any_transport(tmp_path):
+    _, _, e = env(tmp_path)
+    e['FAMILY_DEBUG'] = 'ZZ-invalid'
+    with pytest.raises(Blocked):
+        p.run(e)

@@ -10,6 +10,11 @@ on:
         description: Exact approved private config SHA256 (no identifying values)
         required: true
         type: string
+      debug:
+        description: Retain structural read-error diagnostics encrypted only
+        required: false
+        default: false
+        type: boolean
       confirm:
         description: Type CREATE_APPROVED_FAMILY_ADDITIONS; no retries or other changes
         required: true
@@ -42,6 +47,7 @@ jobs:
           echo "$RUNNER_TEMP/age" >> "$GITHUB_PATH"
       - name: Exact guarded family additions
         env:
+          FAMILY_DEBUG: ${{ inputs.debug && '1' || '0' }}
           FAMILY_CONFIG_JSON: ${{ secrets.GUARDED_FAMILY_ADDITIONS_JSON }}
           FAMILY_TREE_PAT: ${{ secrets.PILOT_PRIVATE_EVIDENCE_WRITER }}
           GENI_SECONDARY_ACCESS_TOKEN: ${{ secrets.GENI_SECONDARY_ACCESS_TOKEN }}
