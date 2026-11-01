@@ -135,12 +135,16 @@ jobs:
       - name: Build the image (not pushed)
         run: docker build --pull -t geni-uploader:ci .
       - name: Baked files are byte-identical to the repo files
+        # Source/destination pairs are derived from the Dockerfile itself
+        # (#615): a future COPY is checked automatically. Flag-bearing
+        # COPY lines fail loudly instead of being skipped.
         run: |
           set -euo pipefail
-          for f in geni_upload.py cli_spec.py source_details.py plan_report.py visual_plan.py; do
-            BAKED="$(docker run --rm --entrypoint sha256sum geni-uploader:ci "/opt/$f" | cut -d' ' -f1)"
-            REPO="$(sha256sum "$f" | cut -d' ' -f1)"
-            echo "$f baked=$BAKED repo=$REPO"
+          grep '^COPY ' Dockerfile | while read -r _ src dest; do
+            case "$src" in --*) echo "COPY with flags not covered: $src $dest"; exit 1;; esac
+            BAKED="$(docker run --rm --entrypoint sha256sum geni-uploader:ci "$dest" | cut -d' ' -f1)"
+            REPO="$(sha256sum "$src" | cut -d' ' -f1)"
+            echo "$src -> $dest baked=$BAKED repo=$REPO"
             [ "$BAKED" = "$REPO" ]
           done
       - name: Smoke test (offline, no credentials)
