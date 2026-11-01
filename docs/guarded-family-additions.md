@@ -93,3 +93,13 @@ headers and retry delay metadata in encrypted reports. It never retains raw
 body text, error messages, arbitrary headers or secrets, nor prints them.
 No extra read, retry or create follows an error. Debug does not change writes or
 create-error evidence. Status class alone never identifies the failure cause.
+
+
+### Pacing margin
+
+The guarded family transport waits at least fifteen seconds between request
+starts, rather than exactly ten, to allow margin around an observed
+one-per-ten-second rate window. This is conservative pacing, not a diagnosis of
+an earlier unknown 4xx. No retry is added. The finite forty-call budget and
+expiry checks remain. If expiry occurs during a wait, admission stops before the
+next request is sent.
