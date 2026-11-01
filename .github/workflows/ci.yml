@@ -108,12 +108,42 @@ jobs:
         if: vars.COVERAGE_GATE == 'on'
         run: python .github/coverage_report.py coverage.json --floor "$(cat .github/coverage-floor.txt)" --fail-under
 
+  docker:
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
+    # PR-time image build + offline smoke (#606). Not pushed; no secrets.
+    # Weekly cadence comes free via the existing schedule trigger.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Build the image (not pushed)
+        run: docker build --pull -t geni-uploader:ci .
+      - name: Baked files are byte-identical to the repo files
+        run: |
+          set -euo pipefail
+          for f in geni_upload.py cli_spec.py source_details.py plan_report.py visual_plan.py; do
+            BAKED="$(docker run --rm --entrypoint sha256sum geni-uploader:ci "/opt/$f" | cut -d' ' -f1)"
+            REPO="$(sha256sum "$f" | cut -d' ' -f1)"
+            echo "$f baked=$BAKED repo=$REPO"
+            [ "$BAKED" = "$REPO" ]
+          done
+      - name: Smoke test (offline, no credentials)
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint python geni-uploader:ci -c "import yaml; print('pyyaml ok')"
+          OUT="$(docker run --rm geni-uploader:ci 2>&1 || true)"
+          echo "$OUT"
+          echo "$OUT" | grep -q 'error: set GENI_UPLOAD_REPO'
+
   summary:
     permissions:
       contents: read
     name: Run summary
     if: always()
-    needs: [changes, test, coverage]
+    needs: [changes, test, coverage, docker]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
