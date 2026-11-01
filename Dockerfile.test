@@ -1,0 +1,12 @@
+# In-container test image (issue #607): the full offline suite runs inside
+# the image environment, and building this file fails on a red test.
+# Never published; the shipped Dockerfile and its provenance contract
+# (issues #100/#49) are untouched by it.
+#   docker build -f Dockerfile.test .
+# Base pinned by multi-arch index digest (resolved 2026-10-25, same as Dockerfile).
+FROM python:3.12-slim@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704
+ENV PYTHONDONTWRITEBYTECODE=1
+WORKDIR /src
+COPY . .
+RUN pip install --no-cache-dir -r requirements-dev.txt
+RUN python -m pytest tests -q
