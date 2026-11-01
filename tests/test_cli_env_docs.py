@@ -34,7 +34,7 @@ ENTRY_POINTS = {
 ENV_DOCS = {
     **{key: ['docs/guarded-family-additions.md'] for key in (
         'FAMILY_CONFIG_JSON', 'FAMILY_CONFIG_SHA256', 'FAMILY_EXECUTOR_SHA',
-        'FAMILY_CONFIRM', 'FAMILY_OUTPUT_DIR')},
+        'FAMILY_CONFIRM', 'FAMILY_OUTPUT_DIR', 'FAMILY_DEBUG')},
     'GENI_ACCESS_TOKEN': ['docs/usage.md', 'docs/API-CLIENT-DESIGN.md'],
     'GENI_API_BASE': ['docs/API-CLIENT-DESIGN.md'],
     'GENI_UPLOAD_E2E': ['docs/API-CLIENT-DESIGN.md'],

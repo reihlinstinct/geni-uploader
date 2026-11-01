@@ -51,9 +51,34 @@ class ScopedVendor(HTTPS):
         self.last = time.monotonic()
 
 
+def read_error_structure(value):
+    """Fixed enums, booleans and bounded integers only; never body text or headers."""
+    result = {}
+    enums = {
+        'body_media': ('application/json', 'text/html', 'text/plain', 'other', 'absent'),
+        'body_parse': ('read_error', 'over_cap', 'empty', 'invalid_json', 'json'),
+        'error_shape': ('object', 'other', 'absent', 'non_object'),
+        'retry_after_state': ('absent', 'numeric', 'other'),
+    }
+    for key in ('limit', 'remaining', 'window'):
+        enums['geni_rate_' + key + '_state'] = ('absent', 'numeric', 'invalid')
+    for key, choices in enums.items():
+        if value.get(key) in choices:
+            result[key] = value[key]
+    for key in ('body_over_cap', 'request_id_present'):
+        if type(value.get(key)) is bool:
+            result[key] = value[key]
+    for key in ('body_bytes_observed', 'retry_after_seconds', 'geni_rate_limit',
+                'geni_rate_remaining', 'geni_rate_window'):
+        if type(value.get(key)) is int and 0 <= value[key] <= 9999999999:
+            result[key] = value[key]
+    return result
+
+
 class IO:
-    def __init__(self, client):
-        self.client = client
+    def __init__(self, client, *, debug=False):
+        require(type(debug) is bool)
+        self.client, self.debug = client, debug
 
     def request(self, method, route, body=None):
         try:
@@ -63,6 +88,10 @@ class IO:
             evidence = {'host': 'www.geni.com', 'error_type': exc.code}
             if type(status) is int and 100 <= status <= 599:
                 evidence['status_class'] = str(status // 100) + 'xx'
+                if method == 'GET':
+                    evidence['http_status'] = status
+            if self.debug and method == 'GET':
+                evidence['debug'] = read_error_structure(exc.evidence)
             raise TransportStop(exc.code, evidence=evidence) from None
         except Exception as exc:
             raise TransportStop('transport_unavailable', evidence={
@@ -123,6 +152,8 @@ def config(value):
 
 
 def run(env):
+    debug = env.get('FAMILY_DEBUG', '0')
+    require(debug in ('0', '1', 'false', 'true'))
     require(env.get('FAMILY_CONFIRM') == 'CREATE_APPROVED_FAMILY_ADDITIONS')
     for key, expected in (
         ('GITHUB_RUN_ATTEMPT', '1'), ('GITHUB_EVENT_NAME', 'workflow_dispatch'),
@@ -166,7 +197,7 @@ def run(env):
         require(all(approved[key] == c[key] for key in
                     ('owner', 'expect_name', 'allow_unknown_merge', 'expires_at')))
         vendor = ScopedVendor(env.get('GENI_SECONDARY_ACCESS_TOKEN', ''), approved)
-        report = core.execute(approved, IO(vendor), Store(private), save)
+        report = core.execute(approved, IO(vendor, debug=debug in ('1', 'true')), Store(private), save)
         return report['phase'] == 'VERIFIED'
     except Exception as exc:  # noqa: BLE001 - terminal boundary, no external text
         _ = type(exc)  # never print external exception contents

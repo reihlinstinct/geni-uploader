@@ -81,3 +81,15 @@ No additional read or retry occurs after a failure.
 Remaining names must also differ from verified-child names. A local name match,
 reused prior key, unlisted prior ID, or mismatched prior profile/family readback
 blocks before any send. This guard does not prove remote duplicate absence.
+
+
+### Read errors and opt-in debug
+
+Vendor read failures retain exact HTTP status as well as status class. The
+protected workflow's optional boolean `debug` input defaults to false and maps
+to FAMILY_DEBUG (0/1, or false/true for direct offline tests). Enabling it keeps
+only fixed structural body/error-shape/media enums, size/cap flags, numeric rate
+headers and retry delay metadata in encrypted reports. It never retains raw
+body text, error messages, arbitrary headers or secrets, nor prints them.
+No extra read, retry or create follows an error. Debug does not change writes or
+create-error evidence. Status class alone never identifies the failure cause.
