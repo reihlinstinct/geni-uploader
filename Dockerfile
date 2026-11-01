@@ -6,7 +6,7 @@
 # Build context: the repository root (publish-image.yml builds with `docker build .`):
 #   docker build -t geni-uploader .
 # Base pinned by multi-arch index digest (resolved 2026-10-25).
-FROM python:3.12-slim@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704
+FROM python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates \
