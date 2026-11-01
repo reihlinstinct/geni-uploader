@@ -177,7 +177,7 @@ def test_upload_timeout_is_bounded_for_full_resume_batch():
 
     import yaml
 
-    workflow = yaml.load((Path(g.__file__).parent / '.github/workflows/geni-upload.yml')
+    workflow = yaml.load((Path(__file__).resolve().parents[1] / '.github/workflows/geni-upload.yml')
                          .read_text(), Loader=yaml.BaseLoader)
     assert workflow['jobs']['upload']['timeout-minutes'] == '90'
     guard = workflow['jobs']['upload']['if']

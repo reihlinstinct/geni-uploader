@@ -128,7 +128,7 @@ def test_website_guid_not_guessed_as_node_id():
 
 def test_workflow_user_only_manual_and_fails_closed_on_stale_image():
     from pathlib import Path
-    root = Path(s.__file__).parent
+    root = Path(__file__).resolve().parents[1]
     text = (root / ".github/workflows/geni-upload.yml").read_text()
     assert "workflow_dispatch:" in text
     for trigger in ("schedule:", "push:", "pull_request:", "repository_dispatch:"):
@@ -161,7 +161,7 @@ def test_checkpoint_commit_uses_local_identity():
 
 def test_released_metadata_image_is_pinned_with_explicit_readiness():
     from pathlib import Path
-    text = (Path(s.__file__).parent / ".github/workflows/geni-upload.yml").read_text()
+    text = (Path(__file__).resolve().parents[1] / ".github/workflows/geni-upload.yml").read_text()
     assert "sha256:2fa466f87e549d03a0a3e406047e3c733d1efdb582956c066b9530576c96c254" in text
     assert 'SOURCE_DETAILS_IMAGE_READY: "yes"' in text
     assert '${SOURCE_DETAILS_IMAGE_READY:-no}' in text

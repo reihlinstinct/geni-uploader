@@ -1823,14 +1823,14 @@ class WorkflowModeAlignmentTest(unittest.TestCase):
 
     def test_dispatch_options_match_registered_modes(self):
         import re
-        root = os.path.dirname(os.path.abspath(g.__file__))
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         with open(os.path.join(root, ".github/workflows/geni-upload.yml"),
                   encoding="utf-8") as f:
             wf = f.read()
         m = re.search(r"options: \[([^\]]+)\]", wf)
         self.assertIsNotNone(m)
         options = {x.strip() for x in m.group(1).split(",")}
-        with open(os.path.join(root, "geni_upload.py"), encoding="utf-8") as f:
+        with open(os.path.join(root, "src", "geni_uploader", "client", "upload.py"), encoding="utf-8") as f:
             src = f.read()
         # add_parser("name" (help/description kwargs follow since #515)
         registered = (set(re.findall(r'add_parser\("([a-z-]+)"', src))

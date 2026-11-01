@@ -14,7 +14,7 @@ requires = ["setuptools==84.2.1", "wheel==0.48.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["geni_uploader", "geni_uploader.core", "geni_uploader.evidence", "geni_uploader.workflow", "geni_uploader.presentation", "geni_uploader.cli", "geni_offline"]
+packages = ["geni_uploader", "geni_uploader.core", "geni_uploader.evidence", "geni_uploader.workflow", "geni_uploader.presentation", "geni_uploader.cli", "geni_uploader.client", "geni_offline"]
 
 [tool.setuptools.package-dir]
 geni_uploader = "src/geni_uploader"

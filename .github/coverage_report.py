@@ -10,7 +10,7 @@ import argparse
 import json
 import sys
 
-PRODUCTION = ("geni_upload.py", "source_details.py")
+PRODUCTION = ("src/geni_uploader/client/upload.py", "src/geni_uploader/client/source_details.py")
 NOT_MEASURED = ("entrypoint.sh",)
 
 
