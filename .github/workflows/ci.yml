@@ -119,6 +119,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - name: Test image base matches the shipped image (#613)
+        # Dependabot bumps Dockerfile and Dockerfile.test in separate PRs;
+        # a lone bump must fail here instead of silently drifting.
+        run: |
+          set -euo pipefail
+          shipped="$(grep '^FROM ' Dockerfile)"
+          test_img="$(grep '^FROM ' Dockerfile.test)"
+          echo "shipped: $shipped"
+          echo "test:    $test_img"
+          [ "$shipped" = "$test_img" ]
       - name: Run the test suite inside the image build
         # Dockerfile.test's final RUN is the suite; a red test fails the build.
         run: docker build -f Dockerfile.test .
