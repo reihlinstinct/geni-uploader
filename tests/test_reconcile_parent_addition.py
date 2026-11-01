@@ -259,3 +259,66 @@ def test_workflow_step_name_is_truthful_and_keeps_read_only_boundary():
     assert 'Exact one parent addition' not in s
     assert 'permissions:\n  contents: read' in s
     assert 'READ_ONLY_EXISTING_PARENT' in s
+
+
+
+def _perfect_env(tmp_path, c):
+    from tests.test_protected_parent_addition import env
+    raw = r.canonical(dict(config(c), created_id=NEW, union_id=PARENTS))
+    e = {k.replace('PARENT_', 'RECONCILE_'): v for k, v in env(c, tmp_path).items()}
+    e.update(RECONCILE_CONFIG_JSON=raw.decode(), RECONCILE_CONFIG_SHA256=r.sha(raw),
+             RECONCILE_CONFIRM='READ_ONLY_EXISTING_PARENT')
+    return e
+
+
+@pytest.mark.parametrize('key,value', [('RECONCILE_DEBUG', 'false'),
+    ('RECONCILE_CONFIRM', 'CREATE_APPROVED_ONE_PARENT'), ('GITHUB_RUN_ATTEMPT', '2'),
+    ('GITHUB_EVENT_NAME', 'push'), ('GITHUB_REPOSITORY', 'ZZ-owner/ZZ-other'),
+    ('GITHUB_REF', 'refs/heads/ZZ'), ('GITHUB_ACTOR', 'ZZ'),
+    ('GITHUB_TRIGGERING_ACTOR', 'ZZ'), ('RECONCILE_EXECUTOR_SHA', 'c' * 40),
+    ('RECONCILE_CONFIG_SHA256', '0' * 64)])
+def test_each_env_guard_is_the_only_rejection(tmp_path, monkeypatch, key, value):
+    """Positive control (#619): every other input is perfect and unexpired, so
+    only the named guard can stop admission. The encryption preflight is armed
+    as a sentinel: if the guard is deleted the run reaches it and fails here."""
+    c = plan()
+    e = _perfect_env(tmp_path, c)
+    e[key] = value
+    monkeypatch.setattr(r.time, 'time', lambda: 200)
+    monkeypatch.setattr(r, 'HTTPS', lambda *a, **k: pytest.fail('credential boundary reached'))
+    def preflight_sentinel(*a, **k):
+        raise AssertionError('encryption preflight reached; guard deleted: ' + key)
+    monkeypatch.setattr(r, 'encrypt', preflight_sentinel)
+    with pytest.raises(r.Blocked):
+        r.run(e)
+
+
+def test_expiry_guard_is_the_only_rejection(tmp_path, monkeypatch):
+    """Positive control (#619): expired config with every other input perfect;
+    only the expiry require can stop admission before the encryption preflight."""
+    c = plan()
+    e = _perfect_env(tmp_path, c)
+    monkeypatch.setattr(r.time, 'time', lambda: 999)
+    monkeypatch.setattr(r, 'HTTPS', lambda *a, **k: pytest.fail('credential boundary reached'))
+    def preflight_sentinel(*a, **k):
+        raise AssertionError('encryption preflight reached; expiry guard deleted')
+    monkeypatch.setattr(r, 'encrypt', preflight_sentinel)
+    with pytest.raises(r.Blocked):
+        r.run(e)
+
+
+def test_workflow_gate_contains_every_admission_term():
+    """Sentinel (#619): every term of the protected job gate is load-bearing;
+    deleting any one of them must fail this test."""
+    from pathlib import Path
+    s = Path('.github/workflows/reconcile-parent-addition.yml').read_text()
+    for term in ("github.repository == 'reihlinstinct/geni-uploader'",
+                 "github.event_name == 'workflow_dispatch'",
+                 "github.ref == 'refs/heads/master'",
+                 "github.sha == inputs.executor_sha",
+                 "github.actor == 'reihlinstinct'",
+                 "github.triggering_actor == 'reihlinstinct'",
+                 "github.run_attempt == 1",
+                 "inputs.debug == true",
+                 "inputs.confirm == 'READ_ONLY_EXISTING_PARENT'"):
+        assert term in s, 'protected job gate lost term: ' + term
