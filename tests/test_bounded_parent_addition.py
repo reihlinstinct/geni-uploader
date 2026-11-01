@@ -58,7 +58,13 @@ class IO:
     def get_family(self, p):
         self.reads.append(('family', p))
         spec = self.spec if p == ANCHOR else {PARENTS: self.spec[PARENTS]}
-        return family(p, spec)
+        result = family(p, spec)
+        if p == NEW:
+            for profile in result['nodes']:
+                if profile in self.c['profiles']:
+                    result['nodes'][profile]['edges'].update({u: {'rel': m[profile]}
+                        for u, m in self.c['family'].items() if profile in m and u not in spec})
+        return result
 
     def get_union(self, u):
         self.reads.append(('union', u))
@@ -311,3 +317,65 @@ def test_established_profile_snapshot_still_closed_and_private(change):
     v.update(change)
     with pytest.raises(b.Blocked):
         b.existing_payload(v)
+
+
+def test_pinned_boundary_edge_required_not_unknown_or_wrong_role():
+    c = plan()
+    members = {ANCHOR: 'child', NEW: 'partner'}
+    f = family(NEW, {PARENTS: members})
+    extra = b.boundary_edges(c, PARENTS, members)
+    with pytest.raises(b.Blocked):
+        b.graph_check(f, NEW, {PARENTS: members}, external_edges=extra)
+    f['nodes'][ANCHOR]['edges'][FAMILY] = {'rel': 'partner'}
+    b.graph_check(f, NEW, {PARENTS: members}, external_edges=extra)
+    for edge in ({'rel': 'child'}, {'rel': 'partner', 'ZZ': 1}):
+        f['nodes'][ANCHOR]['edges'][FAMILY] = edge
+        with pytest.raises(b.Blocked):
+            b.graph_check(f, NEW, {PARENTS: members}, external_edges=extra)
+    f['nodes'][ANCHOR]['edges'][FAMILY] = {'rel': 'partner'}
+    f['nodes'][ANCHOR]['edges']['union-991099'] = {'rel': 'partner'}
+    with pytest.raises(b.Blocked):
+        b.graph_check(f, NEW, {PARENTS: members}, external_edges=extra)
+
+
+@pytest.mark.parametrize('field,value', [('existing_parent', OWNER), ('existing_parent', ANCHOR)])
+def test_existing_parent_distinctness(field, value):
+    c = plan(True)
+    c[field] = value
+    with pytest.raises(b.Blocked):
+        b.plan(c)
+
+
+def test_second_parent_gender_and_expected_owner_name():
+    c = plan(True)
+    c['entry']['payload']['gender'] = c['profiles'][OLD]['gender']
+    with pytest.raises(b.Blocked):
+        b.plan(c)
+    c = plan()
+    c['expect_name'] = 'ZZ-Wrong ZZ-Identity'
+    result, io, _, _ = execute(c)
+    assert result['phase'] == 'STOPPED' and not io.posts
+
+
+@pytest.mark.parametrize('change', ['duplicates', 'adopted', 'foster'])
+def test_direct_union_duplicate_or_nonbiological_member_rejected(change):
+    x = {'id': PARENTS, 'partners': [NEW], 'children': [ANCHOR]}
+    if change == 'duplicates':
+        x['children'].append(ANCHOR)
+    else:
+        x[change+'_children'] = [ANCHOR]
+    with pytest.raises(b.Blocked):
+        b.direct_union_check(x, PARENTS, {NEW: 'partner', ANCHOR: 'child'})
+
+
+def test_preconsume_expiry_no_marker_or_post():
+    c, io, st = plan(), IO(plan()), Store()
+    expired = []
+    original = st.receipt
+
+    def receipt(*args):
+        original(*args)
+        expired.append(True)
+    st.receipt = receipt
+    result, io, st, _ = execute(c, io, st, clock=lambda: 999 if expired else 200)
+    assert result['phase'] == 'STOPPED' and not io.posts and not st.consumed
