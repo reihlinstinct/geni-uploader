@@ -136,3 +136,20 @@ create transport's profile/family route expression. Both the outer wrapper and
 actual transport reject repeats, non-GET methods and any other route before a
 socket is opened. The transport keeps the two-call cap and ten-second pacing.
 Offline tests exercise the production transport with only the socket substituted.
+
+
+## Single-profile diagnostic
+
+`get_only_profile` pins `target_id` and boolean `debug` in its private config.
+The protected pilot-get-profile workflow uses PILOT_GET_PROFILE_JSON, and its
+optional boolean debug input maps to DIAGNOSTIC_DEBUG (0/1) and must agree with
+config.debug before transport is constructed. Default debug is off. This mode
+makes exactly one vendor GET using the existing fifteen-field FIELDS list,
+with no owner identity read, union read, follow-up, retry or mutation. Two
+private GitHub source checks remain unchanged. A successful parsed response is
+saved encrypted before validation. Read errors retain exact status; debug adds
+only the fixed structural evidence allowed by the family diagnostic helper,
+never arbitrary error text or secrets. Run only after a separately coordinated
+quiet period, at least thirty seconds with no other agent Geni calls. A quiet
+period does not prove absence of concurrent external account activity. A result
+never establishes that a prior unknown 4xx had the same cause.

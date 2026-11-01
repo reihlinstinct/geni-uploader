@@ -70,6 +70,7 @@ ENV_DOCS = {
     'PILOT_CONFIG_SHA256': ['docs/one-time-parent-pilot.md'],
     'PILOT_EXECUTOR_SHA': ['docs/one-time-parent-pilot.md'],
     'PILOT_OUTPUT_DIR': ['docs/one-time-parent-pilot.md'],
+    'DIAGNOSTIC_DEBUG': ['docs/pilot-get-diagnostics.md'],
     'DIAGNOSTIC_MODE': ['docs/pilot-get-diagnostics.md'],
     'DIAGNOSTIC_CONFIRM': ['docs/pilot-get-diagnostics.md'],
     'DIAGNOSTIC_CONFIG_JSON': ['docs/pilot-get-diagnostics.md'],

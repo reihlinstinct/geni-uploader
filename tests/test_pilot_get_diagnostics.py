@@ -684,3 +684,68 @@ def test_production_match_network_failure_consumes_route_no_retry(monkeypatch):
     with pytest.raises(Blocked):
         v.transport.request('GET', route)
     assert len(sockets) == 1
+
+
+@pytest.mark.parametrize('debug', [False, True])
+@pytest.mark.parametrize('status', [200, 400, 403, 429])
+def test_single_profile_real_transport_one_vendor_route(monkeypatch, debug, status):
+    c = dict(copy.deepcopy(C), mode='get_only_profile', target_id='profile-999002', debug=debug)
+    assert d.configuration(c) == c
+    _, _, vendor_routes = d.routes(c)
+    gh, _, _ = clients()
+    wires = []
+    class Response:
+        def __init__(self):
+            self.status = status
+            self.raw = d.canonical({'id': c['target_id']} if status == 200 else {
+                'error': {'type': 'ZZ-sensitive', 'message': 'ZZ-token'}})
+        def getheader(self, key):
+            return 'application/json' if key == 'Content-Type' else None
+        def read(self, size):
+            result, self.raw = self.raw[:size], self.raw[size:]
+            return result
+    class Socket:
+        def __init__(self, host, **kw):
+            assert host == 'www.geni.com'
+        def request(self, method, route, **kw):
+            wires.append((method, route))
+        def getresponse(self):
+            return Response()
+        def close(self):
+            pass
+    monkeypatch.setattr(d.http.client, 'HTTPSConnection', Socket)
+    vendor = d.GetOnly('www.geni.com', 'ZZ-token', vendor_routes)
+    saved = []
+    r = d.diagnose(c, gh, vendor, saved.append, lambda: 200)
+    assert len(wires) == 1 and wires[0] == ('GET', vendor_routes[0] + '&api_version=1')
+    assert r['phase'] == ('READ_ONLY_COMPLETE' if status == 200 else 'STOPPED')
+    if status == 200:
+        assert saved[0]['profile_diagnostic']['response']['id'] == c['target_id']
+    else:
+        assert r['http_failure']['http_status'] == status
+        assert ('debug' in r['http_failure']) is debug
+        assert 'ZZ-sensitive' not in str(r) and 'ZZ-token' not in str(r)
+    with pytest.raises(Blocked):
+        vendor.request('GET', vendor_routes[0])
+    with pytest.raises(Blocked):
+        vendor.request('GET', '/api/profile')
+    assert len(wires) == 1
+
+
+def test_single_profile_capture_failure_and_expiry_no_followup():
+    c = dict(copy.deepcopy(C), mode='get_only_profile', target_id='profile-999002', debug=True)
+    for expired in (True, False):
+        calls = []
+        v = match_vendor(c, [{'id': c['target_id']}], calls)
+        def save(report):
+            raise OSError('ZZ-save')
+        with pytest.raises((Blocked, OSError)):
+            d.single_profile(v, c, {}, save, lambda expired=expired: c['expires_at'] if expired else 200)
+        assert len(calls) == (0 if expired else 1)
+
+
+def test_single_profile_config_rejects_extra_route_and_debug_drift(tmp_path):
+    c = dict(copy.deepcopy(C), mode='get_only_profile', target_id='profile-999002', debug=True)
+    for bad in (dict(c, target_id='profile'), dict(c, debug='true'), dict(c, union_id='union-999001')):
+        with pytest.raises(Blocked):
+            d.configuration(bad)

@@ -15,3 +15,5 @@ PILOT_PRIVATE_EVIDENCE_WRITER # create-workflow secret mapped into FAMILY_TREE_P
 
 PILOT_GET_RECONCILE_JSON # Protected workflow secret mapped to DIAGNOSTIC_CONFIG_JSON, never read directly by Python.
 PILOT_GET_MATCHES_JSON # Protected workflow secret mapped to DIAGNOSTIC_CONFIG_JSON, not a Python environment read.
+
+PILOT_GET_PROFILE_JSON # Protected workflow secret mapped to DIAGNOSTIC_CONFIG_JSON.
