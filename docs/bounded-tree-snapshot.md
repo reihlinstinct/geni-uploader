@@ -49,3 +49,13 @@ config_sha256 exact, confirm=READ_ONLY_BOUNDED_TREE. Human approves deployment.
 No rerun. Inspect encrypted final phase and scope; successful Action alone is
 not a whole-tree import. Partial STOP snapshots may be archived as partial,
 never used as a complete replacement. New run needs new explicit approval.
+
+## Environment contract
+
+SNAPSHOT_CONFIG_JSON contains the private exact JSON config;
+SNAPSHOT_CONFIG_SHA256 pins its UTF-8 bytes. SNAPSHOT_EXECUTOR_SHA must match
+the execution commit. SNAPSHOT_CONFIRM must be READ_ONLY_BOUNDED_TREE.
+SNAPSHOT_OUTPUT_DIR must be an absolute new directory for immutable ciphertext.
+GENI_SECONDARY_ACCESS_TOKEN is the isolated read credential. No generic token
+or GitHub writer is accepted. Standard GITHUB_ACTOR and
+GITHUB_TRIGGERING_ACTOR gates both require the reviewed automation identity.

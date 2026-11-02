@@ -92,6 +92,11 @@ ENV_DOCS = {
                                     'docs/secondary-readonly-evidence.md'],
     'GITHUB_ACTOR': ['docs/one-time-parent-pilot.md'],
     'GITHUB_TRIGGERING_ACTOR': ['docs/one-time-parent-pilot.md'],
+    'SNAPSHOT_CONFIG_JSON': ['docs/bounded-tree-snapshot.md'],
+    'SNAPSHOT_CONFIG_SHA256': ['docs/bounded-tree-snapshot.md'],
+    'SNAPSHOT_CONFIRM': ['docs/bounded-tree-snapshot.md'],
+    'SNAPSHOT_EXECUTOR_SHA': ['docs/bounded-tree-snapshot.md'],
+    'SNAPSHOT_OUTPUT_DIR': ['docs/bounded-tree-snapshot.md'],
     'BASELINE_CONFIG_JSON': ['docs/read-only-relative-baseline.md'],
     'BASELINE_CONFIG_SHA256': ['docs/read-only-relative-baseline.md'],
     'BASELINE_CONFIRM': ['docs/read-only-relative-baseline.md'],
@@ -104,7 +109,7 @@ ENV_DOCS = {
 ENV_TOKEN = re.compile(
     r'\b(GENI_[A-Z0-9_]+|FATHER_JOB_[A-Z0-9_]+|PILOT_[A-Z0-9_]+'
     r'|(?:SECONDARY_)?PROBE_[A-Z0-9_]+|ONE_TIME_[A-Z0-9_]+'
-    r'|BASELINE_[A-Z0-9_]+|RELATIVE_[A-Z0-9_]+|RECONCILE_[A-Z0-9_]+|PARENT_[A-Z0-9_]+|GITHUB_[A-Z0-9_]+|GH_TOKEN_FILE|TOKEN_PROBE_CREDENTIAL|FAMILY_TREE_PAT)\b')
+    r'|SNAPSHOT_(?:CONFIG_JSON|CONFIG_SHA256|CONFIRM|EXECUTOR_SHA|OUTPUT_DIR)|BASELINE_[A-Z0-9_]+|RELATIVE_[A-Z0-9_]+|RECONCILE_[A-Z0-9_]+|PARENT_[A-Z0-9_]+|GITHUB_[A-Z0-9_]+|GH_TOKEN_FILE|TOKEN_PROBE_CREDENTIAL|FAMILY_TREE_PAT)\b')
 
 # Command spans are scanned only after one of these markers; the marker
 # selects the entry point whose surface is valid there.
