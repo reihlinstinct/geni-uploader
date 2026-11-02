@@ -165,3 +165,55 @@ def test_real_entrypoint(tmp_path, monkeypatch):
     assert s.run(env)
     assert len(list((tmp_path / 'evidence').glob('*.age'))) == 6
     assert s.decode(saved[-1])['phase'] == 'BOUNDED_SNAPSHOT_COLLECTED'
+
+
+@pytest.mark.parametrize('missing', [('children',), ('partners',), ('children', 'partners')])
+def test_omitted_union_lists_remain_unknown(missing):
+    c = Client(); old = c.request
+    def request(method, route):
+        if route.startswith('/api/union-'):
+            value = {'id': 'union-201', 'partners': ['profile-101'], 'children': []}
+            for key in missing: del value[key]
+            return value
+        if '/immediate-family' in route:
+            return {'focus': {'id': 'profile-101'}, 'nodes': {
+                'profile-101': {'edges': {}}, 'union-201': {'edges': {}}}}
+        return old(method, route)
+    c.request = request
+    r = s.observe(cfg(), c, lambda _: None, lambda: 200)
+    assert r['phase'] == 'BOUNDED_SNAPSHOT_COLLECTED'
+    assert {x['field'] for x in r['unknown_union_fields']} == set(missing)
+    assert all(x['state'] == 'UNKNOWN_OMITTED' for x in r['unknown_union_fields'])
+    union = next(x['value'] for x in r['responses'] if x['kind'] == 'union')
+    assert all(key not in union for key in missing)
+
+
+@pytest.mark.parametrize('value', [None, '', {}, ['https://evil.invalid/api/profile-101'],
+                                  ['profile-101', 'https://www.geni.com/api/profile-101'],
+                                  ['profile-0101'], ['union-201']])
+@pytest.mark.parametrize('field', ['children', 'partners'])
+def test_present_union_lists_still_strict(field, value):
+    c = Client(); old = c.request
+    def request(method, route):
+        if route.startswith('/api/union-'):
+            return {'id': 'union-201', field: value}
+        if '/immediate-family' in route:
+            return {'focus': {'id': 'profile-101'}, 'nodes': {
+                'profile-101': {'edges': {}}, 'union-201': {'edges': {}}}}
+        return old(method, route)
+    c.request = request
+    r = s.observe(cfg(), c, lambda _: None, lambda: 200)
+    assert r['phase'] == 'STOPPED' and len(r['requests']) == 4
+
+
+def test_explicit_empty_union_list_is_not_unknown():
+    c = Client(); old = c.request
+    def request(method, route):
+        if route.startswith('/api/union-'): return {'id': 'union-201', 'partners': [], 'children': []}
+        if '/immediate-family' in route:
+            return {'focus': {'id': 'profile-101'}, 'nodes': {
+                'profile-101': {'edges': {}}, 'union-201': {'edges': {}}}}
+        return old(method, route)
+    c.request = request
+    r = s.observe(cfg(), c, lambda _: None, lambda: 200)
+    assert r['phase'] == 'BOUNDED_SNAPSHOT_COLLECTED' and r['unknown_union_fields'] == []

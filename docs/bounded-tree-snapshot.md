@@ -59,3 +59,13 @@ SNAPSHOT_OUTPUT_DIR must be an absolute new directory for immutable ciphertext.
 GENI_SECONDARY_ACCESS_TOKEN is the isolated read credential. No generic token
 or GitHub writer is accepted. Standard GITHUB_ACTOR and
 GITHUB_TRIGGERING_ACTOR gates both require the reviewed automation identity.
+
+## Omitted union lists
+
+For this GET-only observation route, an absent union partners or children
+field is recorded in unknown_union_fields as UNKNOWN_OMITTED. Raw response
+stays unchanged; no empty array is invented, no absence-of-family inference
+is allowed. Present lists must still be actual lists of exact validated
+profile references, bounded and duplicate-free after canonical normalization.
+Null, scalar, malformed, foreign-host and duplicate present lists STOP. This
+policy changes no write runner, limits, traversal discovery or retry rule.

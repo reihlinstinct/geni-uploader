@@ -79,7 +79,7 @@ def observe(value, client, save, clock):
     c = config(value)
     report = {'schema': 1, 'phase': 'STOPPED', 'stage': 'identity', 'read_only': True,
               'retry_allowed': False, 'complete_tree': False, 'limits': LIMITS,
-              'responses': [], 'requests': [], 'boundary': [], 'merge_unknown_allowed_for_read_only': True}
+              'responses': [], 'requests': [], 'boundary': [], 'unknown_union_fields': [], 'merge_unknown_allowed_for_read_only': True}
     queue = deque([(c['owner'], 0)])
     depths = {c['owner']: 0}
     unions = set()
@@ -140,6 +140,10 @@ def observe(value, client, save, clock):
                     union = read('union', current, '/api/' + current + '?only_ids=true')
                     require(union.get('id') == current)
                     for field in ('partners', 'children'):
+                        if field not in union:
+                            report['unknown_union_fields'].append({'union': current, 'field': field,
+                                                                   'state': 'UNKNOWN_OMITTED'})
+                            continue
                         require(type(union.get(field)) is list and len(union[field]) <= 500)
                         normalized = [node(v, 'profile') for v in union[field]]
                         require(len(normalized) == len(set(normalized)))
