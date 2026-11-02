@@ -18,11 +18,24 @@ def names(value):
                 and not any(ord(c) < 32 for c in text))
 
 
+def merge_state(value):
+    # Omission remains UNKNOWN. A narrow owner-approved policy accepts that risk.
+    require('merge_pending' not in value or value['merge_pending'] is False)
+    require('merged_into' not in value or value['merged_into'] in (None, ''))
+
+
+def union_reference(value):
+    require(type(value) is str)
+    match = re.fullmatch(r'(?:https://www\.geni\.com/api/)?(union-[0-9]{1,30})', value)
+    require(match is not None)
+    return match.group(1)
+
+
 def expected(value):
     require(type(value) is dict and set(value) <= set(SNAPSHOT_KEYS))
     require(value.get('public') is False and value.get('is_alive') is True
-            and value.get('claimed') is False and value.get('merge_pending') is False
-            and value.get('merged_into') in (None, ''))
+            and value.get('claimed') is False)
+    merge_state(value)
     require(all(k in value for k in ('first_name', 'last_name', 'gender', 'unions'))
             and value['gender'] in ('male', 'female', 'unknown'))
     names({k: v for k, v in value.items() if k in NAME_KEYS})
@@ -33,7 +46,8 @@ def expected(value):
     require(type(value.get('unions')) is list and len(value['unions']) <= 8)
     require(len(set(value['unions'])) == len(value['unions']))
     for union in value['unions']:
-        require(type(union) is str and re.fullmatch(r'union-[0-9]{1,30}', union))
+        union_reference(union)
+    require(len({union_reference(u) for u in value['unions']}) == len(value['unions']))
 
 
 def plan(value):
@@ -59,15 +73,23 @@ def plan(value):
                 == fields['maiden_name'])
     require(change['maiden_name'] == value['expected']['last_name'])
     require(change['last_name'] != value['expected']['last_name'])
-    return copy.deepcopy(value)
+    result = copy.deepcopy(value)
+    result['expected'] = snapshot(dict(value['expected']))
+    return result
 
 
 def snapshot(actual):
     require(type(actual) is dict and 'error' not in actual)
     require(actual.get('public') is False and actual.get('is_alive') is True
-            and actual.get('claimed') is False and actual.get('merge_pending') is False
-            and actual.get('merged_into') in (None, ''))
-    return {k: actual[k] for k in SNAPSHOT_KEYS if k in actual}
+            and actual.get('claimed') is False)
+    merge_state(actual)
+    require(type(actual.get('unions')) is list and len(actual['unions']) <= 8)
+    unions = [union_reference(u) for u in actual['unions']]
+    require(len(set(unions)) == len(unions))
+    result = {k: actual[k] for k in SNAPSHOT_KEYS
+              if k in actual and k not in ('merge_pending', 'merged_into', 'unions')}
+    result['unions'] = sorted(unions)
+    return result
 
 
 def graph(actual, target):

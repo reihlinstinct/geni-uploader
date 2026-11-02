@@ -296,3 +296,69 @@ def test_new_workflow_uses_only_own_config_secret():
     assert 'secrets.PROFILE_NAME_UPDATE_JSON' in text
     assert 'secrets.RELATIVE_SIBLINGS_JSON' not in text
     assert 'PYTHONPATH=src python3 protected_profile_name_update.py' in text
+
+
+def test_omitted_merge_fields_are_unknown_but_admitted_with_explicit_safety():
+    c = plan()
+    del c['expected']['merge_pending']
+    c['expected']['unions'] = ['https://www.geni.com/api/union-303']
+    r, io, _ = run(c)
+    assert r['phase'] == 'VERIFIED' and len(io.posts) == 1
+    assert 'merge_pending' not in core.plan(c)['expected']
+    assert core.plan(c)['expected']['unions'] == ['union-303']
+
+
+@pytest.mark.parametrize('field', ['public', 'is_alive', 'claimed', 'gender', 'names', 'unions'])
+def test_missing_merge_never_excuses_missing_other_safety(field):
+    c = plan()
+    del c['expected']['merge_pending']
+    del c['expected'][field]
+    with pytest.raises(Blocked):
+        core.plan(c)
+
+
+@pytest.mark.parametrize('field,value', [('merge_pending', True), ('merge_pending', None),
+                                       ('merge_pending', 0), ('merged_into', 'profile-999'),
+                                       ('merged_into', False), ('merged_into', {})])
+def test_omission_policy_rejects_positive_or_malformed_merge(field, value):
+    c = plan()
+    c['expected'][field] = value
+    with pytest.raises(Blocked):
+        core.plan(c)
+
+
+@pytest.mark.parametrize('value', ['http://www.geni.com/api/union-303',
+                                 'https://evil.invalid/api/union-303',
+                                 'https://www.geni.com.evil.invalid/api/union-303',
+                                 'https://www.geni.com/api/union-303?x=1',
+                                 'https://www.geni.com/api/union-303/',
+                                 'https://www.geni.com/api/profile-303',
+                                 'union-303\n', 303])
+def test_union_normalization_is_exact_not_url_suffix_matching(value):
+    with pytest.raises(Blocked):
+        core.union_reference(value)
+
+
+def test_url_and_id_duplicate_union_rejected():
+    c = plan()
+    c['expected']['unions'].append('https://www.geni.com/api/union-303')
+    with pytest.raises(Blocked):
+        core.plan(c)
+
+
+def test_postwrite_positive_merge_stops_even_when_old_fields_omitted():
+    c = plan()
+    del c['expected']['merge_pending']
+    io = IO(c)
+    old = io.update
+
+    def update(*args):
+        value = old(*args)
+        io.value['merge_pending'] = True
+        return value
+
+    io.update = update
+    store = Store()
+    r = core.execute(c, io, store, lambda _: b'ZZ', lambda: 200, read_only=False)
+    assert r['phase'] == 'STOPPED' and len(io.posts) == 1
+    assert 'final' not in store.receipts

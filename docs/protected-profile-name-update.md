@@ -10,15 +10,31 @@ Only `last_name`, `maiden_name` and those two fields in the existing `en-US` and
 `he` name maps may change. The prior surname must be preserved as maiden name;
 a conflicting existing maiden name blocks. First/middle names, gender, privacy,
 life status, merge state and union membership remain pinned. Target must be a
-private, living, explicitly unclaimed profile with explicit no-merge state.
-Missing safety fields block rather than assume safe. Unknown locales or name
+private, living, explicitly unclaimed profile with explicit claimed=false.
+Missing core safety fields block rather than assume safe. Unknown locales or name
 fields are not dropped to make a plan pass. Email/invitations, other profile
 fields, creation, deletion, spouse/child edges and sources are excluded.
 
 `expected` is the exact snapshot projection defined by `SNAPSHOT_KEYS` in the
 model. `names` uses vendor locale keys (`en-US`, `he`). Union IDs use the explicit
 `only_ids=true` representation. Do not synthesize missing safety fields from an
-older receipt. A fresh read may block if the vendor omits a required field.
+older receipt. A fresh read blocks if the vendor omits a required core field.
+
+### Narrow merge-metadata omission policy (#663)
+
+Geni can omit `merge_pending` and `merged_into` even when requested. Omission is
+UNKNOWN, not proof of no merge. The owner-approved policy admits omission only
+when all other safety predicates are explicit and match: private, living,
+unclaimed, gender, exact names and valid union references. If present,
+`merge_pending` must be exactly false; `merged_into` must be null or empty.
+Positive or malformed merge state always blocks, before and after a write.
+Residual risk: a merge not reported by Geni may exist. This policy does not
+establish its absence. Re-review that risk with the exact effect before any run.
+
+Only exact `union-N` IDs or `https://www.geni.com/api/union-N` references normalize
+to an ID. No other host, scheme, query, suffix or path is accepted. Duplicate
+references after normalization block. Normalized union membership must remain
+identical after the update. No additional endpoint or effect is admitted.
 
 ## Private package and review
 
