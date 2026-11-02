@@ -32,6 +32,7 @@ ENTRY_POINTS = {
 
 # Environment variable -> designated docs that must mention it.
 ENV_DOCS = {
+    'RELATIVE_MODE': ['docs/protected-profile-name-update.md'],
     **{key: ['docs/protected-relative-siblings.md'] for key in (
         'RELATIVE_CONFIG_JSON', 'RELATIVE_CONFIG_SHA256', 'RELATIVE_EXECUTOR_SHA',
         'RELATIVE_CONFIRM', 'RELATIVE_OUTPUT_DIR', 'RELATIVE_DEBUG', 'RELATIVE_TREE_PAT')},
