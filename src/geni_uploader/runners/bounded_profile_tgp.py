@@ -20,10 +20,18 @@ def caption(value):
             and not any(ord(c) < 32 for c in value))
 
 
+def portrait(value):
+    # PhotoImageSizeMap: at least one size, every entry a nonempty str -> str URL.
+    require(type(value) is dict and len(value) >= 1)
+    for size, url in value.items():
+        require(type(size) is str and len(size) > 0
+                and type(url) is str and url.startswith('https://'))
+
+
 GENDERS = ('male', 'female', 'unknown')
 BASE_KEYS = ('schema', 'owner', 'expect_name', 'target', 'expected', 'set',
              'expires_at', 'capability')
-PHOTO_SNAPSHOT_KEYS = (*SNAPSHOT_KEYS, 'mugshot')
+PHOTO_SNAPSHOT_KEYS = (*SNAPSHOT_KEYS, 'mugshot_urls')
 
 
 def expected(value, capability):
@@ -50,7 +58,7 @@ def expected(value, capability):
     if capability == 'photo':
         # keep-current requires an established existing main portrait, pinned
         # by the private preparation read and confirmed in preflight.
-        require(type(value.get('mugshot')) is str and len(value['mugshot']) > 0)
+        portrait(value.get('mugshot_urls'))
 
 
 def plan(value):
@@ -61,8 +69,20 @@ def plan(value):
     if capability == 'title':
         exact(value, (*BASE_KEYS, 'readback_contract'))
     elif capability == 'photo':
+        # mugshot_urls is added at top level by a prior plan() pass; accepting
+        # it here keeps plan() idempotent (the runner plans twice).
+        value = dict(value)
+        prior = value.pop('mugshot_urls', None)
         exact(value, (*BASE_KEYS, 'image_sha256', 'consent_reference',
                       'privacy_acknowledged', 'main_portrait'))
+        if prior is not None:
+            # Raw input carries the map in expected; a re-planned input carries
+            # it only at top level (the snapshot strips it). Re-inject so the
+            # expected() contract below validates it once.
+            if 'mugshot_urls' in value['expected']:
+                require(prior == value['expected']['mugshot_urls'])
+            else:
+                value['expected'] = dict(value['expected'], mugshot_urls=prior)
     else:
         exact(value, BASE_KEYS)
     require(type(value['schema']) is int and value['schema'] == 1)
@@ -92,8 +112,8 @@ def plan(value):
     result = copy.deepcopy(value)
     result['expected'] = snapshot(dict(value['expected']))
     if capability == 'photo':
-        # Mugshot is a preflight precondition, not part of the name snapshot.
-        result['mugshot'] = value['expected']['mugshot']
+        # Main portrait is a preflight precondition, not part of the name snapshot.
+        result['mugshot_urls'] = value['expected']['mugshot_urls']
     return result
 
 
@@ -108,21 +128,31 @@ def graph(actual, target):
     return copy.deepcopy(result)
 
 
+def tag_target(value):
+    # Wire shape: tags are strings, either 'profile-<digits>' or its API URL.
+    require(type(value) is str)
+    match = re.fullmatch(r'(?:https://www\.geni\.com/api/)?(profile-[0-9]{1,30})', value)
+    require(match is not None)
+    return match.group(1)
+
+
 def photo_readback(photo, target, caption):
     require(type(photo) is dict and 'error' not in photo)
     require(photo.get('title') == caption)
     tags = photo.get('tags')
     require(type(tags) is list and len(tags) == 1)
-    only = tags[0]
-    require(type(only) is dict and only.get('id') == target)
+    require(tag_target(tags[0]) == target)
     sizes = photo.get('sizes')
-    require(type(sizes) in (dict, list) and len(sizes) >= 1)
+    require(type(sizes) in (dict, list))
+    entries = list(sizes.values()) if type(sizes) is dict else sizes
+    # At least one supported nonempty size entry; malformed entries block.
+    require(len(entries) >= 1 and all(type(e) is str and len(e) > 0 for e in entries))
 
 
 def marker(c):
     # Neither expiry nor executor/source commit can mint another send.
     keys = ('owner', 'target', 'expected', 'set', 'capability',
-            *(('image_sha256',) if c['capability'] == 'photo' else ()))
+            *(('image_sha256', 'consent_reference') if c['capability'] == 'photo' else ()))
     return 'profile-tgp-consumed-v1-' + sha(canonical({k: c[k] for k in keys}))
 
 
@@ -155,7 +185,8 @@ def execute(value, io, store, save, clock, *, read_only):
         before = read('profile', c['target'])
         require(before.get('id') == c['target'] and snapshot(before) == c['expected'])
         if capability == 'photo':
-            require(type(before.get('mugshot')) is str and before['mugshot'] == c['mugshot'])
+            portrait(before.get('mugshot_urls'))
+            require(before['mugshot_urls'] == c['mugshot_urls'])
         edges = graph(read('family', c['target']), c['target'])
         if read_only:
             r.update(phase='READ_ONLY_TGP_VERIFIED', stage='complete')
@@ -187,7 +218,7 @@ def execute(value, io, store, save, clock, *, read_only):
             photo_readback(read('photo', photo_id), c['target'], c['set']['title'])
             after = read('profile', c['target'])
             require(after.get('id') == c['target'] and snapshot(after) == c['expected']
-                    and after.get('mugshot') == c['mugshot'])
+                    and after.get('mugshot_urls') == c['mugshot_urls'])
         else:
             after = read('profile', c['target'])
             want = copy.deepcopy(c['expected'])
@@ -198,10 +229,17 @@ def execute(value, io, store, save, clock, *, read_only):
         r.update(phase='VERIFIED', stage='final')
         store.receipt(intent, 'final', save(copy.deepcopy(r)))
         if capability == 'photo':
+            # The VERIFIED receipt is already retained. A future durable ledger
+            # must register the hash WITH that receipt (or derive hashes from
+            # VERIFIED receipts): no VERIFIED receipt without duplicate
+            # registration. PhotoStore fails closed until then.
             store.record_photo_hash(c['target'], c['image_sha256'])
         r['stage'] = 'complete'
         save(copy.deepcopy(r))
-    except (Blocked, OSError, ValueError, TypeError, KeyError, AttributeError, RecursionError):
+    except (Blocked, OSError, ValueError, TypeError, KeyError, AttributeError,
+            RecursionError, NotImplementedError):
+        # NotImplementedError: the photo ledger is not wired yet (P2-6); fail
+        # closed with STOPPED evidence rather than crashing mid-sequence.
         r['phase'] = 'STOPPED'
         save(copy.deepcopy(r))
     return r

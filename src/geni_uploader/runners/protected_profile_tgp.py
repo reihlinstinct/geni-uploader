@@ -21,7 +21,7 @@ from geni_uploader.runners.one_time_parent_pilot import (
 )
 from geni_uploader.runners.protected_family_additions import Store, setup_failure
 
-NAME_FIELDS = (parent.FIELDS + ',claimed,mugshot')
+NAME_FIELDS = (parent.FIELDS + ',claimed,mugshot_urls')
 
 
 class ScopedVendor(HTTPS):
