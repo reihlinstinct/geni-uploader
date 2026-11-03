@@ -108,3 +108,42 @@ verification apply. No live update is authorized by this code change. Vendor
 partial locale-map update behavior is checked after the write; an acknowledged
 update that drops existing names, adds current surname or changes family edges
 is STOPPED, not verified, and is never automatically retried or repaired.
+
+## Separate current-surname-fill shape (#718)
+
+A plan whose `set` contains exactly `last_name` and `names` AND whose target
+has no current surname anywhere selects a third, separate operation: adding an
+approved spouse surname where none exists. Owner rule: when a man marries a
+woman whose profile has no current last name (distinct from birth name), add
+the husband's surname.
+
+Admission requires the current `last_name` to be ABSENT in main AND in every
+returned locale map. A surname present in main or any locale blocks this shape
+entirely, even when the present value equals a birth name; this shape never
+overwrites, and the correction shape's old-surname preservation rules are
+unchanged. A target with any current surname is only ever handled by the
+correction shape; a target with any maiden-name-only request is only ever
+handled by the #711 shape. Mixed or ambiguous bodies block.
+
+The payload is exactly `last_name` and the locale maps' `last_name` entries.
+Locale mapping is enforced: each returned locale map is filled with the same
+approved surname, main and English must match, and unknown locales or fields
+block rather than being dropped. Every pre-existing `maiden_name` (main,
+`en-US`, `he`) is preserved exactly: never moved, copied, cleared or derived
+from the new surname. First/middle/nicknames, gender, privacy, life status,
+explicit unclaimed status and family edges remain pinned as in the other
+shapes, and the readback must show every birth-name field unchanged.
+
+The spouse relationship must be verified, not inferred: the plan's family read
+must show the husband whose surname is being added as a current union partner
+of the target, and the private config names that spouse reference. A surname
+requested for a spouse absent from the current union read blocks, as does any
+stale or ambiguous union graph. No spouse is inferred from names, gender or
+the requested value.
+
+The same private exact package, three-read plan, protected approval, stable
+one-use consumption, single POST and two-read verification apply. Invariant
+readback covers the new surname (exact, main and every locale) and every
+preserved field. A failed or uncertain POST is STOPPED and terminal: no
+retry, resume, rollback or repair. No live update is authorized by this
+shape's code; each run needs the owner's explicit approval.
