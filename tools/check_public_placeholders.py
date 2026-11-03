@@ -17,6 +17,7 @@ Usage: python tools/check_public_placeholders.py [--root DIR] [--write-baseline]
 """
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -26,10 +27,11 @@ ID9 = re.compile(r'(?<![\d-])\d{9}(?![\d-])')
 ID8 = re.compile(r'(?<![\d-])\d{8}(?![\d-])')
 PHONE_INTL = re.compile(r'\+\d[\d -]{6,16}\d')
 PHONE_00 = re.compile(r'(?<![\d+])00\d[\d -]{6,14}\d')
-PHONE_LOCAL = re.compile(r'(?<![\d+])0\d{1,2}-\d{3}-?\d{4}(?!\d)')
+PHONE_LOCAL = re.compile(r'(?<![\d+])0\d{1,2}[ -]?\d{3}[ -]?\d{4}(?!\d)')
+# Full digit runs: truncating to a bounded length silently passes longer tokens.
 STRUCTURED_ID = re.compile(
-    r'(?:profile_id|union_id)["\']?\s*[:=]\s*["\']?(\d{1,12})'
-    r'|\b(?:profile|union)-(\d{1,12})(?![\w-])')
+    r'(?:profile_id|union_id)["\']?\s*[:=]\s*["\']?(\d+)'
+    r'|\b(?:profile|union)-(\d+)(?![\w-])')
 RESERVED_PHONE = re.compile(r'^(?:\+999-[\d-]{3,12}\d|\+1-\d{3}-555-01\d\d)$')
 SKIP_DIRS = {'.git', 'synthetic'}
 SKIP_FILES = {'tools/check_public_placeholders.py', 'tests/test_public_placeholders.py'}
@@ -52,8 +54,20 @@ def tracked_files(root):
     for name in out.stdout.splitlines():
         path = root / name
         top = name.split('/', 1)[0]
-        if top in SKIP_DIRS or name in SKIP_FILES or path.suffix.lower() not in TEXT_SUFFIX:
+        if top in SKIP_DIRS or name in SKIP_FILES:
             continue
+        if path.suffix.lower() not in TEXT_SUFFIX:
+            # Suffixless files (Makefile, Dockerfile, ...): sniff as text.
+            try:
+                chunk = path.read_bytes()[:4096]
+            except OSError:
+                continue
+            if b'\0' in chunk:
+                continue
+            try:
+                chunk.decode('utf-8')
+            except UnicodeDecodeError:
+                continue
         yield name, path
 
 
@@ -102,7 +116,12 @@ def main():
     root = Path(args.root).resolve()
     baseline = load_json(root, 'synthetic/public-corpus-baseline.json',
                          {'findings': [], 'allowlist': []})
+    ci = os.environ.get('GITHUB_ACTIONS') == 'true' or os.environ.get('CI') == 'true'
     if args.write_baseline:
+        if ci:
+            print('placeholder violation: --write-baseline is disabled in CI; '
+                  'regenerate the baseline locally and commit it')
+            return 1
         seen = set()
         unique = []
         for f, n, v, c in findings(root):
@@ -122,12 +141,43 @@ def main():
             return 1
     known = {(e['file'], e['line'], e['value'], e['class'])
              for e in baseline.get('findings', []) + baseline.get('allowlist', [])}
-    bad = [(f, n, v, c) for f, n, v, c in findings(root)
-           if (f, n, v, c) not in known]
+    found = set(findings(root))
+    bad = sorted(found - known)
+    # An entry no longer matching any finding is stale: the baseline mirrors
+    # the corpus exactly, so removals require a regenerated (smaller) baseline.
+    stale = sorted(known - found - {(e['file'], e['line'], e['value'], e['class'])
+                                    for e in baseline.get('allowlist', [])})
     for f, n, v, c in bad:
         print(f'placeholder violation: {f}:{n}: {c} {v}')
-    print(f'public placeholder check: {len(bad)} violations')
-    return 1 if bad else 0
+    for f, n, v, c in stale:
+        print(f'stale baseline entry: {f}:{n}: {c} {v}')
+    grown = []
+    growth_violations = 0
+    event_path = os.environ.get('GITHUB_EVENT_PATH')
+    if ci and event_path and Path(event_path).is_file():
+        event = json.loads(Path(event_path).read_text(encoding='utf-8'))
+        pr = event.get('pull_request') or {}
+        base_sha = (pr.get('base') or {}).get('sha')
+        if base_sha:
+            base = subprocess.run(
+                ['git', 'show', f'{base_sha}:synthetic/public-corpus-baseline.json'],
+                cwd=root, check=False, capture_output=True, text=True)
+            if base.returncode == 0:
+                base_known = {(e['file'], e['line'], e['value'], e['class'])
+                              for e in json.loads(base.stdout).get('findings', [])}
+                now_findings = {(e['file'], e['line'], e['value'], e['class'])
+                                for e in baseline.get('findings', [])}
+                grown = sorted(now_findings - base_known)
+                labels = {l.get('name') for l in pr.get('labels', [])}
+                if grown and 'synthetic-baseline-grow' not in labels:
+                    growth_violations = len(grown)
+                    for f, n, v, c in grown:
+                        print(f'baseline growth without review label: {f}:{n}: {c} {v}')
+                    print('baseline additions in a PR require the '
+                          "'synthetic-baseline-grow' label (owner-reviewed)")
+    violations = len(bad) + len(stale) + growth_violations
+    print(f'public placeholder check: {violations} violations')
+    return 1 if violations else 0
 
 
 if __name__ == '__main__':

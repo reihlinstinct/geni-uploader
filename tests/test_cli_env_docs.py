@@ -60,6 +60,8 @@ ENV_DOCS = {
     **{key: ['docs/protected-profile-title-gender-photo.md'] for key in (
         'TGP_MODE', 'TGP_CONFIG_JSON', 'TGP_CONFIG_SHA256', 'TGP_EXECUTOR_SHA',
         'TGP_CONFIRM', 'TGP_OUTPUT_DIR', 'TGP_DEBUG', 'TGP_TREE_PAT')},
+    **{key: ['docs/synthetic-personas.md'] for key in (
+        'CI', 'GITHUB_ACTIONS', 'GITHUB_EVENT_PATH')},
     **{key: ['docs/protected-parent-addition.md'] for key in (
         'PARENT_CONFIG_JSON', 'PARENT_CONFIG_SHA256', 'PARENT_EXECUTOR_SHA',
         'PARENT_CONFIRM', 'PARENT_OUTPUT_DIR', 'PARENT_DEBUG', 'PARENT_TREE_PAT')},

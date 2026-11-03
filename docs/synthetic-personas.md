@@ -39,12 +39,32 @@ corpus: entries are anchored by exact file + line + value + class, so moving
 or editing a grandfathered line re-flags it. `allowlist` entries (same
 anchoring plus a mandatory `reason`) cover values that must stay. Migration
 PRs shrink `findings` per area (tests, oauth-bootstrap, docs, src, tools);
-`--write-baseline` is migration tooling, never a way to bless new data -
-adding entries requires review like any other change.
+`--write-baseline` is migration tooling, never a way to bless new data.
+
+CI guards (active automatically under `GITHUB_ACTIONS=true` / `CI=true`,
+reading the pull-request payload at `GITHUB_EVENT_PATH`):
+
+- `--write-baseline` refuses to run in CI; regenerate locally and commit.
+- A baseline entry that no longer matches any finding is stale and fails
+  the check; removing flagged content requires a regenerated (smaller)
+  baseline in the same PR.
+- On pull requests the baseline may only shrink: added `findings` entries
+  versus the PR base fail the check unless the PR carries the
+  `synthetic-baseline-grow` label, which marks explicit owner review of the
+  added entries. The comparison is skipped (documented gap) when the base
+  commit's baseline is not readable in the checkout.
+
+The `synthetic/` directory itself is not scanned: it is the source of truth
+for the synthetic values (personas and the corpus baseline), so every value
+there is expected. Its correctness is instead pinned by complete validation
+tests over `synthetic/personas.json` (every persona field: name shapes,
+Hebrew variants, profile/union id ranges, reserved phones, checksum-failing
+national ids).
 
 ## Known blind spots
 
 Bare numeric IDs in prose are not reliably distinguishable from fixture
-values; obfuscated/separator-split numbers may evade the phone patterns;
-real names are caught by review, not by the scanner. These are governed by
+values; heavily obfuscated numbers (letters substituted, split across lines)
+may evade the phone patterns; real names are caught by review, not by the
+scanner. These are governed by
 the writing rule in CONTRIBUTING.md.
