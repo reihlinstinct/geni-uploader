@@ -25,3 +25,7 @@ The older GitHub default labels (`bug`, `enhancement`, `documentation`, ...) sta
 **Milestones:** `Now` (in progress or due this week), `Next` (planned after Now), `Later` (backlog). High priority goes to Now, medium to Next, low to Later, unless the maintainer decides otherwise.
 
 **Picking an issue:** filter by milestone `Now`, then `Next`. Take high priority first. Skip blocked, held and in-progress items. Comment "taking this" on the issue, then open a PR that references it (`fixes #N` / `refs #N`).
+
+## File placement (enforced)
+
+Decide where a file lives BEFORE creating it; moving afterwards does not happen. New code never goes in the repository root: library and runner code goes under `src/geni_uploader/`, one-off utilities under `tools/` or `scripts/`, tests under `tests/`. The contract in `.repo-layout.yml` lists the allowed directories, the file types permitted in each, and the required community-standards files; `tools/check_repo_layout.py` enforces it in CI (`tests/test_repo_layout.py`). A new kind of file means updating the contract in the same PR. Every design doc states the target paths of the files it introduces; the layout map lives in `ARCHITECTURE.md`.

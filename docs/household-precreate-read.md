@@ -40,9 +40,9 @@ fake HTTPSConnection, without network calls. Closes #678.
 
 Unchanged dependency base: 71d23cb1f10ac3d18a4dffdc95a4cca55a68791f.
 These dependencies are reviewed in place, not copied or modified.
-Layout note (#704): the root runner files below moved to src/geni_uploader/runners/ (one_time_parent_pilot.py, src/geni_uploader/runners/bounded_tree_snapshot.py) with import-identity shims left at the root; the hashes below pin the reviewed pre-move contents:
-- one_time_parent_pilot.py SHA256 59bd1d4862575dcdd5b29558083ff9937f295995f967075438b6b034d31aefc5, lines 76-82 initialization/host, 152-239 admission/request/redirect/status/deadline.
+Layout note (#704, updated #721): the root runner files below moved to src/geni_uploader/runners/ (one_time_parent_pilot, src/geni_uploader/runners/bounded_tree_snapshot.py). Import-identity shims left at the root by #704 were removed in #721 once nothing imported them by bare name; the hashes below pin the reviewed pre-move contents (the removed root facades are pinned as historical provenance):
+- root one_time_parent_pilot (removed in #721) SHA256 59bd1d4862575dcdd5b29558083ff9937f295995f967075438b6b034d31aefc5, lines 76-82 initialization/host, 152-239 admission/request/redirect/status/deadline.
 - src/geni_uploader/runners/bounded_tree_snapshot.py SHA256 645edd485c3f1fe68e0105b4afb60a45e3fd7c7a2d47c2529387d2a90c08cbf2, lines 26-54 config/body/identity.
-- parent_probe.py SHA256 11f452824157ce489ae42d95bbeb3aa20d9e16f9754c905890f41d8c9ec3ff04, lines 1-9 import facade.
+- root parent_probe facade (removed in #721) SHA256 11f452824157ce489ae42d95bbeb3aa20d9e16f9754c905890f41d8c9ec3ff04, lines 1-9 import facade (root facade removed in #721; the packaged module it wrapped is pinned next).
 - src/geni_uploader/client/probe.py SHA256 fac8f9e42d24c9cbac3d3d9927cacf4ca73638151b2bad4a523efbd6d86ccd16, lines 187-193 age encryption.
 - src/geni_uploader/core/people.py SHA256 fb5878fe39ca2f245ed9e520c17c7fafd86fa6c8fb2393fd6fe4ca4b28ebf651, lines 10-20 value-free require/exact.

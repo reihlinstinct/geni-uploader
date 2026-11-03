@@ -165,3 +165,19 @@ python -m pytest -q
 - [docs/privacy.md](docs/privacy.md) — Privacy policy
 - [docs/geni-token.md](docs/geni-token.md) — Geni token guide
 - [SECURITY.md](SECURITY.md) — Security policy
+
+## Repository layout map
+
+Where each kind of file lives (enforced by `.repo-layout.yml` + `tools/check_repo_layout.py`, issue #721):
+
+- Root: documentation and community files only (`*.md`, `LICENSE`, `Dockerfile*`, `entrypoint.sh`, `pyproject.toml`, `requirements*.txt`). No code.
+- `src/geni_uploader/`: the package - `client/` (transport/CLI), `core/` (pure models), `runners/` (protected entry points), `evidence/`, `presentation/`, `workflow/`, `cli/`, `resources/`.
+- `geni_offline/`: offline shim package.
+- `tests/`: pytest suite (`*.py`) and fixtures (`*.json`).
+- `tools/`: repo utilities (`*.py`, `*.sh`); `scripts/`: CI helper scripts.
+- `docs/`: design docs and runbooks (`*.md` plus reviewed examples/templates).
+- `man/`: generated man pages (`*.1`) - regenerate via `tools/build_man_pages.py`, never edit by hand.
+- `oauth-bootstrap/`: the Node bootstrap (`*.mjs` + package manifests).
+- `.github/`: workflows, CODEOWNERS, templates, CI config.
+
+Required root files (GitHub community standards): `README.md`, `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `SUPPORT.md`, `ACCESSIBILITY.md`, `.github/CODEOWNERS`, `.github/ISSUE_TEMPLATE/`, `.github/pull_request_template.md`.

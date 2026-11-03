@@ -30,7 +30,7 @@ permission to execute.
 
 ## Separately protected wiring
 
-The separate `protected_family_additions.py` entry point (since #704 `src/geni_uploader/runners/protected_family_additions.py`, with a root import shim) is wired only through
+The separate protected family additions entry point (`src/geni_uploader/runners/protected_family_additions.py` since #704; the root import shim was removed in #721) is wired only through
 `guarded-family-additions.yml`, never through the original one-parent workflow.
 The original transport's 12-call/one-parent admission remains unchanged. The
 separate transport has exact plan-bound GET/POST allowlists, a 40-call cap,
