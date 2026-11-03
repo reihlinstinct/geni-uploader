@@ -48,6 +48,8 @@ class IO:
 
     def get_profile(self, target):
         if target == 'profile':
+            if self.anomaly == 'owner_mismatch':
+                return {'id': OWNER, 'first_name': 'ZZ', 'last_name': 'Stranger'}
             return {'id': OWNER, 'first_name': 'ZZ', 'last_name': 'Owner'}
         value = copy.deepcopy(self.value)
         if self.posts and self.anomaly == 'mugshot_changed':
@@ -75,7 +77,8 @@ class IO:
         self.posts.append((target, copy.deepcopy(body)))
         if self.anomaly == 'lost':
             raise OSError()
-        self.value.update(body)
+        if self.anomaly != 'not_applied':
+            self.value.update(body)
         return {'id': TARGET}
 
     def add_photo(self, target, body):
@@ -243,6 +246,17 @@ def test_photo_readback_mismatch_stops(anomaly):
     assert r['phase'] == 'STOPPED' and r['retry_allowed'] is False
 
 
+def test_gender_update_acknowledged_but_not_applied_stops():
+    r, io, _ = run(plan('gender'), anomaly='not_applied')
+    assert r['phase'] == 'STOPPED' and r['retry_allowed'] is False
+    assert len(io.posts) == 1
+
+
+def test_owner_expect_name_gate_stops():
+    r, io, _ = run(plan('gender'), anomaly='owner_mismatch')
+    assert r['phase'] == 'STOPPED' and not io.posts
+
+
 def test_photo_failed_post_terminal():
     r, io, store = run(plan('photo'), anomaly='lost')
     assert r['phase'] == 'STOPPED' and r['retry_allowed'] is False
@@ -270,7 +284,9 @@ def test_plan_is_idempotent():
         assert core.plan(once) == once
 
 
-@pytest.mark.parametrize('sizes', [[None], {}, {'large': ''}, [''], {'large': None}, []])
+@pytest.mark.parametrize('sizes', [[None], {}, {'large': ''}, [''], {'large': None}, [],
+                                  ['', 'https://ZZ.invalid/x.jpg'],
+                                  {'large': 'https://ZZ.invalid/x.jpg', 'small': ''}])
 def test_photo_malformed_sizes_stop(sizes):
     c = plan('photo')
     io = IO(c)
