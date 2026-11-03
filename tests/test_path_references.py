@@ -21,9 +21,12 @@ COPY_LINE = re.compile(r"^\s*COPY\s+(?:--\S+\s+)*(\S+)\s+\S+")
 # python / python3 invocation, optional short flags, then a file or -m module
 PY_RUN_FILE = re.compile(r"python3?(?:\s+-[A-Za-z])*\s+([A-Za-z0-9_./-]+\.py)")
 PY_RUN_MODULE = re.compile(r"python3?\s+-m\s+([A-Za-z0-9_.]+)")
-# a -m module later in a python command line (chained runners)
-CHAINED_MODULE = re.compile(r"(?<!\S)-m\s+([A-Za-z0-9_.]+)")
+# `python -m coverage run ... -m <mod>` re-executes <mod> as a module; only
+# this runner pattern makes a later -m a python module (pytest's own -m
+# marker, coverage report's -m flag, etc. must NOT match).
+COVERAGE_RUN = re.compile(r"python3?\s+-m\s+coverage\s+run\b")
 PYTHONPATH_SRC = re.compile(r"PYTHONPATH=src")
+RUN_KEY = re.compile(r"^(\s*)(?:-\s+)?run:\s*(.*?)\s*$")
 # ROOT / some.py and Path(...) / name.py literals inside tests/
 TEST_PATH_LITERAL = re.compile(
     r"(?:ROOT|Path\([^)]*\))\s*/\s*['\"]([^'\"]+\.py)['\"]")
@@ -58,9 +61,15 @@ TEXT_SOURCES = (
     + sorted((ROOT / "man").rglob("*"))
 )
 
+BLOCK_HEADERS = {"|", "|-", "|+", ">", ">-", ">+"}
+
 
 def _fmt(file, lineno, token):
-    return f"{file.relative_to(ROOT)}:{lineno} -> {token}"
+    try:
+        file = file.relative_to(ROOT)
+    except ValueError:
+        pass
+    return f"{file}:{lineno} -> {token}"
 
 
 def collect_text_references():
@@ -81,7 +90,7 @@ def collect_text_references():
                     continue
                 if file.relative_to(ROOT).as_posix() in ALLOWLIST_FILES:
                     continue
-                # docs cite test files by bare name; resolve those under tests/
+                # docs cite test files by bare name; resolve under tests/
                 if ("/" not in token and token.startswith("test_")
                         and (ROOT / "tests" / token).exists()):
                     continue
@@ -101,51 +110,102 @@ def collect_dockerfile_copies():
     return missing
 
 
-def _check_module(name, line, wf, lineno, missing):
+def run_logical_lines(raw):
+    """Yield (physical_lineno, logical_line) for every `run:` block in a raw
+    workflow text, in document order.
+
+    Literal blocks (|): logical lines map 1:1 to physical lines, leading
+    blanks included. Folded blocks (>): consecutive non-blank physical lines
+    join into one logical line; the mapping from tokens back to physical
+    lines is kept via the line spans.
+    """
+    lines = raw.splitlines()
+    for i, line in enumerate(lines):
+        m = RUN_KEY.match(line)
+        if not m:
+            continue
+        indent, rest = len(m.group(1)), m.group(2)
+        if rest not in BLOCK_HEADERS:
+            # plain single-line run (possibly quoted)
+            yield i + 1, rest.strip("'\""), [i + 1]
+            continue
+        block = []  # (physical_lineno, text)
+        for j in range(i + 1, len(lines)):
+            bline = lines[j]
+            if bline.strip() and len(bline) - len(bline.lstrip()) <= indent:
+                break
+            block.append((j + 1, bline))
+        if rest.startswith("|"):
+            for phys, text in block:
+                yield phys, text, [phys]
+        else:  # folded: join consecutive non-blank lines, blanks separate
+            buf = []
+            for phys, text in block:
+                if text.strip():
+                    buf.append((phys, text))
+                else:
+                    if buf:
+                        yield buf[0][0], " ".join(
+                            t.strip() for _, t in buf), [q for q, _ in buf]
+                        buf = []
+                    yield phys, "", [phys]
+            if buf:
+                yield buf[0][0], " ".join(
+                    t.strip() for _, t in buf), [q for q, _ in buf]
+
+
+def _module_missing(name, line):
     if name in ALLOWLIST_MODULES:
-        return
+        return False
     rel = name.replace(".", "/")
     cands = [ROOT / f"{rel}.py", ROOT / rel / "__init__.py"]
     if PYTHONPATH_SRC.search(line):
         cands += [ROOT / "src" / f"{rel}.py",
                   ROOT / "src" / rel / "__init__.py"]
-    if not any(c.exists() for c in cands):
-        missing.append(_fmt(wf, lineno, name))
+    return not any(c.exists() for c in cands)
+
+
+def check_workflow_text(wf, raw):
+    """Check one workflow's text; returns file:line -> token findings."""
+    yaml.safe_load(raw)  # validates the file parses (issue #704 step 3)
+    raw_lines = raw.splitlines()
+    missing = []
+
+    def add(lineno, spans, line, token):
+        # pinpoint the physical line holding the token (folded paragraphs
+        # span several physical lines)
+        for phys in spans:
+            if token in raw_lines[phys - 1]:
+                lineno = phys
+                break
+        missing.append(_fmt(wf, lineno, token))
+
+    for lineno, line, spans in run_logical_lines(raw):
+        for m in PY_RUN_MODULE.finditer(line):
+            if _module_missing(m.group(1), line):
+                add(lineno, spans, line, m.group(1))
+        crun = COVERAGE_RUN.search(line)
+        if crun:  # `coverage run ... -m <mod>` executes <mod> as a module
+            for m in re.finditer(r"-m\s+([A-Za-z0-9_.]+)",
+                                 line[crun.end():]):
+                if _module_missing(m.group(1), line):
+                    add(lineno, spans, line, m.group(1))
+        target = PY_RUN_FILE.search(line)
+        if target and not (ROOT / target.group(1)).exists():
+            add(lineno, spans, line, target.group(1))
+    seen, out = set(), []
+    for item in missing:  # a token must be reported once per line
+        if item not in seen:
+            seen.add(item)
+            out.append(item)
+    return out
 
 
 def collect_workflow_python_targets():
     missing = []
     for wf in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
-        raw = wf.read_text(encoding="utf-8")
-        data = yaml.safe_load(raw)
-        pos = 0  # raw-text cursor, keeps line numbers file-accurate
-        for job in (data.get("jobs") or {}).values():
-            for step in (job or {}).get("steps") or []:
-                run = (step or {}).get("run")
-                if not isinstance(run, str):
-                    continue
-                first = next(
-                    (ln for ln in run.splitlines() if ln.strip()), "")
-                idx = raw.find(first, pos)
-                if idx < 0:
-                    idx = raw.find(first)
-                base = raw.count("\n", 0, idx) if idx >= 0 else 0
-                pos = (idx + len(first)) if idx >= 0 else pos
-                for off, line in enumerate(run.splitlines()):
-                    lineno = base + off + 1
-                    if PY_RUN_MODULE.search(line):
-                        # every -m target on the line, including chained
-                        # invocations (e.g. `python -m coverage run -m pytest`)
-                        for m in PY_RUN_MODULE.finditer(line):
-                            _check_module(m.group(1), line, wf, lineno, missing)
-                        if "python" in line:
-                            for m in CHAINED_MODULE.finditer(line):
-                                _check_module(
-                                    m.group(1), line, wf, lineno, missing)
-                        continue
-                    target = PY_RUN_FILE.search(line)
-                    if target and not (ROOT / target.group(1)).exists():
-                        missing.append(_fmt(wf, lineno, target.group(1)))
+        missing.extend(check_workflow_text(
+            wf, wf.read_text(encoding="utf-8")))
     return missing
 
 
@@ -172,6 +232,54 @@ class TestPathReferences(unittest.TestCase):
 
     def test_test_dir_path_literals_exist(self):
         self.assertEqual([], collect_test_path_literals())
+
+
+class TestWorkflowParsingRegressions(unittest.TestCase):
+    """Regression tests against synthetic workflow text (review findings)."""
+
+    @staticmethod
+    def check(raw):
+        return check_workflow_text(Path(".github/workflows/synthetic.yml"),
+                                   raw)
+
+    def test_pytest_marker_is_not_a_module(self):
+        # `pytest -m smoke`: the marker belongs to pytest, not to python
+        raw = ("jobs:\n  t:\n    steps:\n"
+               "      - run: python -m pytest -m smoke tests/\n")
+        self.assertEqual([], self.check(raw))
+
+    def test_coverage_run_chained_module_checked(self):
+        raw = ("jobs:\n  t:\n    steps:\n      - run: |\n"
+               "          python -m coverage run -m no_such_mod_704 tests/\n")
+        findings = self.check(raw)
+        self.assertEqual(1, len(findings))
+        self.assertIn("no_such_mod_704", findings[0])
+
+    def test_missing_module_reported_once(self):
+        raw = ("jobs:\n  t:\n    steps:\n"
+               "      - run: python3 -m no_such_mod_704\n")
+        findings = self.check(raw)
+        self.assertEqual(1, len(findings))
+        self.assertIn("no_such_mod_704", findings[0])
+
+    def test_literal_block_leading_blank_line_number(self):
+        raw = ("jobs:\n  t:\n    steps:\n      - run: |\n"
+               "\n"
+               "          python3 -m no_such_mod_704\n")
+        findings = self.check(raw)
+        self.assertEqual(1, len(findings))
+        lineno = int(findings[0].split(" -> ")[0].rsplit(":", 1)[1])
+        self.assertIn("no_such_mod_704", raw.splitlines()[lineno - 1])
+
+    def test_folded_block_physical_line_number(self):
+        raw = ("jobs:\n  t:\n    steps:\n      - run: >-\n"
+               "          echo start\n"
+               "          echo middle\n"
+               "          python3 -m no_such_mod_704\n")
+        findings = self.check(raw)
+        self.assertEqual(1, len(findings))
+        lineno = int(findings[0].split(" -> ")[0].rsplit(":", 1)[1])
+        self.assertIn("no_such_mod_704", raw.splitlines()[lineno - 1])
 
 
 if __name__ == "__main__":
