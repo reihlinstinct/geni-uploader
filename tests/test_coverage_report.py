@@ -65,7 +65,9 @@ def test_ci_measures_production_only_and_gates_behind_variable():
     measure = steps["Measure production coverage"]["run"]
     assert "--include=src/geni_uploader/client/upload.py,src/geni_uploader/client/source_details.py" in measure
     gate = [s for s in job["steps"] if "--fail-under" in s.get("run", "")]
-    assert len(gate) == 1 and gate[0]["if"] == "vars.COVERAGE_GATE == 'on'"
+    # The gate also requires a code change: on docs-only PRs the coverage job
+    # runs only a skip notice (the required check name must still report).
+    assert len(gate) == 1 and gate[0]["if"] == "needs.changes.outputs.code == 'true' && vars.COVERAGE_GATE == 'on'"
     assert "--fail-under" not in steps["Coverage summary"]["run"]
     assert float((ROOT / ".github/coverage-floor.txt").read_text()) >= 80
     assert set(report.PRODUCTION) == {"src/geni_uploader/client/upload.py", "src/geni_uploader/client/source_details.py"}
