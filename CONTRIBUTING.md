@@ -29,3 +29,7 @@ The older GitHub default labels (`bug`, `enhancement`, `documentation`, ...) sta
 ## File placement (enforced)
 
 Decide where a file lives BEFORE creating it; moving afterwards does not happen. New code never goes in the repository root: library and runner code goes under `src/geni_uploader/`, one-off utilities under `tools/` or `scripts/`, tests under `tests/`. The contract in `.repo-layout.yml` lists the allowed directories, the file types permitted in each, and the required community-standards files; `tools/check_repo_layout.py` enforces it in CI (`tests/test_repo_layout.py`). A new kind of file means updating the contract in the same PR. Every design doc states the target paths of the files it introduces; the layout map lives in `ARCHITECTURE.md`.
+
+## Placeholder data in public files (enforced)
+
+Public docs, tests and examples never contain real or ad-hoc invented personal data (names, surnames, phones, national IDs, profile IDs). Use the canonical personas in `synthetic/personas.json`; the values are provably non-real (see `docs/synthetic-personas.md`). `tools/check_public_placeholders.py` enforces the rule in CI against a line-anchored baseline; new violations fail the build. Real names are still a review responsibility - the scanner is pattern-only.

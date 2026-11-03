@@ -28,6 +28,7 @@ ENTRY_POINTS = {
     'visual_plan.py': ['docs/private-visual-plan.md'],
     'tools/image_provenance.py': ['docs/image-release.md'],
     'tools/check_repo_layout.py': ['docs/repo-layout.md'],
+    'tools/check_public_placeholders.py': ['docs/synthetic-personas.md'],
     'tools/image_descriptor.py': ['docs/image-release.md'],
     'tools/build_man_pages.py': ['README.md'],
 }
@@ -165,6 +166,7 @@ MARKERS = {
     'visual_plan.py': 'visual_plan.py',
     'image_provenance.py': 'tools/image_provenance.py',
     'tools/check_repo_layout.py': 'tools/check_repo_layout.py',
+    'tools/check_public_placeholders.py': 'tools/check_public_placeholders.py',
     'image_descriptor.py': 'tools/image_descriptor.py',
     'build_man_pages.py': 'tools/build_man_pages.py',
 }

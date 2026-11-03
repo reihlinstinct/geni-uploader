@@ -1,0 +1,4973 @@
+{
+ "findings": [
+  {
+   "file": ".github/workflows/geni-upload.yml",
+   "line": 117,
+   "value": "000000000000000000",
+   "class": "phone"
+  },
+  {
+   "file": ".github/workflows/geni-upload.yml",
+   "line": 117,
+   "value": "profile_id: \"000000000000",
+   "class": "structured-id"
+  },
+  {
+   "file": "README.md",
+   "line": 181,
+   "value": "profile_id: \"123456789012",
+   "class": "structured-id"
+  },
+  {
+   "file": "README.md",
+   "line": 195,
+   "value": "profile_id: \"987654321098",
+   "class": "structured-id"
+  },
+  {
+   "file": "docs/local-parent-probe.md",
+   "line": 21,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "docs/profile-create-api-contracts.md",
+   "line": 17,
+   "value": "union-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "docs/profile-create-api-contracts.md",
+   "line": 20,
+   "value": "profile-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "docs/profile-create-api-contracts.md",
+   "line": 20,
+   "value": "profile-2",
+   "class": "structured-id"
+  },
+  {
+   "file": "docs/synthetic-public-data-design.md",
+   "line": 51,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "docs/usage.md",
+   "line": 88,
+   "value": "profile_id: \"123456789012",
+   "class": "structured-id"
+  },
+  {
+   "file": "docs/usage.md",
+   "line": 100,
+   "value": "profile_id: \"987654321098",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/ZZ-prewrite-fixture.mjs",
+   "line": 4,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/ZZ-runner-fixture.mjs",
+   "line": 12,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/ZZ-runner-fixture.mjs",
+   "line": 12,
+   "value": "union-999010",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/approval-admission.test.mjs",
+   "line": 7,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/approval-admission.test.mjs",
+   "line": 68,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/approval-admission.test.mjs",
+   "line": 68,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/authenticated-runner.test.mjs",
+   "line": 5,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/authenticated-runner.test.mjs",
+   "line": 17,
+   "value": "profile-999011",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/authenticated-runner.test.mjs",
+   "line": 17,
+   "value": "union-999012",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/build-synthetic-benchmark.mjs",
+   "line": 15,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/consumed-readonly-recovery.test.mjs",
+   "line": 2,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/consumed-readonly-recovery.test.mjs",
+   "line": 4,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/consumed-readonly-recovery.test.mjs",
+   "line": 7,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/consumed-readonly-recovery.test.mjs",
+   "line": 7,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/consumed-readonly-recovery.test.mjs",
+   "line": 7,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/consumed-readonly-recovery.test.mjs",
+   "line": 7,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/consumed-readonly-recovery.test.mjs",
+   "line": 7,
+   "value": "union-999004",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/create-intent-candidate.test.mjs",
+   "line": 5,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/create-intent-candidate.test.mjs",
+   "line": 21,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/create-intent-candidate.test.mjs",
+   "line": 38,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/create-intent-candidate.test.mjs",
+   "line": 48,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/create-intent-candidate.test.mjs",
+   "line": 55,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/create-intent-candidate.test.mjs",
+   "line": 62,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/create-intent-candidate.test.mjs",
+   "line": 74,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/create-intent-candidate.test.mjs",
+   "line": 75,
+   "value": "profile-01",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/create-intent-candidate.test.mjs",
+   "line": 82,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/create-intent-candidate.test.mjs",
+   "line": 86,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/create-intent-candidate.test.mjs",
+   "line": 87,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/create-intent-candidate.test.mjs",
+   "line": 104,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/create-intent-candidate.test.mjs",
+   "line": 119,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/create-intent-candidate.test.mjs",
+   "line": 127,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/credential-custody-sqlite.test.mjs",
+   "line": 3,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/credential-custody-state.test.mjs",
+   "line": 3,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/credential-custody-state.test.mjs",
+   "line": 16,
+   "value": "profile-999004",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/durable-father-executor.test.mjs",
+   "line": 3,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/durable-father-executor.test.mjs",
+   "line": 9,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/durable-father-executor.test.mjs",
+   "line": 9,
+   "value": "union-999004",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/durable-progress-journal.test.mjs",
+   "line": 2,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/environment-secret-custody-candidate.test.mjs",
+   "line": 9,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/environment-secret-custody-candidate.test.mjs",
+   "line": 12,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/environment-secret-custody-candidate.test.mjs",
+   "line": 99,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/environment-secret-custody-candidate.test.mjs",
+   "line": 119,
+   "value": "profile-999004",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/environment-secret-custody-candidate.test.mjs",
+   "line": 131,
+   "value": "profile-999004",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/fake-callback-completion.test.mjs",
+   "line": 2,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/fake-callback-completion.test.mjs",
+   "line": 5,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/fake-callback-completion.test.mjs",
+   "line": 8,
+   "value": "profile-999004",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/fake-callback-completion.test.mjs",
+   "line": 14,
+   "value": "profile-999004",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/fake-callback-completion.test.mjs",
+   "line": 17,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/fake-callback-completion.test.mjs",
+   "line": 17,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/fake-custody-persistence-sqlite.test.mjs",
+   "line": 6,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/fake-custody-persistence-sqlite.test.mjs",
+   "line": 7,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/fake-custody-persistence.test.mjs",
+   "line": 4,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/fake-custody-persistence.test.mjs",
+   "line": 6,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/fake-custody-persistence.test.mjs",
+   "line": 13,
+   "value": "profile-999004",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/father-intent-service.test.mjs",
+   "line": 6,
+   "value": "profile-999005",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/father-intent-service.test.mjs",
+   "line": 10,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/father-intent-service.test.mjs",
+   "line": 35,
+   "value": "profile-999099",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/intent-local-runtime.test.mjs",
+   "line": 12,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/intent-local-runtime.test.mjs",
+   "line": 20,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/intent-local-runtime.test.mjs",
+   "line": 78,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/intent-local-runtime.test.mjs",
+   "line": 80,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/owner-preflight.test.mjs",
+   "line": 2,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/owner-preflight.test.mjs",
+   "line": 5,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/owner-preflight.test.mjs",
+   "line": 5,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/owner-preflight.test.mjs",
+   "line": 5,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/owner-preflight.test.mjs",
+   "line": 5,
+   "value": "profile-999099",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/owner-preflight.test.mjs",
+   "line": 5,
+   "value": "profile-999099",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/owner-preflight.test.mjs",
+   "line": 5,
+   "value": "profile-999099",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/owner-preflight.test.mjs",
+   "line": 5,
+   "value": "profile-999099",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/owner-preflight.test.mjs",
+   "line": 5,
+   "value": "union-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/owner-preflight.test.mjs",
+   "line": 5,
+   "value": "union-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
+   "line": 8,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
+   "line": 8,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
+   "line": 8,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
+   "line": 8,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
+   "line": 8,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
+   "line": 8,
+   "value": "union-999004",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
+   "line": 24,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
+   "line": 25,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
+   "line": 25,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
+   "line": 25,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
+   "line": 25,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
+   "line": 25,
+   "value": "union-999004",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
+   "line": 30,
+   "value": "profile-999005",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
+   "line": 37,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
+   "line": 38,
+   "value": "profile-999005",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
+   "line": 39,
+   "value": "profile-999004",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
+   "line": 39,
+   "value": "profile-999005",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/private-issuance-journal.test.mjs",
+   "line": 3,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/private-release-issuer.test.mjs",
+   "line": 8,
+   "value": "profile-999999",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/protected-job-cli.test.mjs",
+   "line": 3,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/reviewed-release-boundary.test.mjs",
+   "line": 3,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/scoped-custody-policy.test.mjs",
+   "line": 5,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/scoped-custody-policy.test.mjs",
+   "line": 22,
+   "value": "profile-999004",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/signed-father-release-adapter.test.mjs",
+   "line": 3,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/signed-father-release-policy.test.mjs",
+   "line": 3,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/signed-father-release-policy.test.mjs",
+   "line": 7,
+   "value": "profile-999099",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/signed-father-release-policy.test.mjs",
+   "line": 21,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/sqlite-issuance-reservation.test.mjs",
+   "line": 2,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/sqlite-issuance-reservation.test.mjs",
+   "line": 6,
+   "value": "profile-999099",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/synthetic-approval-benchmark.test.mjs",
+   "line": 143,
+   "value": "profile-123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 731,
+   "value": "profile-99000",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 731,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 731,
+   "value": "profile-99124",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 767,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 767,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 768,
+   "value": "profile-2",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 768,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 768,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 769,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 771,
+   "value": "profile-99000",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 771,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 787,
+   "value": "profile-99000",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 787,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 799,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 800,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 800,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 807,
+   "value": "profile-99000",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 807,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 813,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 827,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 842,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 871,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 894,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 904,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 908,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 910,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 912,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 913,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 916,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 919,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 919,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 920,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 922,
+   "value": "profile-99000",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 922,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 935,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 938,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 941,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 943,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 943,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 943,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 943,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 943,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 943,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 943,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 943,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 943,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 943,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 947,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 948,
+   "value": "profile-99000",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 948,
+   "value": "profile-99124",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 948,
+   "value": "profile-99124",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 951,
+   "value": "profile-99000",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 954,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/test.mjs",
+   "line": 963,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/transport.test.mjs",
+   "line": 82,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/transport.test.mjs",
+   "line": 153,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/worker-approval-synthetic.json",
+   "line": 8,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/worker-exact-release-signer.test.mjs",
+   "line": 3,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/worker-issuance-reservation-v2.test.mjs",
+   "line": 2,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/worker-issuance-reservation-v2.test.mjs",
+   "line": 12,
+   "value": "profile-999099",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/worker-protected-capture.test.mjs",
+   "line": 8,
+   "value": "profile-999099",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/worker-release-expiry.test.mjs",
+   "line": 4,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/worker-signed-father-release.test.mjs",
+   "line": 4,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "oauth-bootstrap/worker-signed-father-release.test.mjs",
+   "line": 8,
+   "value": "profile-999099",
+   "class": "structured-id"
+  },
+  {
+   "file": "src/geni_uploader/core/father_once.py",
+   "line": 37,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts/document_tag/ok.json",
+   "line": 17,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts/document_tag/ok.json",
+   "line": 28,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts/photo_tag/ok.json",
+   "line": 17,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts/photo_tag/ok.json",
+   "line": 28,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts/profile/ok.json",
+   "line": 12,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts/profile/ok.json",
+   "line": 21,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts/profile/server_error_retried.json",
+   "line": 19,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts/profile/server_error_retried.json",
+   "line": 28,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts/user/ok.json",
+   "line": 12,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts/user/ok.json",
+   "line": 21,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts/user/server_error_retried.json",
+   "line": 19,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts/user/server_error_retried.json",
+   "line": 28,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts/user_managed_profiles/ok.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts/user_managed_profiles/ok.json",
+   "line": 27,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts/user_managed_profiles/server_error_retried.json",
+   "line": 21,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts/user_managed_profiles/server_error_retried.json",
+   "line": 34,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/add_bare_id_tag_verified.json",
+   "line": 21,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/add_bare_id_tag_verified.json",
+   "line": 27,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 21,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 27,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 35,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 43,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 51,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 59,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 67,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 75,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 83,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 91,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 99,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 107,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 115,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 123,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 146,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 154,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 162,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 170,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 178,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 186,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 194,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 202,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 210,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 218,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 226,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 234,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 242,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_readback_failure_never_recreates.json",
+   "line": 265,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/durable_upload/tag_uncertain_blocks_resume.json",
+   "line": 21,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_bare_id.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_conflicting_pagination.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_conflicting_pagination.json",
+   "line": 18,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_conflicting_pagination.json",
+   "line": 19,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_cross_endpoint_next_page.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_cross_endpoint_next_page.json",
+   "line": 24,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_cross_host_next_page.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_cross_host_next_page.json",
+   "line": 18,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_empty_results.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_invalid_singleton.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_next_absolute_same_endpoint.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_next_absolute_same_endpoint.json",
+   "line": 24,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_next_absolute_same_endpoint.json",
+   "line": 29,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_next_page_chain.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_next_page_chain.json",
+   "line": 24,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_next_page_chain.json",
+   "line": 29,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 18,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 23,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 27,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 32,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 36,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 41,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 45,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 50,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 54,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 59,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 63,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 68,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 72,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 77,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 81,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 86,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 90,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 95,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_page_cap_unproven.json",
+   "line": 99,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_server_error_raises.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_server_error_raises.json",
+   "line": 20,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_server_error_raises.json",
+   "line": 26,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_single_page.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_singleton.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/documents_wrong_type_id.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/photos_cross_endpoint_unavailable.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/photos_cross_endpoint_unavailable.json",
+   "line": 18,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/photos_server_error_unavailable.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/photos_server_error_unavailable.json",
+   "line": 20,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/photos_server_error_unavailable.json",
+   "line": 26,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/photos_single_page.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/list_tagged/photos_throttled_raises.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/verify_profile/empty_results_both_forms.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/verify_profile/empty_results_falls_to_guid.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/verify_profile/empty_results_falls_to_guid.json",
+   "line": 28,
+   "value": "profile-1000002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/verify_profile/guid_bare_node_id.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/verify_profile/guid_mismatch.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/verify_profile/guid_mismatch.json",
+   "line": 28,
+   "value": "profile-1000002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/verify_profile/guid_missing_id.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/verify_profile/guid_name_mismatch.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/verify_profile/guid_name_mismatch.json",
+   "line": 28,
+   "value": "profile-1000002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/verify_profile/guid_throttled.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/verify_profile/guid_wrong_type_id.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/verify_profile/node_http_error_falls_to_guid.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/verify_profile/node_http_error_falls_to_guid.json",
+   "line": 28,
+   "value": "profile-1000002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/verify_profile/node_id_match.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/verify_profile/node_id_match.json",
+   "line": 17,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/verify_profile/node_id_name_mismatch_no_fallthrough.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/verify_profile/node_id_name_mismatch_no_fallthrough.json",
+   "line": 17,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/contracts_behavior/verify_profile/throttled_no_fallthrough.json",
+   "line": 14,
+   "value": "profile-1000001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_acknowledged_reconciliation.py",
+   "line": 30,
+   "value": "profile-456",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_approval_record.py",
+   "line": 17,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_approval_record.py",
+   "line": 74,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_approval_record.py",
+   "line": 289,
+   "value": "profile-0",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_approval_record.py",
+   "line": 289,
+   "value": "profile-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_approval_record.py",
+   "line": 332,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_birth_surname_only.py",
+   "line": 92,
+   "value": "union-404",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_parent_addition.py",
+   "line": 11,
+   "value": "union-991001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_parent_addition.py",
+   "line": 11,
+   "value": "union-991002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_parent_addition.py",
+   "line": 157,
+   "value": "profile-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_parent_addition.py",
+   "line": 159,
+   "value": "union-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_parent_addition.py",
+   "line": 171,
+   "value": "profile-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_parent_addition.py",
+   "line": 237,
+   "value": "profile-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_parent_addition.py",
+   "line": 300,
+   "value": "union-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_parent_addition.py",
+   "line": 340,
+   "value": "union-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_parent_addition.py",
+   "line": 388,
+   "value": "union-991088",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_parent_addition.py",
+   "line": 407,
+   "value": "union-991089",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_parent_addition.py",
+   "line": 436,
+   "value": "union-991089",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_relative_siblings.py",
+   "line": 55,
+   "value": "union-999999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_relative_siblings.py",
+   "line": 67,
+   "value": "profile-999998",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_relative_siblings.py",
+   "line": 180,
+   "value": "union-991088",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_relative_siblings.py",
+   "line": 197,
+   "value": "union-991089",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_relative_siblings.py",
+   "line": 225,
+   "value": "union-991089",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_relative_siblings.py",
+   "line": 246,
+   "value": "profile-991077",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_relative_siblings.py",
+   "line": 247,
+   "value": "union-991078",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_relative_siblings.py",
+   "line": 255,
+   "value": "union-991079",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_relative_siblings.py",
+   "line": 267,
+   "value": "union-991079",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_relative_siblings.py",
+   "line": 289,
+   "value": "union-991080",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_relative_siblings.py",
+   "line": 301,
+   "value": "union-991079",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_relative_siblings.py",
+   "line": 302,
+   "value": "union-991079",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_relative_siblings.py",
+   "line": 303,
+   "value": "union-991079",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_relative_siblings.py",
+   "line": 304,
+   "value": "union-991080",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_relative_siblings.py",
+   "line": 306,
+   "value": "profile-991081",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 12,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 37,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 39,
+   "value": "union-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 47,
+   "value": "profile-104",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 52,
+   "value": "union-0",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 52,
+   "value": "union-01",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 52,
+   "value": "union-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 53,
+   "value": "union-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 53,
+   "value": "union-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 54,
+   "value": "profile-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 60,
+   "value": "union-202",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 60,
+   "value": "union-202",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 64,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 80,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 87,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 92,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 93,
+   "value": "union-202",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 94,
+   "value": "union-202",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 109,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 110,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 125,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 127,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 128,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 145,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 146,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 175,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 175,
+   "value": "union-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 179,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 180,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 180,
+   "value": "union-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 191,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 192,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 192,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 193,
+   "value": "profile-0101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 193,
+   "value": "union-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 199,
+   "value": "union-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 201,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 202,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 202,
+   "value": "union-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 212,
+   "value": "union-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 214,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 215,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_bounded_tree_snapshot.py",
+   "line": 215,
+   "value": "union-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_contract_allowlist_photo.py",
+   "line": 76,
+   "value": "profile_id\": \"201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_contract_allowlist_photo.py",
+   "line": 95,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_contract_allowlist_photo.py",
+   "line": 100,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_contract_allowlist_photo.py",
+   "line": 123,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_contract_allowlist_photo.py",
+   "line": 126,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_contract_allowlist_photo.py",
+   "line": 126,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_core_src_layout.py",
+   "line": 16,
+   "value": "26601526",
+   "class": "id8"
+  },
+  {
+   "file": "tests/test_description_repair.py",
+   "line": 15,
+   "value": "profile_id': '201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_description_repair.py",
+   "line": 24,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_description_repair.py",
+   "line": 24,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_description_repair.py",
+   "line": 39,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_durable_resume.py",
+   "line": 145,
+   "value": "profile-123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_durable_resume.py",
+   "line": 146,
+   "value": "profile-123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_durable_resume.py",
+   "line": 158,
+   "value": "profile-456",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_durable_resume.py",
+   "line": 163,
+   "value": "profile-789",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_durable_resume.py",
+   "line": 169,
+   "value": "profile-123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_executor_composition.py",
+   "line": 16,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_executor_composition.py",
+   "line": 26,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_executor_composition.py",
+   "line": 28,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_executor_composition.py",
+   "line": 63,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_executor_composition.py",
+   "line": 64,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_executor_composition.py",
+   "line": 64,
+   "value": "profile-999008",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_executor_composition.py",
+   "line": 72,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_executor_composition.py",
+   "line": 161,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_executor_composition.py",
+   "line": 162,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_executor_composition.py",
+   "line": 192,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_executor_composition.py",
+   "line": 194,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_once_seam_232.py",
+   "line": 26,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_once_seam_232.py",
+   "line": 52,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_once_seam_232.py",
+   "line": 68,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_once_seam_232.py",
+   "line": 69,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_once_seam_232.py",
+   "line": 70,
+   "value": "profile-123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_once_seam_232.py",
+   "line": 71,
+   "value": "profile-123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_once_seam_232.py",
+   "line": 72,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_once_seam_232.py",
+   "line": 142,
+   "value": "profile-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_once_simulation.py",
+   "line": 21,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_father_once_simulation.py",
+   "line": 36,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_protected_household.py",
+   "line": 13,
+   "value": "profile-99101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_protected_household.py",
+   "line": 14,
+   "value": "profile-99102",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_protected_household.py",
+   "line": 15,
+   "value": "profile-99103",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_protected_household.py",
+   "line": 16,
+   "value": "union-99101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_protected_household.py",
+   "line": 69,
+   "value": "union-99999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_protected_household.py",
+   "line": 76,
+   "value": "profile-99999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_protected_household.py",
+   "line": 86,
+   "value": "union-99200",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_protected_household.py",
+   "line": 179,
+   "value": "union-99200",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_protected_household.py",
+   "line": 181,
+   "value": "profile-9999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_protected_household.py",
+   "line": 289,
+   "value": "union-99999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_protected_household.py",
+   "line": 292,
+   "value": "profile-99201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_union_child.py",
+   "line": 62,
+   "value": "profile-99201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_union_child.py",
+   "line": 75,
+   "value": "profile-99201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_union_child.py",
+   "line": 105,
+   "value": "union-99999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_union_child.py",
+   "line": 108,
+   "value": "profile-99999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_union_child.py",
+   "line": 233,
+   "value": "profile-99201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_union_child.py",
+   "line": 236,
+   "value": "profile-99201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_union_child.py",
+   "line": 270,
+   "value": "profile-99201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_union_child.py",
+   "line": 311,
+   "value": "union-99888",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_union_child.py",
+   "line": 358,
+   "value": "profile-99201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_union_child.py",
+   "line": 447,
+   "value": "profile-99201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_union_child.py",
+   "line": 455,
+   "value": "profile-99201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 22,
+   "value": "profile_id\": \"123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 106,
+   "value": "profile_id\": \"123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 134,
+   "value": "profile_id\": \"1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 144,
+   "value": "profile_id\": \"1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 151,
+   "value": "profile_id\": \"1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 285,
+   "value": "profile-123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 859,
+   "value": "profile-123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 1081,
+   "value": "profile_id\": \"123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 1086,
+   "value": "profile_id\": \"456",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 1097,
+   "value": "profile-123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 1684,
+   "value": "profile_id = \"999000000000",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 1735,
+   "value": "profile-123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 1796,
+   "value": "profile-123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 1804,
+   "value": "profile-123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 1848,
+   "value": "profile_id\": \"123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 1850,
+   "value": "profile_id\": \"456",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 1886,
+   "value": "profile_id\": \"123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 1890,
+   "value": "profile_id\": \"456",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 1961,
+   "value": "profile-123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 1962,
+   "value": "profile-456",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 1989,
+   "value": "profile-456",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 2004,
+   "value": "profile_id\": \"123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 2008,
+   "value": "profile_id\": \"456",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 2010,
+   "value": "profile_id\": \"789",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_geni_upload.py",
+   "line": 2066,
+   "value": "profile-789",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 17,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 19,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 27,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 28,
+   "value": "union-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 29,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 61,
+   "value": "profile-99901",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 146,
+   "value": "union-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 146,
+   "value": "union-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 204,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 205,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 207,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 207,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 218,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 250,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 251,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 261,
+   "value": "profile-999008",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 274,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 274,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 276,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 292,
+   "value": "profile-999099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 298,
+   "value": "union-999099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 304,
+   "value": "profile-999099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 322,
+   "value": "union-999099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 357,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 358,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 359,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 360,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 361,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 379,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 379,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 379,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 380,
+   "value": "union-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 382,
+   "value": "union-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 385,
+   "value": "union-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 385,
+   "value": "union-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 386,
+   "value": "union-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 386,
+   "value": "union-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 388,
+   "value": "union-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_guarded_family_additions.py",
+   "line": 389,
+   "value": "union-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 11,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 13,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 13,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 13,
+   "value": "union-301",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 24,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 25,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 43,
+   "value": "profile-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 47,
+   "value": "union-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 48,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 48,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 52,
+   "value": "union-301",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 61,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 61,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 108,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 108,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 109,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 111,
+   "value": "union-301",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 111,
+   "value": "union-302",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 121,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 122,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 122,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 122,
+   "value": "union-301",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 123,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 123,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_precreate_read.py",
+   "line": 124,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_relationship_read.py",
+   "line": 11,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_relationship_read.py",
+   "line": 13,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_relationship_read.py",
+   "line": 13,
+   "value": "profile-202",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_relationship_read.py",
+   "line": 13,
+   "value": "union-301",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_relationship_read.py",
+   "line": 13,
+   "value": "union-302",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_relationship_read.py",
+   "line": 24,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_relationship_read.py",
+   "line": 25,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_relationship_read.py",
+   "line": 43,
+   "value": "profile-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_relationship_read.py",
+   "line": 47,
+   "value": "union-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_relationship_read.py",
+   "line": 48,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_relationship_read.py",
+   "line": 48,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_relationship_read.py",
+   "line": 52,
+   "value": "union-301",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_relationship_read.py",
+   "line": 61,
+   "value": "profile-202",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_household_relationship_read.py",
+   "line": 61,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_name_update_child.py",
+   "line": 13,
+   "value": "profile-99801",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_name_update_child.py",
+   "line": 242,
+   "value": "profile-99899",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_object_id_readback.py",
+   "line": 28,
+   "value": "profile-456",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_object_id_readback.py",
+   "line": 31,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_object_id_readback.py",
+   "line": 49,
+   "value": "profile-456",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_object_id_readback.py",
+   "line": 78,
+   "value": "profile-789",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 10,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 10,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 10,
+   "value": "union-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 235,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 676,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 767,
+   "value": "profile-999008",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 773,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 775,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 853,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 936,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 937,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 938,
+   "value": "union-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 939,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 1071,
+   "value": "union-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 1071,
+   "value": "union-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 1073,
+   "value": "union-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 1076,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 1076,
+   "value": "union-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 1077,
+   "value": "union-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 1077,
+   "value": "union-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 1078,
+   "value": "union-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 1079,
+   "value": "union-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 1079,
+   "value": "union-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 1080,
+   "value": "union-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 1080,
+   "value": "union-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 1081,
+   "value": "union-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 1081,
+   "value": "union-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_one_time_parent_pilot.py",
+   "line": 1081,
+   "value": "union-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_adapter_contract.py",
+   "line": 19,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_adapter_contract.py",
+   "line": 22,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_adapter_contract.py",
+   "line": 26,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_adapter_contract.py",
+   "line": 26,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_adapter_contract.py",
+   "line": 27,
+   "value": "union-99111",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_adapter_contract.py",
+   "line": 33,
+   "value": "profile-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_adapter_contract.py",
+   "line": 34,
+   "value": "profile-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_adapter_contract.py",
+   "line": 49,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_adapter_contract.py",
+   "line": 54,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_adapter_contract.py",
+   "line": 58,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_adapter_contract.py",
+   "line": 59,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_adapter_contract.py",
+   "line": 59,
+   "value": "profile-99556",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_adapter_contract.py",
+   "line": 60,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_adapter_contract.py",
+   "line": 70,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_adapter_contract.py",
+   "line": 72,
+   "value": "profile-99556",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_evidence.py",
+   "line": 8,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_evidence.py",
+   "line": 27,
+   "value": "profile-99222",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_evidence.py",
+   "line": 27,
+   "value": "profile-99222",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_evidence.py",
+   "line": 29,
+   "value": "union-99111",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_evidence.py",
+   "line": 30,
+   "value": "profile-99222",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_evidence.py",
+   "line": 45,
+   "value": "profile-99222",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_evidence.py",
+   "line": 53,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_evidence.py",
+   "line": 65,
+   "value": "profile-99222",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_evidence.py",
+   "line": 85,
+   "value": "union-99111",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_evidence.py",
+   "line": 89,
+   "value": "profile-100",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_evidence.py",
+   "line": 89,
+   "value": "profile-100",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_evidence.py",
+   "line": 91,
+   "value": "profile-100",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_household_read.py",
+   "line": 11,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_household_read.py",
+   "line": 25,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_household_read.py",
+   "line": 26,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_household_read.py",
+   "line": 44,
+   "value": "profile-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_household_read.py",
+   "line": 48,
+   "value": "union-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_household_read.py",
+   "line": 49,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_household_read.py",
+   "line": 49,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_household_read.py",
+   "line": 53,
+   "value": "union-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_household_read.py",
+   "line": 62,
+   "value": "profile-202",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_household_read.py",
+   "line": 62,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_http_candidate.py",
+   "line": 18,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_http_candidate.py",
+   "line": 72,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_http_candidate.py",
+   "line": 79,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_http_candidate.py",
+   "line": 87,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_http_candidate.py",
+   "line": 95,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_http_candidate.py",
+   "line": 101,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_http_candidate.py",
+   "line": 109,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_http_candidate.py",
+   "line": 109,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_http_candidate.py",
+   "line": 112,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_http_candidate.py",
+   "line": 123,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_http_candidate.py",
+   "line": 127,
+   "value": "profile-0",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_http_candidate.py",
+   "line": 127,
+   "value": "profile-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_http_candidate.py",
+   "line": 139,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_http_candidate.py",
+   "line": 141,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_http_candidate.py",
+   "line": 149,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_http_candidate.py",
+   "line": 156,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_http_candidate.py",
+   "line": 162,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_http_candidate.py",
+   "line": 163,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_intent_model.py",
+   "line": 13,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_intent_model.py",
+   "line": 21,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_intent_model.py",
+   "line": 33,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_intent_model.py",
+   "line": 34,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_intent_model.py",
+   "line": 39,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_intent_model.py",
+   "line": 42,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_intent_model.py",
+   "line": 44,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_intent_model.py",
+   "line": 85,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_intent_model.py",
+   "line": 110,
+   "value": "profile-0",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_intent_model.py",
+   "line": 110,
+   "value": "profile-01",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_intent_model.py",
+   "line": 110,
+   "value": "profile-١",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_intent_model.py",
+   "line": 111,
+   "value": "profile-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_intent_model.py",
+   "line": 111,
+   "value": "profile-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_intent_model.py",
+   "line": 120,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_intent_model.py",
+   "line": 141,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_intent_model.py",
+   "line": 151,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_intent_model.py",
+   "line": 153,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_intent_model.py",
+   "line": 168,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_output.py",
+   "line": 11,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_output.py",
+   "line": 54,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 12,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 13,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 15,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 16,
+   "value": "union-99111",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 16,
+   "value": "union-99111",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 17,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 17,
+   "value": "union-99111",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 26,
+   "value": "union-99111",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 37,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 37,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 37,
+   "value": "union-99111",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 42,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 45,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 58,
+   "value": "union-99111",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 76,
+   "value": "profile-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 77,
+   "value": "profile-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 77,
+   "value": "union-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 104,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 108,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 191,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 199,
+   "value": "profile-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 199,
+   "value": "profile-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 199,
+   "value": "profile-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 202,
+   "value": "union-99111",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 231,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 233,
+   "value": "union-99111",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 236,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 238,
+   "value": "union-99111",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 243,
+   "value": "union-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_probe.py",
+   "line": 247,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_snapshot.py",
+   "line": 9,
+   "value": "profile-99123",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_snapshot.py",
+   "line": 47,
+   "value": "union-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_snapshot.py",
+   "line": 57,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_snapshot.py",
+   "line": 69,
+   "value": "profile-99222",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_snapshot.py",
+   "line": 69,
+   "value": "union-99111",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_snapshot.py",
+   "line": 85,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_snapshot.py",
+   "line": 87,
+   "value": "profile-99222",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_snapshot.py",
+   "line": 88,
+   "value": "profile-99222",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_snapshot.py",
+   "line": 88,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_snapshot.py",
+   "line": 120,
+   "value": "profile-99222",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_snapshot.py",
+   "line": 120,
+   "value": "union-99111",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_snapshot.py",
+   "line": 123,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_parent_snapshot.py",
+   "line": 147,
+   "value": "profile-99555",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 63,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 328,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 328,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 329,
+   "value": "union-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 329,
+   "value": "union-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 335,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 335,
+   "value": "profile-999004",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 342,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 345,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 347,
+   "value": "profile-999004",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 363,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 464,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 518,
+   "value": "profile-999008",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 518,
+   "value": "profile-999009",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 546,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 562,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 580,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 584,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 585,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 650,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 692,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 736,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 748,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_pilot_get_diagnostics.py",
+   "line": 749,
+   "value": "union-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_plan_report.py",
+   "line": 17,
+   "value": "profile_id': '991234567890",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_plan_report.py",
+   "line": 23,
+   "value": "profile_id': '992345678901",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_create_docs.py",
+   "line": 46,
+   "value": "union-1",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 10,
+   "value": "profile-101",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 10,
+   "value": "profile-202",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 18,
+   "value": "union-303",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 30,
+   "value": "union-303",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 49,
+   "value": "union-404",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 60,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 135,
+   "value": "profile-555",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 144,
+   "value": "profile-202",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 145,
+   "value": "profile-202",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 146,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 304,
+   "value": "union-303",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 308,
+   "value": "union-303",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 321,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 330,
+   "value": "union-303",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 331,
+   "value": "union-303",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 332,
+   "value": "union-303",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 333,
+   "value": "union-303",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 334,
+   "value": "union-303",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 335,
+   "value": "profile-303",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 336,
+   "value": "union-303",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_name_update.py",
+   "line": 344,
+   "value": "union-303",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_outcome_model.py",
+   "line": 20,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_outcome_model.py",
+   "line": 28,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_outcome_model.py",
+   "line": 54,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_outcome_model.py",
+   "line": 67,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_outcome_model.py",
+   "line": 104,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_outcome_model.py",
+   "line": 129,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_outcome_model.py",
+   "line": 166,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_outcome_model.py",
+   "line": 169,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_outcome_model.py",
+   "line": 225,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_outcome_model.py",
+   "line": 283,
+   "value": "profile-7",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_outcome_model.py",
+   "line": 311,
+   "value": "profile-0",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_result.py",
+   "line": 12,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_result.py",
+   "line": 14,
+   "value": "profile-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_result.py",
+   "line": 31,
+   "value": "profile-999004",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_result.py",
+   "line": 34,
+   "value": "profile-999005",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_result.py",
+   "line": 35,
+   "value": "profile-999004",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_result.py",
+   "line": 43,
+   "value": "profile-999005",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_result.py",
+   "line": 56,
+   "value": "profile-999003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_result.py",
+   "line": 77,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_profile_result.py",
+   "line": 152,
+   "value": "profile-0",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_protected_family_additions.py",
+   "line": 105,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_protected_family_additions.py",
+   "line": 106,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_protected_family_additions.py",
+   "line": 106,
+   "value": "profile-999999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_protected_family_additions.py",
+   "line": 107,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_protected_family_additions.py",
+   "line": 107,
+   "value": "union-999002",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_protected_family_additions.py",
+   "line": 121,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_protected_family_additions.py",
+   "line": 123,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_protected_family_additions.py",
+   "line": 206,
+   "value": "union-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_protected_family_additions.py",
+   "line": 259,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_protected_parent_addition.py",
+   "line": 236,
+   "value": "profile-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_protected_relative_siblings.py",
+   "line": 88,
+   "value": "profile-992001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_protected_relative_siblings.py",
+   "line": 89,
+   "value": "union-999999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_protected_relative_siblings.py",
+   "line": 187,
+   "value": "union-999999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_protected_relative_siblings.py",
+   "line": 325,
+   "value": "union-991088",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_protected_relative_siblings.py",
+   "line": 329,
+   "value": "union-991088",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_protected_relative_siblings.py",
+   "line": 336,
+   "value": "union-991088",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_protected_relative_siblings.py",
+   "line": 344,
+   "value": "union-991088",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_protected_relative_siblings.py",
+   "line": 346,
+   "value": "union-991088",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_protected_relative_siblings.py",
+   "line": 348,
+   "value": "union-991089",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_reconcile_parent_addition.py",
+   "line": 33,
+   "value": "union-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_reconcile_parent_addition.py",
+   "line": 43,
+   "value": "union-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_reconcile_parent_addition.py",
+   "line": 45,
+   "value": "union-991001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_reconcile_parent_addition.py",
+   "line": 58,
+   "value": "profile-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_reconcile_parent_addition.py",
+   "line": 59,
+   "value": "union-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_reconcile_parent_addition.py",
+   "line": 186,
+   "value": "profile-991003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_reconcile_parent_addition.py",
+   "line": 189,
+   "value": "profile-991003",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_reconcile_parent_addition.py",
+   "line": 241,
+   "value": "profile-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_reconcile_parent_addition.py",
+   "line": 245,
+   "value": "union-991001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_reconcile_parent_addition.py",
+   "line": 247,
+   "value": "profile-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_relative_baseline.py",
+   "line": 19,
+   "value": "union-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_relative_baseline.py",
+   "line": 70,
+   "value": "profile-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_relative_baseline.py",
+   "line": 76,
+   "value": "union-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_relative_baseline.py",
+   "line": 87,
+   "value": "union-991001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_relative_baseline.py",
+   "line": 88,
+   "value": "profile-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_relative_baseline.py",
+   "line": 88,
+   "value": "union-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_relative_baseline.py",
+   "line": 89,
+   "value": "union-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_relative_baseline.py",
+   "line": 101,
+   "value": "union-991099",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_single_human_approval_record.py",
+   "line": 10,
+   "value": "profile-999001",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_details.py",
+   "line": 14,
+   "value": "profile_id\": \"201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_details.py",
+   "line": 29,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_details.py",
+   "line": 34,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_details.py",
+   "line": 40,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_details.py",
+   "line": 68,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_details.py",
+   "line": 68,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_details_branches.py",
+   "line": 25,
+   "value": "profile_id\": \"201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_details_branches.py",
+   "line": 62,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_details_branches.py",
+   "line": 69,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_details_branches.py",
+   "line": 125,
+   "value": "profile_id\": \"201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_details_branches.py",
+   "line": 128,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_details_branches.py",
+   "line": 130,
+   "value": "profile_id\": \"201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_details_branches.py",
+   "line": 133,
+   "value": "profile_id\": \"201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_details_branches.py",
+   "line": 134,
+   "value": "profile_id\": \"201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_details_e2e.py",
+   "line": 21,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_details_e2e.py",
+   "line": 36,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_details_e2e.py",
+   "line": 48,
+   "value": "profile_id\": \"201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_details_e2e.py",
+   "line": 64,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_details_e2e.py",
+   "line": 65,
+   "value": "profile-201",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_plan_guards.py",
+   "line": 12,
+   "value": "profile_id': '991234567890",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_read_reconcile.py",
+   "line": 15,
+   "value": "profile-991",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_read_reconcile.py",
+   "line": 15,
+   "value": "profile-992",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_read_reconcile.py",
+   "line": 42,
+   "value": "profile-991",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_read_reconcile.py",
+   "line": 43,
+   "value": "profile-992",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_read_reconcile.py",
+   "line": 44,
+   "value": "profile-992",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_read_reconcile.py",
+   "line": 75,
+   "value": "profile-992",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_read_reconcile.py",
+   "line": 85,
+   "value": "profile-992",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_read_reconcile.py",
+   "line": 102,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_read_reconcile.py",
+   "line": 110,
+   "value": "profile-99",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_read_reconcile.py",
+   "line": 146,
+   "value": "profile-991",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_read_reconcile.py",
+   "line": 159,
+   "value": "profile-991",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_read_reconcile.py",
+   "line": 163,
+   "value": "profile-991",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_source_read_reconcile.py",
+   "line": 291,
+   "value": "profile-992",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_surname_fill.py",
+   "line": 10,
+   "value": "profile-303",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_surname_fill.py",
+   "line": 31,
+   "value": "union-303",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_surname_fill.py",
+   "line": 40,
+   "value": "profile-999",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_surname_fill.py",
+   "line": 92,
+   "value": "union-303",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_surname_fill.py",
+   "line": 94,
+   "value": "union-303",
+   "class": "structured-id"
+  },
+  {
+   "file": "tests/test_surname_fill.py",
+   "line": 159,
+   "value": "profile-404",
+   "class": "structured-id"
+  },
+  {
+   "file": "tools/worker_approval_parity.py",
+   "line": 71,
+   "value": "profile-01",
+   "class": "structured-id"
+  },
+  {
+   "file": "tools/worker_approval_parity.py",
+   "line": 71,
+   "value": "profile-1",
+   "class": "structured-id"
+  }
+ ],
+ "allowlist": []
+}

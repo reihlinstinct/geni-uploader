@@ -25,17 +25,79 @@
       "pyproject.toml",
       "requirements*.txt"
     ],
-    "deny": ["*.py"]
+    "deny": [
+      "*.py"
+    ]
   },
   "directories": {
-    ".github": {"allow": ["CODEOWNERS", "*.yml", "*.yaml", "*.md", "*.py", "*.json", "*.txt"]},
-    "docs": {"allow": ["*.md", "*.html", "*.json", "*.yml", "*.yaml", "*.example"]},
-    "geni_offline": {"allow": ["*.py"]},
-    "man": {"allow": ["*.1"]},
-    "oauth-bootstrap": {"allow": ["*.mjs", "*.json", "*.jsonc", "*.md", ".gitignore"]},
-    "scripts": {"allow": ["*.py", "*.sh"]},
-    "src": {"allow": ["*.py", "*.json"]},
-    "tests": {"allow": ["*.py", "*.json"]},
-    "tools": {"allow": ["*.py", "*.sh"]}
+    ".github": {
+      "allow": [
+        "CODEOWNERS",
+        "*.yml",
+        "*.yaml",
+        "*.md",
+        "*.py",
+        "*.json",
+        "*.txt"
+      ]
+    },
+    "docs": {
+      "allow": [
+        "*.md",
+        "*.html",
+        "*.json",
+        "*.yml",
+        "*.yaml",
+        "*.example"
+      ]
+    },
+    "geni_offline": {
+      "allow": [
+        "*.py"
+      ]
+    },
+    "man": {
+      "allow": [
+        "*.1"
+      ]
+    },
+    "oauth-bootstrap": {
+      "allow": [
+        "*.mjs",
+        "*.json",
+        "*.jsonc",
+        "*.md",
+        ".gitignore"
+      ]
+    },
+    "scripts": {
+      "allow": [
+        "*.py",
+        "*.sh"
+      ]
+    },
+    "src": {
+      "allow": [
+        "*.py",
+        "*.json"
+      ]
+    },
+    "tests": {
+      "allow": [
+        "*.py",
+        "*.json"
+      ]
+    },
+    "tools": {
+      "allow": [
+        "*.py",
+        "*.sh"
+      ]
+    },
+    "synthetic": {
+      "allow": [
+        "*.json"
+      ]
+    }
   }
 }

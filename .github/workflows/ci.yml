@@ -102,6 +102,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: python tools/check_repo_layout.py
+      - run: python tools/check_public_placeholders.py
 
   coverage:
     needs: [changes]
