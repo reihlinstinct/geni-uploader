@@ -29,7 +29,7 @@ PHONE_00 = re.compile(r'(?<![\d+])00\d[\d -]{6,14}\d')
 PHONE_LOCAL = re.compile(r'(?<![\d+])0\d{1,2}-\d{3}-?\d{4}(?!\d)')
 STRUCTURED_ID = re.compile(
     r'(?:profile_id|union_id)["\']?\s*[:=]\s*["\']?(\d{1,12})'
-    r'|\b(?:profile|union)-(\d{1,12})(?![\d-])')
+    r'|\b(?:profile|union)-(\d{1,12})(?![\w-])')
 RESERVED_PHONE = re.compile(r'^(?:\+999-[\d-]{3,12}\d|\+1-\d{3}-555-01\d\d)$')
 SKIP_DIRS = {'.git', 'synthetic'}
 SKIP_FILES = {'tools/check_public_placeholders.py', 'tests/test_public_placeholders.py'}
@@ -103,16 +103,23 @@ def main():
     baseline = load_json(root, 'synthetic/public-corpus-baseline.json',
                          {'findings': [], 'allowlist': []})
     if args.write_baseline:
-        baseline['findings'] = sorted(
-            ({'file': f, 'line': n, 'value': v, 'class': c}
-             for f, n, v, c in findings(root)),
-            key=lambda e: (e['file'], e['line'], e['value']))
+        seen = set()
+        unique = []
+        for f, n, v, c in findings(root):
+            if (f, n, v, c) not in seen:
+                seen.add((f, n, v, c))
+                unique.append({'file': f, 'line': n, 'value': v, 'class': c})
+        baseline['findings'] = sorted(unique, key=lambda e: (e['file'], e['line'], e['value']))
         path = root / 'synthetic/public-corpus-baseline.json'
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(baseline, indent=1, ensure_ascii=False) + '\n',
                         encoding='utf-8')
         print(f'baseline written: {len(baseline["findings"])} entries')
         return 0
+    for entry in baseline.get('allowlist', []):
+        if not entry.get('reason'):
+            print(f"placeholder violation: allowlist entry without reason: {entry}")
+            return 1
     known = {(e['file'], e['line'], e['value'], e['class'])
              for e in baseline.get('findings', []) + baseline.get('allowlist', [])}
     bad = [(f, n, v, c) for f, n, v, c in findings(root)

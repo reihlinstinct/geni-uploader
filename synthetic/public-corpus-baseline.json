@@ -147,24 +147,6 @@
   {
    "file": "oauth-bootstrap/consumed-readonly-recovery.test.mjs",
    "line": 7,
-   "value": "profile-999003",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/consumed-readonly-recovery.test.mjs",
-   "line": 7,
-   "value": "profile-999003",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/consumed-readonly-recovery.test.mjs",
-   "line": 7,
-   "value": "profile-999003",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/consumed-readonly-recovery.test.mjs",
-   "line": 7,
    "value": "union-999004",
    "class": "structured-id"
   },
@@ -355,12 +337,6 @@
    "class": "structured-id"
   },
   {
-   "file": "oauth-bootstrap/fake-callback-completion.test.mjs",
-   "line": 17,
-   "value": "profile-999001",
-   "class": "structured-id"
-  },
-  {
    "file": "oauth-bootstrap/fake-custody-persistence-sqlite.test.mjs",
    "line": 6,
    "value": "profile-999001",
@@ -447,43 +423,7 @@
   {
    "file": "oauth-bootstrap/owner-preflight.test.mjs",
    "line": 5,
-   "value": "profile-999002",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/owner-preflight.test.mjs",
-   "line": 5,
-   "value": "profile-999002",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/owner-preflight.test.mjs",
-   "line": 5,
    "value": "profile-999099",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/owner-preflight.test.mjs",
-   "line": 5,
-   "value": "profile-999099",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/owner-preflight.test.mjs",
-   "line": 5,
-   "value": "profile-999099",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/owner-preflight.test.mjs",
-   "line": 5,
-   "value": "profile-999099",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/owner-preflight.test.mjs",
-   "line": 5,
-   "value": "union-999003",
    "class": "structured-id"
   },
   {
@@ -496,24 +436,6 @@
    "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
    "line": 8,
    "value": "profile-999001",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
-   "line": 8,
-   "value": "profile-999001",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
-   "line": 8,
-   "value": "profile-999003",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
-   "line": 8,
-   "value": "profile-999003",
    "class": "structured-id"
   },
   {
@@ -538,18 +460,6 @@
    "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
    "line": 25,
    "value": "profile-999001",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
-   "line": 25,
-   "value": "profile-999003",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/post-write-job-handoff.test.mjs",
-   "line": 25,
-   "value": "profile-999003",
    "class": "structured-id"
   },
   {
@@ -716,12 +626,6 @@
   },
   {
    "file": "oauth-bootstrap/test.mjs",
-   "line": 768,
-   "value": "profile-99123",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/test.mjs",
    "line": 769,
    "value": "profile-99123",
    "class": "structured-id"
@@ -753,12 +657,6 @@
   {
    "file": "oauth-bootstrap/test.mjs",
    "line": 799,
-   "value": "profile-99123",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/test.mjs",
-   "line": 800,
    "value": "profile-99123",
    "class": "structured-id"
   },
@@ -903,54 +801,6 @@
   {
    "file": "oauth-bootstrap/test.mjs",
    "line": 943,
-   "value": "profile-99123",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/test.mjs",
-   "line": 943,
-   "value": "profile-99123",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/test.mjs",
-   "line": 943,
-   "value": "profile-99123",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/test.mjs",
-   "line": 943,
-   "value": "profile-99123",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/test.mjs",
-   "line": 943,
-   "value": "profile-99123",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/test.mjs",
-   "line": 943,
-   "value": "profile-99123",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/test.mjs",
-   "line": 943,
-   "value": "profile-99123",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/test.mjs",
-   "line": 943,
-   "value": "profile-99555",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/test.mjs",
-   "line": 943,
    "value": "profile-99555",
    "class": "structured-id"
   },
@@ -964,12 +814,6 @@
    "file": "oauth-bootstrap/test.mjs",
    "line": 948,
    "value": "profile-99000",
-   "class": "structured-id"
-  },
-  {
-   "file": "oauth-bootstrap/test.mjs",
-   "line": 948,
-   "value": "profile-99124",
    "class": "structured-id"
   },
   {
@@ -1994,20 +1838,8 @@
   },
   {
    "file": "tests/test_bounded_tree_snapshot.py",
-   "line": 53,
-   "value": "union-1",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_bounded_tree_snapshot.py",
    "line": 54,
    "value": "profile-1",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_bounded_tree_snapshot.py",
-   "line": 60,
-   "value": "union-202",
    "class": "structured-id"
   },
   {
@@ -2127,12 +1959,6 @@
   {
    "file": "tests/test_bounded_tree_snapshot.py",
    "line": 191,
-   "value": "profile-101",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_bounded_tree_snapshot.py",
-   "line": 192,
    "value": "profile-101",
    "class": "structured-id"
   },
@@ -2774,12 +2600,6 @@
   },
   {
    "file": "tests/test_guarded_family_additions.py",
-   "line": 207,
-   "value": "profile-999009",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_guarded_family_additions.py",
    "line": 218,
    "value": "profile-999009",
    "class": "structured-id"
@@ -2800,12 +2620,6 @@
    "file": "tests/test_guarded_family_additions.py",
    "line": 261,
    "value": "profile-999008",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_guarded_family_additions.py",
-   "line": 274,
-   "value": "profile-999009",
    "class": "structured-id"
   },
   {
@@ -2912,18 +2726,6 @@
   },
   {
    "file": "tests/test_guarded_family_additions.py",
-   "line": 385,
-   "value": "union-999001",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_guarded_family_additions.py",
-   "line": 386,
-   "value": "union-999001",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_guarded_family_additions.py",
    "line": 386,
    "value": "union-999001",
    "class": "structured-id"
@@ -2996,12 +2798,6 @@
   },
   {
    "file": "tests/test_household_precreate_read.py",
-   "line": 48,
-   "value": "profile-201",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_household_precreate_read.py",
    "line": 52,
    "value": "union-301",
    "class": "structured-id"
@@ -3063,19 +2859,7 @@
   {
    "file": "tests/test_household_precreate_read.py",
    "line": 122,
-   "value": "profile-101",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_household_precreate_read.py",
-   "line": 122,
    "value": "union-301",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_household_precreate_read.py",
-   "line": 123,
-   "value": "profile-101",
    "class": "structured-id"
   },
   {
@@ -3142,12 +2926,6 @@
    "file": "tests/test_household_relationship_read.py",
    "line": 47,
    "value": "union-201",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_household_relationship_read.py",
-   "line": 48,
-   "value": "profile-201",
    "class": "structured-id"
   },
   {
@@ -3296,12 +3074,6 @@
   },
   {
    "file": "tests/test_one_time_parent_pilot.py",
-   "line": 1071,
-   "value": "union-999003",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_one_time_parent_pilot.py",
    "line": 1073,
    "value": "union-999003",
    "class": "structured-id"
@@ -3310,18 +3082,6 @@
    "file": "tests/test_one_time_parent_pilot.py",
    "line": 1076,
    "value": "profile-999003",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_one_time_parent_pilot.py",
-   "line": 1076,
-   "value": "union-1",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_one_time_parent_pilot.py",
-   "line": 1077,
-   "value": "union-999003",
    "class": "structured-id"
   },
   {
@@ -3344,31 +3104,7 @@
   },
   {
    "file": "tests/test_one_time_parent_pilot.py",
-   "line": 1079,
-   "value": "union-999003",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_one_time_parent_pilot.py",
    "line": 1080,
-   "value": "union-999003",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_one_time_parent_pilot.py",
-   "line": 1080,
-   "value": "union-999003",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_one_time_parent_pilot.py",
-   "line": 1081,
-   "value": "union-999003",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_one_time_parent_pilot.py",
-   "line": 1081,
    "value": "union-999003",
    "class": "structured-id"
   },
@@ -3388,12 +3124,6 @@
    "file": "tests/test_parent_adapter_contract.py",
    "line": 22,
    "value": "profile-99555",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_parent_adapter_contract.py",
-   "line": 26,
-   "value": "profile-99123",
    "class": "structured-id"
   },
   {
@@ -3482,12 +3212,6 @@
   },
   {
    "file": "tests/test_parent_evidence.py",
-   "line": 27,
-   "value": "profile-99222",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_parent_evidence.py",
    "line": 29,
    "value": "union-99111",
    "class": "structured-id"
@@ -3530,12 +3254,6 @@
   },
   {
    "file": "tests/test_parent_evidence.py",
-   "line": 89,
-   "value": "profile-100",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_parent_evidence.py",
    "line": 91,
    "value": "profile-100",
    "class": "structured-id"
@@ -3568,12 +3286,6 @@
    "file": "tests/test_parent_household_read.py",
    "line": 48,
    "value": "union-201",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_parent_household_read.py",
-   "line": 49,
-   "value": "profile-201",
    "class": "structured-id"
   },
   {
@@ -3782,12 +3494,6 @@
   },
   {
    "file": "tests/test_parent_intent_model.py",
-   "line": 111,
-   "value": "profile-1",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_parent_intent_model.py",
    "line": 120,
    "value": "profile-999002",
    "class": "structured-id"
@@ -3854,12 +3560,6 @@
   },
   {
    "file": "tests/test_parent_probe.py",
-   "line": 16,
-   "value": "union-99111",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_parent_probe.py",
    "line": 17,
    "value": "profile-99123",
    "class": "structured-id"
@@ -3874,12 +3574,6 @@
    "file": "tests/test_parent_probe.py",
    "line": 26,
    "value": "union-99111",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_parent_probe.py",
-   "line": 37,
-   "value": "profile-99123",
    "class": "structured-id"
   },
   {
@@ -3946,18 +3640,6 @@
    "file": "tests/test_parent_probe.py",
    "line": 191,
    "value": "profile-99123",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_parent_probe.py",
-   "line": 199,
-   "value": "profile-1",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_parent_probe.py",
-   "line": 199,
-   "value": "profile-1",
    "class": "structured-id"
   },
   {
@@ -4096,18 +3778,6 @@
    "file": "tests/test_pilot_get_diagnostics.py",
    "line": 328,
    "value": "profile-999002",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_pilot_get_diagnostics.py",
-   "line": 328,
-   "value": "profile-999002",
-   "class": "structured-id"
-  },
-  {
-   "file": "tests/test_pilot_get_diagnostics.py",
-   "line": 329,
-   "value": "union-999003",
    "class": "structured-id"
   },
   {

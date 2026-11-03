@@ -78,6 +78,24 @@ def test_baseline_entry_passes_but_new_violation_fails(tmp_path):
     assert run_checker('--root', str(repo)).returncode == 1
 
 
+def test_doc_shape_notation_is_not_an_id(tmp_path):
+    # Convention examples like profile-99xxxx / union-98xxxx are shapes, not IDs.
+    repo = make_repo(tmp_path, {'a.md': 'use profile-99xxxx / union-98xxxx shapes\n'})
+    assert run_checker('--root', str(repo)).returncode == 0
+
+
+def test_allowlist_entry_requires_a_reason(tmp_path):
+    repo = make_repo(tmp_path, {'a.md': 'id 000000000\n'})
+    run_checker('--root', str(repo), '--write-baseline')
+    import json as j
+    path = repo / 'synthetic/public-corpus-baseline.json'
+    data = j.loads(path.read_text(encoding='utf-8'))
+    data['allowlist'] = [{'file': 'docs/c.md', 'line': 1, 'value': 'x', 'class': 'phone'}]
+    path.write_text(j.dumps(data), encoding='utf-8')
+    subprocess.run(['git', 'add', '.'], cwd=repo, check=True)
+    assert run_checker('--root', str(repo)).returncode == 1
+
+
 def test_baseline_anchor_is_exact_line_and_value(tmp_path):
     repo = make_repo(tmp_path, {'a.md': 'id 000000000\n'})
     run_checker('--root', str(repo), '--write-baseline')
