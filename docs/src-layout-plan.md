@@ -24,7 +24,7 @@ been split internally.
 src/geni_uploader/
   __init__.py
   core/                 # pure shared validation, data and intent semantics
-    people.py           # current people_core.py, initially moved intact
+    people.py           # current src/geni_uploader/core/people.py, initially moved intact
     intent.py           # parent_intent_model.py
     outcome.py          # profile_outcome_model.py
     snapshot.py         # parent_snapshot.py
@@ -33,18 +33,18 @@ src/geni_uploader/
     proof_requirements.py # pure PROOFS constants, separated before envelope move
     proposal_review.py  # pure verify_proposal + proposal + payloads + BLOCKERS closure
   client/               # explicit network boundary; never imported by pure core
-    upload.py           # geni_upload.py, initially moved intact
-    source_details.py   # source_details.py, initially moved intact
+    upload.py           # src/geni_uploader/client/upload.py, initially moved intact
+    src/geni_uploader/client/source_details.py   # src/geni_uploader/client/source_details.py, initially moved intact
     probe.py            # parent_probe.py (human read-only collector)
     closed_parent.py    # parent_http_candidate.py, gate remains always closed
   evidence/             # content contracts, not authenticated authority
     single_human.py     # single_human_approval_record.py
-    approval.py         # approval_record.py
-    ciphertext.py       # ciphertext_evidence.py
+    approval.py         # src/geni_uploader/evidence/approval.py
+    ciphertext.py       # src/geni_uploader/evidence/ciphertext.py
     github_review.py    # github_review_evidence.py
     workflow_content.py # workflow_content_contract.py
     profile_result.py   # profile_result.py
-    parent.py           # parent_evidence.py
+    parent.py           # src/geni_uploader/evidence/parent.py
     envelope.py         # parent_envelope.py
   workflow/             # small workflow-facing glue, not domain decisions
     release_package.py  # father_release_package.py, reviewed file packaging
@@ -53,23 +53,23 @@ src/geni_uploader/
     secondary_probe.py  # secondary_probe_action.py
     release_gate.py     # human_parent_gate.py, includes always-closed gate
     consumption.py      # parent_consumption.py (local prototype; composes evidence)
-    runner.py           # parent_runner.py (synthetic only; composes release gate)
+    runner.py           # src/geni_uploader/workflow/runner.py (synthetic only; composes release gate)
   cli/                  # thin argument/exit adapters, extracted separately
     upload.py
-    source_details.py
-    parent_plan.py
-    parent_output.py
+    src/geni_uploader/client/source_details.py
+    src/geni_uploader/cli/parent_plan.py
+    src/geni_uploader/cli/parent_output.py
   presentation/
     plan_report.py
-    visual_plan.py
+    src/geni_uploader/presentation/visual_plan.py
   resources/            # reviewed machine contracts, packaged explicitly
     human-parent-release-gates.json
 ```
 
-`parent_plan.py` and `parent_output.py` currently combine CLI and pure logic.
+`src/geni_uploader/cli/parent_plan.py` and `src/geni_uploader/cli/parent_output.py` currently combine CLI and pure logic.
 First move them intact to CLI modules; only a separate reviewed PR may extract
 pure planning/output review into core/evidence. Likewise do not split
-`geni_upload.py`'s HTTP and source orchestration while moving it. Each source
+`src/geni_uploader/client/upload.py`'s HTTP and source orchestration while moving it. Each source
 file has one authoritative implementation, never a copied second implementation.
 The `client/` name marks the network boundary, not permission to call it.
 
@@ -191,7 +191,7 @@ not replace or accidentally omit the latter. No runtime install/path change is
 made by the design. Prove wheel import outside checkout with isolated Python;
 no `.pth` injection, data-repo search path or `sys.path` workaround in production.
 
-Move `people_core.py` first only after packaging is independently green. It has
+Move `src/geni_uploader/core/people.py` first only after packaging is independently green. It has
 no sibling imports, but contains SQLite/journal behavior and must be moved intact,
 not labeled a trivial data module. A temporary root compatibility alias must
 preserve module object/class identity and monkeypatch propagation in both import

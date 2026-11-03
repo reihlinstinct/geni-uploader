@@ -29,7 +29,7 @@ flowchart TD
     end
 
     subgraph "Uploader Logic"
-        L["geni_upload.py"] -->|"reads"| M
+        L["src/geni_uploader/client/upload.py"] -->|"reads"| M
         L -->|"reads"| S
         L -->|"reads/writes"| ST
         L -->|"uses"| GHT
@@ -52,7 +52,7 @@ flowchart TD
 
 The published image (`ghcr.io/reihlinstinct/geni-uploader`) contains:
 - **Pinned Python environment**: Python 3.11+ with minimal dependencies (`PyYAML==6.0.3`)
-- **Reviewed uploader code**: `geni_upload.py` and `source_details.py`
+- **Reviewed uploader code**: `src/geni_uploader/client/upload.py` and `src/geni_uploader/client/source_details.py`
 - **Entrypoint script**: `entrypoint.sh` that clones the data repo, runs the uploader, and commits results
 - **NO credentials**: Tokens are mounted at runtime, never baked in
 - **NO user code execution**: The data repository's code is never executed

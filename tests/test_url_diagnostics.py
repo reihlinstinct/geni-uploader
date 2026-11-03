@@ -4,7 +4,7 @@ import copy
 import pytest
 from test_source_details import ITEM
 
-import source_details as s
+import geni_uploader.client.source_details as s
 
 
 @pytest.mark.parametrize('observed,flag', [

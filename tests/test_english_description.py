@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from test_geni_upload import MANIFEST, _manifest_file
 
-import geni_upload as g
+import geni_uploader.client.upload as g
 
 
 @pytest.mark.parametrize('english', [None, '', '   ', 123, 'תיאור מקור בעברית בלבד',

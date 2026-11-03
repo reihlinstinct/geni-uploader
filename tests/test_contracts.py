@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-import geni_upload as g
+import geni_uploader.client.upload as g
 
 CONTRACTS = Path(__file__).parent / "contracts"
 FIXTURES = sorted(CONTRACTS.glob("*/*.json"))

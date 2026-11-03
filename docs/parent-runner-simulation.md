@@ -1,6 +1,6 @@
 # Parent runner: synthetic integration slice
 
-For #190, based on #144 and offline core #184/#185. `parent_runner.py` composes
+For #190, based on #144 and offline core #184/#185. `src/geni_uploader/workflow/runner.py` composes
 schema/receipt binding, deterministic payload proposals and journal transitions
 against an exact-type in-memory `SyntheticTransport`. No HTTP library, token,
 production adapter, CLI entry point, image or workflow is added. The separate

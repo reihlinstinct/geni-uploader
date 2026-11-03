@@ -23,8 +23,8 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-import geni_upload as g
-import source_details as s
+import geni_uploader.client.source_details as s
+import geni_uploader.client.upload as g
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = (ROOT / ".github/workflows/geni-upload.yml").read_text()

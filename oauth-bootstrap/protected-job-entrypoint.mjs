@@ -33,7 +33,7 @@ export async function runProtectedJobEntrypoint(env){
   const prewrite=await privateFile(join(c.private_input_directory,c.prewrite_filename),1048000);
   const capture=join(c.private_input_directory,'approval-run-'+c.run_id+'-attempt-1.json');need(c.prewrite_filename!==capture.split('/').at(-1));
   // Fixed program and cwd. No caller-selected script/command or shell.
-  const collected=spawnSync('python3',['-c','import sys;from protected_father_job import collect_from_environment;collect_from_environment(sys.argv[1])',capture],{cwd:new URL('..',import.meta.url),env:{...env},timeout:20000,maxBuffer:65536,stdio:['ignore','pipe','pipe']});
+  const collected=spawnSync('python3',['-c','import sys;sys.path.insert(0,"src");from geni_uploader.workflow.protected_father_job import collect_from_environment;collect_from_environment(sys.argv[1])',capture],{cwd:new URL('..',import.meta.url),env:{...env},timeout:20000,maxBuffer:65536,stdio:['ignore','pipe','pipe']});
   need(!collected.error&&collected.status===0&&collected.stdout.length===0);
   const approval=await privateFile(capture,65536),token=await acquireProtectedWorkloadToken(env);
   return await runJournaledFatherJob({...env,FATHER_WORKLOAD_TOKEN:token},approval,prewrite);

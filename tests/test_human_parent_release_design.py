@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-import parent_plan
-from people_core import Blocked
+from geni_uploader.cli import parent_plan
+from geni_uploader.core.people import Blocked
 
 ROOT = Path(__file__).resolve().parents[1]
 

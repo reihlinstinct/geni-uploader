@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_gate_implementation_and_identity():
-    import human_parent_gate
+    import geni_uploader.workflow.release_gate as human_parent_gate
     from geni_uploader.workflow import release_gate
     assert human_parent_gate is release_gate
     path = ROOT / 'src/geni_uploader/workflow/release_gate.py'

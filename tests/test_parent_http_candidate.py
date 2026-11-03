@@ -4,8 +4,8 @@ from copy import deepcopy
 
 import pytest
 
-import parent_http_candidate as mod
-from people_core import Blocked
+import geni_uploader.client.closed_parent as mod
+from geni_uploader.core.people import Blocked
 
 
 def proposed():

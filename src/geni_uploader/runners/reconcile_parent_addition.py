@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 
 import geni_uploader.runners.bounded_parent_addition as core
+from geni_uploader.client.probe import encrypt
 from geni_uploader.core.people import Blocked, exact, require  # noqa: F401 - public boundary type
 from geni_uploader.runners.one_time_parent_pilot import (
     FIELDS,
@@ -17,7 +18,6 @@ from geni_uploader.runners.one_time_parent_pilot import (
 )
 from geni_uploader.runners.protected_family_additions import setup_failure
 from geni_uploader.runners.protected_parent_addition import config as parent_config
-from parent_probe import encrypt
 
 
 class ReadOnlyVendor(HTTPS):

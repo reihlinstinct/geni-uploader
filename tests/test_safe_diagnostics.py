@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 from test_source_details import ITEM, Fake
 
-import source_details as s
+import geni_uploader.client.source_details as s
 
 
 @pytest.mark.parametrize('failure,stage,category', [

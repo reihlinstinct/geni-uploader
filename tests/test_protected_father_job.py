@@ -7,8 +7,8 @@ from io import BytesIO
 
 import pytest
 
-from people_core import Blocked
-from protected_father_job import collect_from_environment, plan_fingerprint
+from geni_uploader.core.people import Blocked
+from geni_uploader.workflow.protected_father_job import collect_from_environment, plan_fingerprint
 from tests.test_github_review_evidence import fixture as review_fixture
 from tests.test_single_human_approval_record import fixture as record_fixture
 
@@ -142,7 +142,7 @@ def test_release_hash_is_not_silent_recomputed(monkeypatch, tmp_path):
 
 
 def test_redirects_disabled_in_actual_opener():
-    from protected_father_job import _NoRedirect
+    from geni_uploader.workflow.protected_father_job import _NoRedirect
     assert _NoRedirect().redirect_request(None, None, 302, 'ZZ', {}, 'https://ZZ.invalid') is None
 
 
@@ -160,7 +160,7 @@ def test_plan_fingerprint_excludes_only_dynamic_capture():
 
 
 def test_capture_decision_binds_actual_job_run_and_static_plan(monkeypatch, tmp_path):
-    from people_core import digest
+    from geni_uploader.core.people import digest
     setup(monkeypatch)
     path = tmp_path/'ZZ.json'
     result = collect_from_environment(path)

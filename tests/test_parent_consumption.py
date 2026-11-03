@@ -4,9 +4,9 @@ import os
 
 import pytest
 
-from parent_consumption import LocalSyntheticLedger
-from parent_envelope import draft
-from people_core import Blocked
+from geni_uploader.core.people import Blocked
+from geni_uploader.evidence.envelope import draft
+from geni_uploader.workflow.consumption import LocalSyntheticLedger
 from tests.test_parent_envelope import fixture
 
 

@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-import geni_upload as g
-import plan_report
+import geni_uploader.client.upload as g
+from geni_uploader.presentation import plan_report
 
 MANIFEST = {'targets': [{'profile_id': '991234567890', 'expect_name': 'ZZFirst ZZLast',
                         'documents': [{'title': 'ZZSource', 'source_url': 'https://example.invalid/zz',

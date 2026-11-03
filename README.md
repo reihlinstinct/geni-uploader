@@ -13,7 +13,7 @@ Containerized, user-run uploader for Geni source documents and photos. The image
 ```mermaid
 flowchart LR
     A["Your private data repo"] -->|"git clone at runtime"| B["tmpfs /work"]
-    B --> C["geni_upload.py"]
+    B --> C["src/geni_uploader/client/upload.py"]
     C -->|"reads"| D["manifest.yaml"]
     C -->|"reads"| E["source files"]
     C -->|"updates"| F["upload-status.yaml"]
@@ -27,7 +27,7 @@ The container image carries the reviewed uploader code. The loader clones your r
 
 ## CLI API
 
-The loader (`geni_upload.py`) provides these commands:
+The loader (`src/geni_uploader/client/upload.py`) provides these commands:
 
 ### `auth-url`
 Generate the Geni OAuth authorization URL (desktop flow)
@@ -68,14 +68,14 @@ See [docs/guid-resolution.md](docs/guid-resolution.md) for the guid resolution m
 ### Command help and man pages
 
 Every shipped command explains itself: `--help` prints a short summary and its
-options (`podman run --rm <image> plan --help`, or `python geni_upload.py plan
+options (`podman run --rm <image> plan --help`, or `python src/geni_uploader/client/upload.py plan
 --help` from a checkout), and each command has a Linux man page with the full
 details: `man geni-uploader` for the overview, then one page per command
 (`geni-uploader-plan`, `geni-uploader-run`, `geni-uploader-details-repair`, ...).
 
-The pages live in `man/man1/` and are generated from `cli_spec.py`, the same
+The pages live in `man/man1/` and are generated from `src/geni_uploader/client/cli_spec.py`, the same
 source that feeds `--help`; `tests/test_cli_docs.py` fails if the two ever
-drift. After editing `cli_spec.py`, regenerate with
+drift. After editing `src/geni_uploader/client/cli_spec.py`, regenerate with
 `python tools/build_man_pages.py`; check drift without writing via
 `python tools/build_man_pages.py --check`, and `--dir DIR` targets a
 different man1 directory. Install on a host with

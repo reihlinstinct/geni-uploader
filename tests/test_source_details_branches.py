@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-import source_details as s
+import geni_uploader.client.source_details as s
 
 ITEM = {
     "key": "ZZsource",

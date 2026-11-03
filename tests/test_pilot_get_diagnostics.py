@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-import pilot_get_diagnostics as d
-from people_core import Blocked
+import geni_uploader.runners.pilot_get_diagnostics as d
+from geni_uploader.core.people import Blocked
 from tests.test_one_time_parent_pilot import BODY, Client, M
 from tests.test_one_time_parent_pilot import C as CREATE
 
@@ -84,7 +84,7 @@ def test_failure_saved_at_exact_fixed_stage_without_exception(change, stage):
 
 
 def test_no_create_or_private_git_logic_can_be_called(monkeypatch):
-    import one_time_parent_pilot as pilot
+    import geni_uploader.runners.one_time_parent_pilot as pilot
     def forbidden(*a, **kw):
         pytest.fail('write path called')
     for name in ['execute', 'run', 'verify']:
@@ -231,7 +231,7 @@ def test_real_wiring_fake_https_collects_all_five_gets(monkeypatch, tmp_path):
 
 @pytest.mark.parametrize('body', [b'{"message":"ZZ-denied"}', b'ZZbad', b'x' * 4097])
 def test_http_failure_details_bounded_and_encrypted_only(monkeypatch, body, capsys):
-    import one_time_parent_pilot as p
+    import geni_uploader.runners.one_time_parent_pilot as p
     reads = []
     class Response:
         status = 403

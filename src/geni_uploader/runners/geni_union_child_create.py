@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 
 import geni_uploader.core.geni_union_child_model as core
+from geni_uploader.client.probe import encrypt
 from geni_uploader.core.parent_contract import profile_id
 from geni_uploader.core.people import Blocked, exact, require
 from geni_uploader.runners.one_time_parent_pilot import (
@@ -19,7 +20,6 @@ from geni_uploader.runners.one_time_parent_pilot import (
 )
 from geni_uploader.runners.protected_family_additions import IO as BaseIO
 from geni_uploader.runners.protected_family_additions import Store, setup_failure
-from parent_probe import encrypt
 
 FIELDS = FIELDS + ',about_me,claimed'
 

@@ -2,10 +2,10 @@ import json
 
 import pytest
 
-import human_parent_gate as g
-import parent_plan
-import parent_runner
-from people_core import Blocked
+import geni_uploader.workflow.release_gate as g
+import geni_uploader.workflow.runner as parent_runner
+from geni_uploader.cli import parent_plan
+from geni_uploader.core.people import Blocked
 
 
 @pytest.mark.parametrize('entry', [parent_plan.apply, parent_runner.run_production])

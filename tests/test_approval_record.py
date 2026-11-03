@@ -3,8 +3,8 @@ from copy import deepcopy
 
 import pytest
 
-import approval_record as ar
-from people_core import Blocked, digest
+import geni_uploader.evidence.approval as ar
+from geni_uploader.core.people import Blocked, digest
 
 T0 = 1_800_000_000
 

@@ -5,7 +5,7 @@ from functools import partial
 
 import pytest
 
-import people_core as p
+import geni_uploader.core.people as p
 
 DATA = {'schema_version': 1, 'owner': {'node': '99123', 'expect_name': 'ZZRoot ZZPerson'},
         'operator': 'ZZOperator', 'approval': {'source': 'ZZApproval', 'date': '2026-10-28',

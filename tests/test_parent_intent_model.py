@@ -5,8 +5,8 @@ from threading import Lock
 
 import pytest
 
-from parent_intent_model import advance, binding_hash, consume, validate
-from people_core import Blocked
+from geni_uploader.core.intent import advance, binding_hash, consume, validate
+from geni_uploader.core.people import Blocked
 
 
 def binding():

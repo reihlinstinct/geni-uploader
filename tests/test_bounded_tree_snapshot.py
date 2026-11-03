@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-import bounded_tree_snapshot as s
+import geni_uploader.runners.bounded_tree_snapshot as s
 from geni_uploader.core.people import Blocked
 
 

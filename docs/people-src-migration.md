@@ -1,8 +1,8 @@
 # Shared people core move (#459)
 
 Depends on the package foundation (#457). Moves the shared implementation
-byte-for-byte from people_core.py to src/geni_uploader/core/people.py. Root
-people_core.py temporarily aliases the same module object, not copied globals or
+byte-for-byte from src/geni_uploader/core/people.py to src/geni_uploader/core/people.py. Root
+src/geni_uploader/core/people.py temporarily aliases the same module object, not copied globals or
 star imports. Blocked, Journal, digest and monkeypatch identity remain shared.
 Runtime root callers now import the canonical package; legacy test imports keep
 exercising the facade. A fixed SHA256 byte comparison enforces the intact move.

@@ -3,7 +3,7 @@ import copy
 
 import pytest
 
-import bounded_parent_addition as b
+import geni_uploader.runners.bounded_parent_addition as b
 from tests.test_guarded_family_additions import Store
 from tests.test_one_time_parent_pilot import BODY
 

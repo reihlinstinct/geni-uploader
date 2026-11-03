@@ -14,10 +14,9 @@ MOVES = {'father_once_simulation': ('core.father_once', '99b1513022a41665adf04d4
 def test_composition_identity_and_intact_code(legacy, monkeypatch):
     target, before = MOVES[legacy]
     canonical = importlib.import_module('geni_uploader.' + target)
-    assert importlib.import_module(legacy) is canonical
     if hasattr(canonical, 'require'):
         marker = object()
         monkeypatch.setattr(canonical, 'require', marker)
-        assert importlib.import_module(legacy).require is marker
+        assert canonical.require is marker
     source = (ROOT / 'src/geni_uploader' / Path(*target.split('.')).with_suffix('.py')).read_text()
     assert normalized_ast_hash(source) == before

@@ -10,7 +10,7 @@ from contextlib import ExitStack
 from typing import ClassVar
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-import geni_upload as g
+import geni_uploader.client.upload as g
 
 _TEMP_STATE_DIRECTORIES = ExitStack()
 atexit.register(_TEMP_STATE_DIRECTORIES.close)

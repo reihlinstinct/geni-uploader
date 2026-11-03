@@ -257,12 +257,12 @@ Read-only diagnostics, run directly against the pinned uploader in the image
 `whoami` require `--manifest`:
 
 ```
-python geni_upload.py --token-file <private-file> auth-url --client-id <app-id>
-python geni_upload.py --token-file <private-file> whoami
-python geni_upload.py --token-file <private-file> contrast --manifest <file>
-python geni_upload.py --token-file <private-file> guidmap --manifest <file>
-python geni_upload.py --token-file <private-file> pguid --manifest <file>
-python geni_upload.py --token-file <private-file> listing-shape --manifest <file>
+python src/geni_uploader/client/upload.py --token-file <private-file> auth-url --client-id <app-id>
+python src/geni_uploader/client/upload.py --token-file <private-file> whoami
+python src/geni_uploader/client/upload.py --token-file <private-file> contrast --manifest <file>
+python src/geni_uploader/client/upload.py --token-file <private-file> guidmap --manifest <file>
+python src/geni_uploader/client/upload.py --token-file <private-file> pguid --manifest <file>
+python src/geni_uploader/client/upload.py --token-file <private-file> listing-shape --manifest <file>
 ```
 
 `auth-url` prints the OAuth authorization URL (`--redirect-uri` only when your
@@ -296,7 +296,7 @@ Each item has `key`, `kind` (`document` or `photo`), verified API `object_id`,
 the user's manual citations). The top level has `schema_version: 1` and `items`.
 No webpage GUID is guessed as a source node ID. Empty or mismatched reads stop.
 
-Run `python source_details.py validate --manifest <file>` offline first.
+Run `python src/geni_uploader/client/source_details.py validate --manifest <file>` offline first.
 All four metadata modes have container aliases: `details-validate`,
 `details-plan`, `details-repair` and `details-snapshot`.
 `details-snapshot` also requires `--output <private-file>` for the

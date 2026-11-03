@@ -84,5 +84,5 @@ the pin. `tests/test_image_descriptor.py` covers each refusal and the workflow s
 - Verifying the digest itself, meaning that the registry serves those bytes under that
   digest, needs registry access and stays out of offline CI. The emitting step trusts
   the digest Docker reports right after its own push.
-- No change to `geni_upload.py`, the Dockerfile or `entrypoint.sh`. No Geni, dispatch,
+- No change to `src/geni_uploader/client/upload.py`, the Dockerfile or `entrypoint.sh`. No Geni, dispatch,
   token or publishing in tests.

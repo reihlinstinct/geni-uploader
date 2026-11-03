@@ -3,7 +3,7 @@ import socket
 
 import pytest
 
-import parent_evidence as p
+import geni_uploader.evidence.parent as p
 
 OWNER = 'profile-99123'
 PROFILE = {'id': OWNER, 'merge_pending': False}

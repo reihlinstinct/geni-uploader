@@ -4,13 +4,13 @@ from copy import deepcopy
 
 import pytest
 
-from father_once_simulation import (
+from geni_uploader.core.father_once import (
     SyntheticFatherTransport,
     SyntheticOwnerStore,
     descriptor,
     simulate_once,
 )
-from people_core import Blocked, digest
+from geni_uploader.core.people import Blocked, digest
 
 
 def fixtures():

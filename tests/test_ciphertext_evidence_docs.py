@@ -4,7 +4,7 @@ from pathlib import Path
 
 DOC = Path(__file__).resolve().parents[1] / 'docs' / 'ciphertext-evidence.md'
 # Update deliberately, in the same reviewed PR, whenever the doc changes.
-EXPECTED_SHA256 = 'b0abd9a79b6fcce3d18e38008c2147135374115999570ecd17e89774ebdb5216'
+EXPECTED_SHA256 = '12290fc7a9fb1cefda4231f0a3d3db710ce6d7e640d81e3c014b363d889c245b'
 
 
 def test_ciphertext_evidence_doc_is_pinned():

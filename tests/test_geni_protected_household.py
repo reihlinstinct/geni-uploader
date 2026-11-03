@@ -5,8 +5,8 @@ import json
 
 import pytest
 
-import geni_protected_household_create as p
-import geni_protected_household_model as m
+import geni_uploader.core.geni_protected_household_model as m
+import geni_uploader.runners.geni_protected_household_create as p
 from tests.test_bounded_parent_addition import family
 from tests.test_guarded_family_additions import Store
 

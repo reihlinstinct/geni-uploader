@@ -7,6 +7,7 @@ from pathlib import Path
 
 import geni_uploader.runners.bounded_profile_name_update as core
 import geni_uploader.runners.protected_parent_addition as parent
+from geni_uploader.client.probe import encrypt
 from geni_uploader.core.parent_contract import profile_id
 from geni_uploader.core.people import Blocked, exact, require  # noqa: F401 - public boundary type
 from geni_uploader.runners.one_time_parent_pilot import (
@@ -18,7 +19,6 @@ from geni_uploader.runners.one_time_parent_pilot import (
     sha,
 )
 from geni_uploader.runners.protected_family_additions import Store, setup_failure
-from parent_probe import encrypt
 
 NAME_FIELDS = (parent.FIELDS + ',claimed')
 

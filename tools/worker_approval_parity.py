@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from single_human_approval_record import check, validate
+from geni_uploader.evidence.single_human_approval import check, validate
 
 
 def corpus():

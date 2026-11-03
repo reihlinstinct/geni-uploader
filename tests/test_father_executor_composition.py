@@ -2,8 +2,12 @@ from copy import deepcopy
 
 import pytest
 
-from father_executor_composition import FixtureBoundaries, execute_fixture, execute_production
-from people_core import Blocked, digest
+from geni_uploader.core.people import Blocked, digest
+from geni_uploader.workflow.father_executor import (
+    FixtureBoundaries,
+    execute_fixture,
+    execute_production,
+)
 
 
 def fixture():

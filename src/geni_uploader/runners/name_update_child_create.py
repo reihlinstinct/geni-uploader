@@ -92,6 +92,7 @@ import os
 import re
 from pathlib import Path
 
+from geni_uploader.client.probe import encrypt
 from geni_uploader.core.parent_contract import profile_id
 from geni_uploader.core.people import exact
 from geni_uploader.runners.one_time_parent_pilot import (
@@ -103,7 +104,6 @@ from geni_uploader.runners.one_time_parent_pilot import (
     sha,
 )
 from geni_uploader.runners.protected_family_additions import Store, setup_failure
-from parent_probe import encrypt
 
 
 def config(value):

@@ -8,7 +8,11 @@ from pathlib import Path
 
 import pytest
 
-from father_release_package import inspect_package, package_release, validate_manifest
+from geni_uploader.workflow.release_package import (
+    inspect_package,
+    package_release,
+    validate_manifest,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 

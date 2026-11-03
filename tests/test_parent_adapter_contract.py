@@ -5,8 +5,8 @@ import urllib.request
 
 import pytest
 
-import parent_adapter_contract as p
-from people_core import Blocked
+import geni_uploader.core.parent_contract as p
+from geni_uploader.core.people import Blocked
 from tests.test_parent_envelope import fixture
 
 

@@ -16,10 +16,8 @@ MOVES = {
 def test_identity_and_intact_source(legacy, monkeypatch):
     target, before = MOVES[legacy]
     canonical = importlib.import_module('geni_uploader.' + target)
-    old = importlib.import_module(legacy)
-    assert old is canonical
     marker = object()
-    monkeypatch.setattr(old, 'require', marker)
+    monkeypatch.setattr(canonical, 'require', marker)
     assert canonical.require is marker
     source = (ROOT / 'src/geni_uploader' / Path(*target.split('.')).with_suffix('.py')).read_text()
     source = source.replace('from geni_uploader.evidence.envelope import ',

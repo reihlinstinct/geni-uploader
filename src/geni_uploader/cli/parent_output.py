@@ -3,9 +3,9 @@ import argparse
 import json
 import time
 
+from geni_uploader.client.probe import connection, protected_file
 from geni_uploader.core.people import Blocked, exact, require
 from geni_uploader.core.snapshot import bounded, parse
-from parent_probe import connection, protected_file
 
 FIELDS = ('schema_version', 'connection_id', 'collected_at_unix', 'mode', 'self',
           'owner', 'family', 'unions', 'create_enabled', 'hidden_parent_completeness',

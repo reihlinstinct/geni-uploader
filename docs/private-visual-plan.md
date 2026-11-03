@@ -23,7 +23,7 @@ put the key in email, chat or a public command log. On a private workstation:
 `GENI_VISUAL_PLAN` (optional) is the path the schema-bounded, value-free plan JSON is written to; a new run deletes any stale file at that path first.
 
 ```
-python visual_plan.py /private/visual.json --html /private/review.html
+python src/geni_uploader/presentation/visual_plan.py /private/visual.json --html /private/review.html
 ```
 
 Open that HTML locally and export a PNG using a local browser screenshot.

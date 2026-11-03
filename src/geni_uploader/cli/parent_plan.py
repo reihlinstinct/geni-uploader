@@ -5,10 +5,10 @@ import json
 import os
 from pathlib import Path
 
+from geni_uploader.client.probe import protected_file
 from geni_uploader.core import proposal_review
 from geni_uploader.core.people import Blocked, require
 from geni_uploader.workflow.release_gate import require_production_release
-from parent_probe import protected_file
 
 BLOCKERS = proposal_review.BLOCKERS
 proposal = proposal_review.proposal

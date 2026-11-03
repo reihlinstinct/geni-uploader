@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-import household_precreate_read as h
+import geni_uploader.runners.household_precreate_read as h
 from geni_uploader.core.people import Blocked
 
 
@@ -136,7 +136,7 @@ def test_failed_body_or_family_schema_saved_before_validation(bad):
     (200, {'Location': 'https://evil.invalid/'}), (200, {'Link': 'ZZ'}),
     (429, {'Retry-After': '1'}), (503, {})])
 def test_real_transport_no_redirect_or_retry(status, headers, monkeypatch, capsys):
-    import one_time_parent_pilot as transport
+    import geni_uploader.runners.one_time_parent_pilot as transport
     opened = []; requests = []
     monkeypatch.setattr(h.time, 'time', lambda: 200)
     class Response:
@@ -160,7 +160,7 @@ def test_real_transport_no_redirect_or_retry(status, headers, monkeypatch, capsy
 
 
 def test_real_transport_rejects_post_before_connect(monkeypatch):
-    import one_time_parent_pilot as transport
+    import geni_uploader.runners.one_time_parent_pilot as transport
     def forbidden(*args, **kwargs): raise AssertionError('ZZ must not open connection')
     monkeypatch.setattr(transport.http.client, 'HTTPSConnection', forbidden)
     v = h.Vendor('ZZ-token-123', cfg())

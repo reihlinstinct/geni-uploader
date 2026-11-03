@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(__file__))
 from test_contracts import FakeGeni
 
-import geni_upload as g
+import geni_uploader.client.upload as g
 
 ROOT = Path(__file__).parent / "contracts_behavior"
 FIXTURES = sorted(ROOT.glob("*/*.json"))

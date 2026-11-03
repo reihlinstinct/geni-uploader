@@ -1,6 +1,6 @@
 # Offline ciphertext evidence descriptors, caps and readback
 
-For #257. Pure module `ciphertext_evidence.py`. It follows
+For #257. Pure module `src/geni_uploader/evidence/ciphertext.py`. It follows
 `intent-storage-decisions.md` (Decision 2). There is no network access, no
 repository writer, no key, no storage service and no gate change. Tests use
 synthetic bytes only.

@@ -8,8 +8,8 @@ from unittest.mock import patch
 import pytest
 from test_source_plan_guards import MANIFEST
 
-import geni_upload as g
-import visual_plan as v
+import geni_uploader.client.upload as g
+import geni_uploader.presentation.visual_plan as v
 
 
 def test_masked_payload_no_private_fields(tmp_path, monkeypatch):
@@ -82,8 +82,8 @@ def test_ciphertext_only_workflow_and_no_mail():
     assert 'logs/visual-plan-run${GITHUB_RUN_NUMBER}-attempt${GITHUB_RUN_ATTEMPT}.age' in workflow
     assert 'cp "$RUNNER_TEMP/plan-report/visual.json"' not in workflow
     assert 'upload-artifact' not in workflow
-    assert 'smtp' not in (root / 'visual_plan.py').read_text().lower()
-    assert 'COPY visual_plan.py /opt/visual_plan.py' in (root / 'Dockerfile').read_text()
+    assert 'smtp' not in (root / 'src/geni_uploader/presentation/visual_plan.py').read_text().lower()
+    assert 'COPY src/geni_uploader/presentation/visual_plan.py /opt/visual_plan.py' in (root / 'Dockerfile').read_text()
 
 
 def test_optional_visual_error_preserves_plan_outcome(tmp_path, monkeypatch):

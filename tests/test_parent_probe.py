@@ -5,8 +5,8 @@ import urllib.error
 
 import pytest
 
-import parent_probe as p
-from people_core import Blocked
+import geni_uploader.client.probe as p
+from geni_uploader.core.people import Blocked
 
 C = {'schema_version': 1, 'connection_id': 'ZZisolated',
      'owner_node': 'profile-99123', 'expect_name': 'ZZRoot ZZPerson'}

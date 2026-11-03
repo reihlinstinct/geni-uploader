@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from human_parent_gate import require_production_release
-from people_core import Blocked
+from geni_uploader.core.people import Blocked
+from geni_uploader.workflow.release_gate import require_production_release
 
 
 def test_route_inventory_and_limit_statements():

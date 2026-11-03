@@ -4,8 +4,8 @@ from copy import deepcopy
 
 import pytest
 
-import ciphertext_evidence as ce
-from people_core import Blocked
+import geni_uploader.evidence.ciphertext as ce
+from geni_uploader.core.people import Blocked
 
 OP = hashlib.sha256(b'ZZ-operation').hexdigest()
 RCPT = hashlib.sha256(b'ZZ-recipient').hexdigest()

@@ -10,9 +10,9 @@ import time
 import urllib.parse
 from pathlib import Path
 
+from geni_uploader.client.probe import encrypt
 from geni_uploader.core.parent_contract import payload
 from geni_uploader.core.people import Blocked, exact, require
-from parent_probe import encrypt
 
 LIMIT = 1024 * 1024
 STAGES = frozenset(('setup', 'config', 'manifest', 'output', 'github_credential',

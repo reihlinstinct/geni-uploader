@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-import source_read_reconcile as p
+import geni_uploader.runners.source_read_reconcile as p
 
 
 def config():

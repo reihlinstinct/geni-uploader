@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 
 import geni_uploader.runners.guarded_family_additions as core
+from geni_uploader.client.probe import encrypt
 from geni_uploader.core.people import Blocked, exact, require
 from geni_uploader.runners.one_time_parent_pilot import (
     FIELDS,
@@ -17,7 +18,6 @@ from geni_uploader.runners.one_time_parent_pilot import (
     decode,
     sha,
 )
-from parent_probe import encrypt
 
 
 class ScopedVendor(HTTPS):

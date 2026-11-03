@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-import protected_parent_addition as p
+import geni_uploader.runners.protected_parent_addition as p
 from tests.test_bounded_parent_addition import ANCHOR, IO, NEW, OWNER, PARENTS, family, plan
 
 TOKEN = 'ZZ-not-a-real-token'

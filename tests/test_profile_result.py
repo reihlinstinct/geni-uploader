@@ -3,8 +3,8 @@ from copy import deepcopy
 
 import pytest
 
-from people_core import Blocked
-from profile_result import PHASES, validate
+from geni_uploader.core.people import Blocked
+from geni_uploader.evidence.profile_result import PHASES, validate
 
 
 def fixture():

@@ -3,8 +3,8 @@ import copy
 
 import pytest
 
-import bounded_profile_name_update as core
-import protected_profile_name_update as protected
+import geni_uploader.runners.bounded_profile_name_update as core
+import geni_uploader.runners.protected_profile_name_update as protected
 from geni_uploader.core.people import Blocked
 from tests.test_profile_name_update import IO, TARGET, Store, environment, plan
 

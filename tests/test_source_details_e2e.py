@@ -53,7 +53,7 @@ def test_cli_repair_real_transport_loopback(tmp_path):
            "GENI_API_BASE": f"http://127.0.0.1:{server.server_port}"}
     try:
         result = subprocess.run([
-            sys.executable, str(Path(__file__).parents[1] / "source_details.py"),
+            sys.executable, "-m", "geni_uploader.client.source_details",
             "repair", "--manifest", str(manifest), "--token-file", str(token),
             "--confirm", "YES", "--state", str(tmp_path / "state")], check=False, env=env,
             capture_output=True, text=True, timeout=15)

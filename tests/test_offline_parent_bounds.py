@@ -8,9 +8,9 @@ import urllib.request
 
 import pytest
 
-import parent_envelope
-import parent_plan
-from people_core import Blocked, digest
+import geni_uploader.evidence.envelope as parent_envelope
+from geni_uploader.cli import parent_plan
+from geni_uploader.core.people import Blocked, digest
 from tests.test_parent_envelope import fixture
 
 

@@ -3,8 +3,8 @@ import copy
 
 import pytest
 
-import bounded_profile_name_update as core
-import protected_profile_name_update as p
+import geni_uploader.runners.bounded_profile_name_update as core
+import geni_uploader.runners.protected_profile_name_update as p
 from geni_uploader.core.people import Blocked
 
 OWNER, TARGET = 'profile-101', 'profile-202'

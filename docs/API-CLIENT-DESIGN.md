@@ -3,7 +3,7 @@
 Status: design, slice 1 of the #93 plan. Reviewed scope (2026-10-26):
 **offline slices 1-3 only**, MCP **read-only first**. Nothing in this
 document authorizes live Geni calls, credentials, workflow dispatch, a write
-surface in the MCP server, or edits to the byte-synced `geni_upload.py`.
+surface in the MCP server, or edits to the byte-synced `src/geni_uploader/client/upload.py`.
 
 Code references are to `master` at `cbeea03` and name the function as well
 as the line, so they survive line drift.
@@ -21,27 +21,27 @@ as the line, so they survive line drift.
 
 ### 1a. Used today [repo]
 
-Every call goes through `execute()` (`geni_upload.py:244`), which enforces
-`ALLOWLIST` (`geni_upload.py:52-58`). `source_details.main()` widens it at
-runtime (`source_details.py:429-430`). `API_BASE` must be production, or
-loopback with `GENI_UPLOAD_E2E=1` (`geni_upload.py:41-51`).
+Every call goes through `execute()` (`src/geni_uploader/client/upload.py:244`), which enforces
+`ALLOWLIST` (`src/geni_uploader/client/upload.py:52-58`). `source_details.main()` widens it at
+runtime (`src/geni_uploader/client/source_details.py:429-430`). `API_BASE` must be production, or
+loopback with `GENI_UPLOAD_E2E=1` (`src/geni_uploader/client/upload.py:41-51`).
 
 | Allowlist kind | Method + path | Call sites | Guard | Offline tests |
 |---|---|---|---|---|
-| `user` | GET `/user` | `whoami` (`geni_upload.py:658`) | Shape-only diagnostic | `test_geni_upload.py` |
+| `user` | GET `/user` | `whoami` (`src/geni_uploader/client/upload.py:658`) | Shape-only diagnostic | `test_geni_upload.py` |
 | `user_managed_profiles` | GET `/user/managed-profiles` | `contrast` (`:740`), `guidmap` (`:1180`) | Page-bounded | `test_geni_upload.py` |
-| `profile` | GET `/profile-{id}`, `/profile-g{guid}`, `/profile?ids=` | `verify_profile` (`:402`), `contrast` (`:755`); `source_details.py:97`, `:386` | Identity + name check; empty bulk result never means "absent" | yes |
+| `profile` | GET `/profile-{id}`, `/profile-g{guid}`, `/profile?ids=` | `verify_profile` (`:402`), `contrast` (`:755`); `src/geni_uploader/client/source_details.py:97`, `:386` | Identity + name check; empty bulk result never means "absent" | yes |
 | `profile_documents`, `profile_photos` | GET `/profile-{node}/{documents,photos}` | `list_tagged` (`:485`), `listing-shape` (`:1359`) | Same-endpoint `next_page`; 10-page cap returns "unproven" | `test_listing_shape.py`, `test_object_id_readback.py` |
 | `document_add`, `photo_add` | POST `/{kind}/add` | `:878` | Intent journaled first; never replayed; non-numeric id raises `UncertainWrite` | yes |
-| `document_tag`, `photo_tag` | POST `/{kind}-{oid}/tag/profile-{node}` | `:910`; `source_details.py:250` | Intent before POST; readback by exact object id | yes |
-| `document`, `photo` | GET `/{kind}-{oid}` | `object_read` (`source_details.py:79`) | Returned id must equal `{kind}-{oid}` | **document only** |
-| `document_update`, `photo_update` | POST `/{kind}-{oid}/update` | `source_details.py:237`, `:352` | Precondition re-read, readback, tags preserved | **document only** |
+| `document_tag`, `photo_tag` | POST `/{kind}-{oid}/tag/profile-{node}` | `:910`; `src/geni_uploader/client/source_details.py:250` | Intent before POST; readback by exact object id | yes |
+| `document`, `photo` | GET `/{kind}-{oid}` | `object_read` (`src/geni_uploader/client/source_details.py:79`) | Returned id must equal `{kind}-{oid}` | **document only** |
+| `document_update`, `photo_update` | POST `/{kind}-{oid}/update` | `src/geni_uploader/client/source_details.py:237`, `:352` | Precondition re-read, readback, tags preserved | **document only** |
 
 Gap closed by slice 2: GET `photo` and POST `photo_update` have no offline
 test (`grep photo_update tests/` is empty at `cbeea03`).
 
 `auth-url` builds a browser OAuth URL locally and makes no API call
-(`geni_upload.py:1125-1139`).
+(`src/geni_uploader/client/upload.py:1125-1139`).
 
 ### 1b. Documented or known surface not used
 
@@ -52,7 +52,7 @@ test (`grep photo_update tests/` is empty at `cbeea03`).
 | Union | GET `union-{id}` | [model] | Read candidate, unwired/mock-only |
 | Search | profile search | [model] | Read candidate; privacy-sensitive; not planned |
 | Document/photo | `untag`, `delete` | [repo-doc] `docs/source-details-design.md` excludes them | **Never allowlisted** |
-| Fact citations | none known | [repo] `snapshot()` writes `"citations": "unsupported"` (`source_details.py:393`) | Unsupported; not promised |
+| Fact citations | none known | [repo] `snapshot()` writes `"citations": "unsupported"` (`src/geni_uploader/client/source_details.py:393`) | Unsupported; not promised |
 
 Every [model] row stays `unverified` until a public-safe documentation excerpt
 or a user-run observation confirms it.
@@ -103,7 +103,7 @@ as the slice 5 contract, conditional on the 2.4 and 2.6 corrections.
 - It **imports neither `geni_upload` nor `source_details`**: importing them
   loads `execute()` and a mutable module-global `ALLOWLIST` that
   `source_details` widens at runtime. Parity with the CLI comes from tests that
-  run both on the same synthetic fixtures. `geni_upload.py` is not edited.
+  run both on the same synthetic fixtures. `src/geni_uploader/client/upload.py` is not edited.
 - No production API transport exists in `geni_offline/`. Slice 3's harness
   (section 3.3) enforces that by AST and by an audit hook.
 
@@ -163,7 +163,7 @@ mode, and it has no production transport until a separate review.
   or `GH_TOKEN` is set.
 - Output has no names, titles, URLs, profile/guid/object ids or file bytes;
   items appear as index plus short hash, the same idea as `label()`
-  (`geni_upload.py:87`).
+  (`src/geni_uploader/client/upload.py:87`).
 - Bounded input: file ≤ 1 MiB (read at most limit + 1 bytes), ≤ 500 targets.
 - **YAML limits are enforced at parse time**, not after loading. A safe loader
   alone does not bound aliases, cycles or parser work. The loader is a
@@ -239,4 +239,4 @@ independent review before merge.
 2. **Implementation of the MCP server:** stdlib vs. pinned SDK, decided in
    slice 5 against the contract in 2.1.
 3. **Moving CLI internals onto `geni_offline`:** needs the private-copy owner,
-   because `geni_upload.py` is byte-synced. Until then: parity tests only.
+   because `src/geni_uploader/client/upload.py` is byte-synced. Until then: parity tests only.

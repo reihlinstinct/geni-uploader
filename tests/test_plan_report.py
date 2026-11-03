@@ -10,9 +10,9 @@ from unittest.mock import patch
 import pytest
 from test_description_repair import ITEM
 
-import geni_upload as g
-import plan_report as r
-import source_details as s
+import geni_uploader.client.source_details as s
+import geni_uploader.client.upload as g
+import geni_uploader.presentation.plan_report as r
 
 MANIFEST = {'targets': [{'profile_id': '991234567890', 'expect_name': 'ZZPrivate ZZName',
     'documents': [{'title': 'ZZPrivateTitle', 'source_url': 'https://example.invalid/ZZPrivateURL',
@@ -150,7 +150,7 @@ def test_workflow_uses_only_pinned_value_free_renderer():
     assert '"$IMAGE" /opt/plan_report.py /run/plan-report/report.json' in workflow
     assert '--network none --entrypoint python' in workflow
     assert 'cat "$RAW" >> "$GITHUB_STEP_SUMMARY"' not in workflow
-    assert 'COPY plan_report.py /opt/plan_report.py' in (
+    assert 'COPY src/geni_uploader/presentation/plan_report.py /opt/plan_report.py' in (
         Path(__file__).parents[1] / 'Dockerfile').read_text()
 
 

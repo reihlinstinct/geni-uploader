@@ -13,11 +13,11 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir "PyYAML==6.0.3"
-COPY geni_upload.py /opt/geni_upload.py
-COPY cli_spec.py /opt/cli_spec.py
-COPY source_details.py /opt/source_details.py
-COPY plan_report.py /opt/plan_report.py
-COPY visual_plan.py /opt/visual_plan.py
+COPY src/geni_uploader/client/upload.py /opt/geni_upload.py
+COPY src/geni_uploader/client/cli_spec.py /opt/cli_spec.py
+COPY src/geni_uploader/client/source_details.py /opt/source_details.py
+COPY src/geni_uploader/presentation/plan_report.py /opt/plan_report.py
+COPY src/geni_uploader/presentation/visual_plan.py /opt/visual_plan.py
 COPY src/geni_uploader/__init__.py /opt/pkg/geni_uploader/__init__.py
 COPY src/geni_uploader/presentation/__init__.py /opt/pkg/geni_uploader/presentation/__init__.py
 COPY src/geni_uploader/presentation/plan_report.py /opt/pkg/geni_uploader/presentation/plan_report.py

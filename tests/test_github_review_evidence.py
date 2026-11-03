@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from github_review_evidence import LIMIT, inspect, requests
-from people_core import Blocked
+from geni_uploader.core.people import Blocked
+from geni_uploader.evidence.github_review import LIMIT, inspect, requests
 
 
 def fixture():

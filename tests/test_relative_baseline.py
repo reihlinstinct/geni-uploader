@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-import relative_baseline as b
+import geni_uploader.runners.relative_baseline as b
 from tests.test_bounded_parent_addition import ANCHOR, IO, OWNER, SPOUSE, family, plan
 from tests.test_protected_parent_addition import TOKEN
 
@@ -351,7 +351,7 @@ def test_missing_source_credential_stops_before_network(tmp_path, monkeypatch, c
 ])
 def test_private_source_http_failure_is_fixed_and_precedes_vendor(
         tmp_path, monkeypatch, capsys, status, code):
-    from one_time_parent_pilot import TransportStop
+    from geni_uploader.runners.one_time_parent_pilot import TransportStop
 
     class Denied:
         def request(self, *args):

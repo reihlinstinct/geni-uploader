@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-import geni_union_child_create as p
-import geni_union_child_model as m
+import geni_uploader.core.geni_union_child_model as m
+import geni_uploader.runners.geni_union_child_create as p
 from tests.test_geni_protected_household import (
     ANCHOR,
     OWNER,
@@ -149,7 +149,7 @@ def test_workflow_separate_secret_same_human_protection():
 
 @pytest.mark.parametrize('status', [301, 302, 429, 500])
 def test_real_https_post_no_redirect_or_retry(status, monkeypatch):
-    import one_time_parent_pilot as transport
+    import geni_uploader.runners.one_time_parent_pilot as transport
     sent = []
     class Response:
         def __init__(self): self.status = status
@@ -207,7 +207,7 @@ def test_hebrew_only_no_invented_english_and_exact_readback():
 
 
 def test_old_household_workflow_still_rejects_hebrew_only():
-    import geni_protected_household_model as old
+    import geni_uploader.core.geni_protected_household_model as old
     c = hebrew_plan()
     with pytest.raises(m.shared.Blocked): old.plan(c)
     with pytest.raises(m.shared.Blocked): old.vendor_payload(c['entries'][0]['payload'])
@@ -237,7 +237,7 @@ def test_generated_extra_locale_not_accepted_as_exact_payload():
 
 
 def test_hebrew_and_bilingual_markers_remain_original_policy():
-    import geni_protected_household_model as old
+    import geni_uploader.core.geni_protected_household_model as old
     for c in [plan(), hebrew_plan()]:
         entry = c['entries'][0]
         assert old.marker(c, entry) == old.marker(m.plan(c), entry)
@@ -302,7 +302,7 @@ def test_first_child_flag_rejected_when_existing_child_visible():
 
 
 def test_old_workflow_rejects_new_flag():
-    import geni_protected_household_model as old
+    import geni_uploader.core.geni_protected_household_model as old
     with pytest.raises(m.shared.Blocked): old.plan(first_child_plan())
 
 
@@ -321,7 +321,7 @@ def test_first_child_exception_never_applies_to_another_union():
 
 
 def test_shared_model_no_exception_when_child_already_in_graph():
-    import geni_protected_household_model as old
+    import geni_uploader.core.geni_protected_household_model as old
     c = plan(); model = ModelIO(c, 'omitted')
     r = old.execute(c, model, Store(), lambda _: b'ZZ-cipher', lambda: 200,
                     accept_first_child_omission=True)
@@ -329,7 +329,7 @@ def test_shared_model_no_exception_when_child_already_in_graph():
 
 
 def test_model_level_post_creation_omission_stops_without_transport_layer():
-    import geni_protected_household_model as old
+    import geni_uploader.core.geni_protected_household_model as old
     c = first_child_plan(); c.pop('accept_first_child_omission')
     model = ModelIO(c); original = model.get_union
     def union(node):
@@ -390,7 +390,7 @@ def test_two_markers_and_receipts_replay_cannot_recreate_first():
     c['expires_at'] += 50
     r, _, model, _, _ = run(c, store=st)
     assert r['phase'] == 'STOPPED' and not model.posts
-    import geni_protected_household_model as old
+    import geni_uploader.core.geni_protected_household_model as old
     assert old.marker(c, c['entries'][0]) != old.marker(c, c['entries'][1])
 
 

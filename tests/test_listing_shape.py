@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from test_geni_upload import MANIFEST, _manifest_file
 
-import geni_upload as g
+import geni_uploader.client.upload as g
 
 
 def test_shape_never_emits_values_or_unknown_keys():

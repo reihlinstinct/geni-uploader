@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-import source_slot_bridge as p
+import geni_uploader.runners.source_slot_bridge as p
 
 
 def fixture():

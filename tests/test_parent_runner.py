@@ -3,8 +3,8 @@ import socket
 
 import pytest
 
-import parent_runner as p
-from people_core import Blocked, Journal, digest
+import geni_uploader.workflow.runner as p
+from geni_uploader.core.people import Blocked, Journal, digest
 from tests.test_people_core import DATA, R
 
 

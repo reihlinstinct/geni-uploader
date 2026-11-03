@@ -1,6 +1,6 @@
 # Offline approval-record content check
 
-For #256. Pure module `approval_record.py`. Design follows
+For #256. Pure module `src/geni_uploader/evidence/approval.py`. Design follows
 `intent-storage-decisions.md` (Decision 1) and `intent-service-auth-design.md`.
 No service, route, key, signing, deployment or gate change. Synthetic tests only.
 

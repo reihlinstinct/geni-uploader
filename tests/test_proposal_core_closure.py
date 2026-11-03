@@ -33,9 +33,9 @@ def test_extracted_definitions_byte_identical(module):
 
 
 def test_compatibility_names_are_the_same_objects():
-    import human_parent_gate
-    import parent_plan
-    import parent_runner
+    import geni_uploader.workflow.release_gate as human_parent_gate
+    import geni_uploader.workflow.runner as parent_runner
+    from geni_uploader.cli import parent_plan
     from geni_uploader.core import proof_requirements, proposal_review
     assert human_parent_gate.PROOFS is proof_requirements.PROOFS
     for name in ['proposal', 'verify_proposal', 'BLOCKERS']:

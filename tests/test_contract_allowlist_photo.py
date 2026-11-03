@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-import source_details as s
+import geni_uploader.client.source_details as s
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -31,7 +31,8 @@ SOURCE_DETAILS_WIDENING = {
 
 
 def test_base_allowlist_snapshot_in_fresh_interpreter():
-    code = ("import sys; sys.path.insert(0, sys.argv[1]); import json, geni_upload;"
+    code = ("import sys; sys.path.insert(0, sys.argv[1] + '/src'); import json;"
+            "from geni_uploader.client import upload as geni_upload;"
             "print(json.dumps(sorted(geni_upload.ALLOWLIST)))")
     env = {"PATH": "/usr/bin:/bin"}
     out = subprocess.run([sys.executable, "-I", "-c", code, str(ROOT)], capture_output=True,
@@ -156,12 +157,13 @@ def test_photo_rejects_document_only_field(tmp_path):
 
 RUNTIME_PROBE = """
 import json, sys
-sys.path[:0] = [sys.argv[1], sys.argv[2]]
+sys.path[:0] = [sys.argv[1], sys.argv[2] + "/src"]
 def _hook(event, args):
     if event.startswith("socket.") or event in {"urllib.Request", "subprocess.Popen"}:
         raise RuntimeError("BLOCKED:" + event)
 sys.addaudithook(_hook)
-import geni_upload, source_details
+from geni_uploader.client import upload as geni_upload
+import source_details
 def _no_network(*args, **kwargs):
     raise AssertionError("execute must not run in the allowlist probe")
 geni_upload.execute = _no_network
@@ -180,12 +182,17 @@ print(json.dumps(seen[0] if seen else None))
 """
 
 
-def effective_allowlist(tmp_path, source_dir=ROOT):
+def effective_allowlist(tmp_path, source_text=None):
     """The ALLOWLIST as source_details.main() leaves it, just before plan work."""
+    staged = tmp_path / "staged"
+    staged.mkdir()
+    if source_text is None:
+        source_text = (ROOT / "src" / "geni_uploader" / "client" / "source_details.py").read_text(encoding="utf-8")
+    (staged / "source_details.py").write_text(source_text, encoding="utf-8")
     manifest_path = tmp_path / "items.json"
     manifest_path.write_text(json.dumps({"schema_version": 1, "items": [item_for("photo")]}))
     out = subprocess.run(
-        [sys.executable, "-I", "-c", RUNTIME_PROBE, str(source_dir), str(ROOT),
+        [sys.executable, "-I", "-c", RUNTIME_PROBE, str(staged), str(ROOT),
          str(manifest_path)],
         capture_output=True, text=True, timeout=60, env={"PATH": "/usr/bin:/bin"},
         check=True, cwd=tmp_path,
@@ -208,10 +215,7 @@ def test_runtime_snapshot_catches_planted_widening(tmp_path, mutation):
     source = (ROOT / "src" / "geni_uploader" / "client" / "source_details.py").read_text(encoding="utf-8")
     anchor = '("POST", "document_update"), ("POST", "photo_update")})\n'
     assert source.count(anchor) == 1
-    mutated = tmp_path / "mutated"
-    mutated.mkdir()
-    (mutated / "source_details.py").write_text(
-        source.replace(anchor, anchor + "        " + mutation + "\n"), encoding="utf-8")
-    effective = effective_allowlist(tmp_path, mutated)
+    mutated_source = source.replace(anchor, anchor + "        " + mutation + "\n")
+    effective = effective_allowlist(tmp_path, mutated_source)
     assert ("POST", "photo_delete") in effective
     assert effective != BASE_ALLOWLIST | SOURCE_DETAILS_WIDENING

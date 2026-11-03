@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-import household_relationship_read as h
+import geni_uploader.runners.household_relationship_read as h
 from geni_uploader.core.people import Blocked
 
 

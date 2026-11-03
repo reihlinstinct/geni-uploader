@@ -27,7 +27,7 @@ authority. Credential access/scope is NOT selected or widened here.
 
 `admitApproval({approvalBytes, expectedPins, authenticatedRecord,
 expectedApprovals, nowUnix})` checks the actual retrieved exact bytes against
-`approval_record.py`'s content contract. Same field names, fixed exclusions,
+`src/geni_uploader/evidence/approval.py`'s content contract. Same field names, fixed exclusions,
 role order,40/64hex bounds, owner syntax, attempt1, 15minute window, exact pins
 and distinct role/evidence references. `nowUnix` must agree with server clock
 within5seconds and never replaces it. JSON duplicate keys/depth/UTF8/size fail

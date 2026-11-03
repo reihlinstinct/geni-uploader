@@ -3,9 +3,9 @@ import copy
 
 import pytest
 
-import geni_protected_household_model as old
-import name_update_child_create as p
-import name_update_child_model as m
+import geni_uploader.core.geni_protected_household_model as old
+import geni_uploader.core.name_update_child_model as m
+import geni_uploader.runners.name_update_child_create as p
 from tests.test_geni_protected_household import ANCHOR, OWNER, TOKEN, UNION, ModelIO
 from tests.test_geni_union_child import n_plan
 from tests.test_guarded_family_additions import Store

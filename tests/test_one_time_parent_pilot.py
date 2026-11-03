@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-import one_time_parent_pilot as p
-from people_core import Blocked
+import geni_uploader.runners.one_time_parent_pilot as p
+from geni_uploader.core.people import Blocked
 
 OWNER, FATHER, UNION = 'profile-999001', 'profile-999002', 'union-999003'
 BODY = {'first_name': 'ZZ-Father', 'last_name': 'ZZ-Family', 'gender': 'male',

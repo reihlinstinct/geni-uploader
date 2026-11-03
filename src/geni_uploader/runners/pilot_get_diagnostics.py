@@ -8,6 +8,7 @@ import time
 import urllib.parse
 from pathlib import Path
 
+from geni_uploader.client.probe import encrypt
 from geni_uploader.core.parent_contract import payload
 from geni_uploader.core.people import Blocked, exact, require
 from geni_uploader.runners.one_time_parent_pilot import (
@@ -18,7 +19,6 @@ from geni_uploader.runners.one_time_parent_pilot import (
     preflight,
     sha,
 )
-from parent_probe import encrypt
 
 STAGES = frozenset(('setup', 'encryption', 'github_credential', 'private_repository',
                     'private_source', 'manifest', 'secondary_credential', 'vendor_reads', 'complete'))
@@ -316,8 +316,8 @@ def verify_read_only(vendor, c, approved, report, save, clock):
 
 def reconcile(vendor, c, approved, report, clock):
     """Bounded immediate-family observations, not creation/completeness proof."""
+    from geni_uploader.client.probe import profile
     from geni_uploader.runners.one_time_parent_pilot import FIELDS, get_profile
-    from parent_probe import profile
     owner = c['owner']
     def locale_keys(value):
         names = value.get('names', {})

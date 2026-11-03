@@ -142,6 +142,11 @@ ENV_TOKEN = re.compile(
 # Command spans are scanned only after one of these markers; the marker
 # selects the entry point whose surface is valid there.
 MARKERS = {
+    'src/geni_uploader/client/upload.py': 'geni_upload.py',
+    'src/geni_uploader/client/source_details.py': 'source_details.py',
+    'src/geni_uploader/cli/parent_plan.py': 'parent_plan.py',
+    'src/geni_uploader/cli/parent_output.py': 'parent_output.py',
+    'src/geni_uploader/presentation/visual_plan.py': 'visual_plan.py',
     'src/geni_uploader/client/citation_ui_check.py': 'src/geni_uploader/client/citation_ui_check.py',
     'geni_upload.py': 'geni_upload.py',
     'ghcr.io/reihlinstinct/geni-uploader@': 'geni_upload.py',
@@ -266,7 +271,19 @@ def _facade_target(text):
     return None
 
 
+# Logical entry-point names (as cited in docs) -> packaged source path.
+ENTRYPOINT_PATHS = {
+    'geni_upload.py': 'src/geni_uploader/client/upload.py',
+    'source_details.py': 'src/geni_uploader/client/source_details.py',
+    'cli_spec.py': 'src/geni_uploader/client/cli_spec.py',
+    'parent_plan.py': 'src/geni_uploader/cli/parent_plan.py',
+    'parent_output.py': 'src/geni_uploader/cli/parent_output.py',
+    'visual_plan.py': 'src/geni_uploader/presentation/visual_plan.py',
+}
+
+
 def cli_surface(script):
+    script = ENTRYPOINT_PATHS.get(script, script)
     text = (ROOT / script).read_text(encoding='utf-8')
     target = _facade_target(text)
     if target:
@@ -510,14 +527,17 @@ class CliDocsTest(unittest.TestCase):
     def test_every_argparse_script_is_covered(self):
         allowed = allowlist()
         facade_targets = set()
+        mapped_entries = set()
         for entry in ENTRY_POINTS:
-            target = _facade_target((ROOT / entry).read_text(encoding='utf-8'))
+            mapped = ENTRYPOINT_PATHS.get(entry, entry)
+            mapped_entries.add(mapped)
+            target = _facade_target((ROOT / mapped).read_text(encoding='utf-8'))
             if target:
                 facade_targets.add(target)
         uncovered = []
         for path in code_files():
             rel = str(path.relative_to(ROOT))
-            if rel in ENTRY_POINTS or rel in allowed or rel in facade_targets:
+            if rel in mapped_entries or rel in ENTRY_POINTS or rel in allowed or rel in facade_targets:
                 continue
             if 'add_argument(' in path.read_text(encoding='utf-8'):
                 uncovered.append(rel)

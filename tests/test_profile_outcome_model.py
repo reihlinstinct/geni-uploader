@@ -3,9 +3,9 @@ from copy import deepcopy
 
 import pytest
 
-import profile_outcome_model as pom
-from parent_intent_model import advance, consume
-from people_core import Blocked, digest
+import geni_uploader.core.outcome as pom
+from geni_uploader.core.intent import advance, consume
+from geni_uploader.core.people import Blocked, digest
 
 ART = 'a' * 64
 ART2 = 'b' * 64

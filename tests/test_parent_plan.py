@@ -4,8 +4,8 @@ import socket
 
 import pytest
 
-import parent_plan as p
-from people_core import Blocked
+import geni_uploader.cli.parent_plan as p
+from geni_uploader.core.people import Blocked
 from tests.test_parent_runner import inputs
 
 PINS = {'data_sha': 'a'*40, 'workflow_sha': 'b'*40, 'image_digest': 'sha256:'+'c'*64}

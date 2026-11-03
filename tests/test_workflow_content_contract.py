@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from people_core import Blocked
-from workflow_content_contract import LIMIT, RESPONSE_LIMIT, descriptor, verify
+from geni_uploader.core.people import Blocked
+from geni_uploader.evidence.workflow_content import LIMIT, RESPONSE_LIMIT, descriptor, verify
 
 
 def fixture():
@@ -443,7 +443,7 @@ def test_github_lf_wrapped_base64_and_encoded_length_boundary():
 
 
 def test_encoded_length_bound_is_independent_with_small_candidate_limit(monkeypatch):
-    import workflow_content_contract as contract
+    import geni_uploader.evidence.workflow_content as contract
     monkeypatch.setattr(contract, 'LIMIT', 64)
     p, data, routes = fixture()
     encoded = data[4]['content']

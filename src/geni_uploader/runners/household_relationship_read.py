@@ -6,9 +6,9 @@ import time
 from pathlib import Path
 
 import geni_uploader.runners.bounded_tree_snapshot as snapshot
+from geni_uploader.client.probe import encrypt
 from geni_uploader.core.people import Blocked, exact, require
 from geni_uploader.runners.one_time_parent_pilot import HTTPS, canonical, decode, sha
-from parent_probe import encrypt
 
 FIELDS = ('id,guid,url,profile_url,first_name,middle_name,last_name,maiden_name,names,'
           'gender,public,is_alive,claimed,merge_pending,merged_into,unions')

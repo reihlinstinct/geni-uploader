@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-import secondary_probe_action as p
-from people_core import Blocked
+import geni_uploader.workflow.secondary_probe as p
+from geni_uploader.core.people import Blocked
 from tests.test_parent_probe import C, Client
 
 

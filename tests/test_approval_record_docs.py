@@ -4,7 +4,7 @@ from pathlib import Path
 
 DOC = Path(__file__).resolve().parents[1] / 'docs' / 'approval-record.md'
 # Update deliberately, in the same reviewed PR, whenever the doc changes.
-EXPECTED_SHA256 = '36738450d46f2b3edc024b9e073a5b5b038a0f26afe70e80dca421f54e863eba'
+EXPECTED_SHA256 = '311e789096b1c613201d9e7a2021bac35f1d85547a977e9749fed020c726ff3f'
 
 
 def test_approval_record_doc_is_pinned():

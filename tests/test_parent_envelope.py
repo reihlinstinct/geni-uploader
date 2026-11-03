@@ -3,10 +3,10 @@ import socket
 
 import pytest
 
-import parent_envelope as p
-from human_parent_gate import PROOFS
-from parent_plan import proposal
-from people_core import Blocked, digest
+import geni_uploader.evidence.envelope as p
+from geni_uploader.cli.parent_plan import proposal
+from geni_uploader.core.people import Blocked, digest
+from geni_uploader.workflow.release_gate import PROOFS
 from tests.test_parent_plan import PINS
 from tests.test_parent_runner import inputs
 

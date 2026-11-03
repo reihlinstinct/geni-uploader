@@ -8,14 +8,14 @@ from copy import deepcopy
 
 import pytest
 
-import father_once_simulation as seam
-from father_once_simulation import (
+import geni_uploader.core.father_once as seam
+from geni_uploader.core.father_once import (
     SyntheticFatherTransport,
     SyntheticOwnerStore,
     descriptor,
     simulate_once,
 )
-from people_core import Blocked, digest
+from geni_uploader.core.people import Blocked, digest
 
 
 def fixtures():

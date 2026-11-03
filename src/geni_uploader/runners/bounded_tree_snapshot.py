@@ -6,9 +6,9 @@ import time
 from collections import deque
 from pathlib import Path
 
+from geni_uploader.client.probe import encrypt
 from geni_uploader.core.people import Blocked, exact, require
 from geni_uploader.runners.one_time_parent_pilot import FIELDS, HTTPS, canonical, decode, sha
-from parent_probe import encrypt
 
 LIMITS = {'hops': 3, 'profile_families': 50, 'unions': 25, 'owner_reads': 2}
 NODE = r'(?:profile|union)-[1-9][0-9]{0,29}'

@@ -33,7 +33,7 @@ sharing. Parent-only creation remains human-triggered, never a model/MCP tool.
 Command shape (synthetic/private placeholders, not executed by agents):
 
 ```sh
-python parent_plan.py --manifest-file /PRIVATE/parents.json \
+python src/geni_uploader/cli/parent_plan.py --manifest-file /PRIVATE/parents.json \
   --pins-file /PRIVATE/pins.json --output-dir /PRIVATE/new-plan-draft
 ```
 

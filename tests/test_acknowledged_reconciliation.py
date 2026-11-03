@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from test_durable_resume import harness
 
-import geni_upload as g
+import geni_uploader.client.upload as g
 
 
 def blocked(tmp_path):

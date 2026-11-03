@@ -21,10 +21,8 @@ MOVES = {
 def test_core_identity_and_intact_source(legacy, monkeypatch):
     target, before_hash = MOVES[legacy]
     canonical = importlib.import_module('geni_uploader.core.' + target)
-    old = importlib.import_module(legacy)
-    assert old is canonical
     marker = object()
-    monkeypatch.setattr(old, 'digest', marker)
+    monkeypatch.setattr(canonical, 'digest', marker)
     assert canonical.digest is marker
     source = (ROOT / 'src/geni_uploader/core' / (target + '.py')).read_text()
     for name, (destination, _) in MOVES.items():
@@ -34,10 +32,9 @@ def test_core_identity_and_intact_source(legacy, monkeypatch):
         assert source.count("from parent_intent_model import validate as validate_intent\n") == 1
         source = source.replace("from parent_intent_model import validate as validate_intent\n", "")
     assert hashlib.sha256(source.encode()).hexdigest() == before_hash
-    for imports in [f'import {legacy}; import geni_uploader.core.{target} as canonical',
-                    f'import geni_uploader.core.{target} as canonical; import {legacy}']:
-        subprocess.run([sys.executable, '-c', imports + f'; assert {legacy} is canonical'],
-                       cwd=ROOT, check=True, capture_output=True, text=True)
+    subprocess.run([sys.executable, '-c',
+                    f'import geni_uploader.core.{target} as canonical'],
+                   cwd=ROOT, check=True, capture_output=True, text=True)
 
 
 def test_all_runtime_callers_use_canonical_core_imports():

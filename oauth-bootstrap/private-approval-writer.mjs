@@ -13,7 +13,7 @@ export async function persistPrivateApprovalRecord(env,recordBytes,onProgress){
   need(JSON.stringify(record)===bytes.toString('utf8')&&record.schema_version===2&&record.production_enabled===false&&record.mode==='single_human_approval_content');
   // Reuse the full existing Python v2 validator in the protected Node job;
   // this module is never bundled into the Worker. No caller-selected command.
-  const validation=spawnSync('python3',['-c','import json,sys;from single_human_approval_record import validate;validate(json.load(sys.stdin))'],{cwd:new URL('..',import.meta.url),input:bytes,timeout:5000,maxBuffer:65536,stdio:['pipe','pipe','pipe']});
+  const validation=spawnSync('python3',['-c','import json,sys;sys.path.insert(0,"src");from geni_uploader.evidence.single_human_approval import validate;validate(json.load(sys.stdin))'],{cwd:new URL('..',import.meta.url),input:bytes,timeout:5000,maxBuffer:65536,stdio:['pipe','pipe','pipe']});
   need(!validation.error&&validation.status===0);
   const raw=env.FATHER_APPROVAL_STORAGE_JSON;need(typeof raw==='string'&&raw.length<=16384&&hash(raw)===env.FATHER_APPROVAL_STORAGE_SHA256);const c=JSON.parse(raw);need(JSON.stringify(c)===raw);exact(c,['mode','production_enabled','repository_id','owner','repo','branch','parent_commit','path','plan_fingerprint','run_id']);
   need(c.mode==='unreleased_private_approval_writer'&&c.production_enabled===false&&staticPlanFingerprint(record)===c.plan_fingerprint&&record.pins.run_id===c.run_id&&record.pins.run_attempt===1);

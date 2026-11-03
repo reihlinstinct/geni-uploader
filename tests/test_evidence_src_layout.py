@@ -77,17 +77,14 @@ def test_lazy_import_changes_the_normalized_hash():
 def test_evidence_identity_and_implementation(legacy, monkeypatch):
     target, before = MOVES[legacy]
     canonical = importlib.import_module('geni_uploader.evidence.' + target)
-    old = importlib.import_module(legacy)
-    assert old is canonical
     marker = object()
-    monkeypatch.setattr(old, 'require', marker)
+    monkeypatch.setattr(canonical, 'require', marker)
     assert canonical.require is marker
     assert normalized_ast_hash((ROOT / 'src/geni_uploader/evidence' /
                                 (target + '.py')).read_text()) == before
-    for imports in [f'import {legacy}; import geni_uploader.evidence.{target} as canonical',
-                    f'import geni_uploader.evidence.{target} as canonical; import {legacy}']:
-        subprocess.run([sys.executable, '-c', imports + f'; assert {legacy} is canonical'],
-                       cwd=ROOT, check=True, capture_output=True, text=True)
+    subprocess.run([sys.executable, '-c',
+                    f'import geni_uploader.evidence.{target} as canonical'],
+                   cwd=ROOT, check=True, capture_output=True, text=True)
 
 
 def test_runtime_evidence_imports_are_canonical():

@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-import protected_family_additions as p
-from people_core import Blocked
+import geni_uploader.runners.protected_family_additions as p
+from geni_uploader.core.people import Blocked
 from tests.test_guarded_family_additions import IO as FakeIO
 from tests.test_guarded_family_additions import fixture
 

@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-import human_parent_gate
-import parent_plan
-import parent_runner
-from people_core import Blocked
+import geni_uploader.workflow.release_gate as human_parent_gate
+import geni_uploader.workflow.runner as parent_runner
+from geni_uploader.cli import parent_plan
+from geni_uploader.core.people import Blocked
 
 ROOT = Path(__file__).resolve().parents[1]
 

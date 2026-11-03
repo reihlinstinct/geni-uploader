@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import protected_source_approval as p
+import geni_uploader.runners.protected_source_approval as p
 
 
 def fixture(mode='plan'):

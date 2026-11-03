@@ -2,8 +2,8 @@ import copy
 
 import pytest
 
-import guarded_family_additions as g
-from people_core import Blocked
+import geni_uploader.runners.guarded_family_additions as g
+from geni_uploader.core.people import Blocked
 from tests.test_one_time_parent_pilot import BODY
 
 

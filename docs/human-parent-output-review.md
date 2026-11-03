@@ -1,10 +1,10 @@
 # Local review of supplied human probe output
-Run locally: `python parent_output.py --connection-file <private-connection.json> --evidence-file <supplied-export>`. Both arguments are required; the review is offline and renders shapes only.
+Run locally: `python src/geni_uploader/cli/parent_output.py --connection-file <private-connection.json> --evidence-file <supplied-export>`. Both arguments are required; the review is offline and renders shapes only.
 
 This is an offline output adapter, not a collector, live preflight or executor.
 A human may decrypt the existing read-only probe export using their own approved
 local process, then pass its protected plaintext file and protected connection
-configuration to parent_output.py. Decryption and collection are not performed
+configuration to src/geni_uploader/cli/parent_output.py. Decryption and collection are not performed
 by this command. No credential is accepted. No URL, endpoint, OAuth, dispatch,
 network request or production path is added.
 

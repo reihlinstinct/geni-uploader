@@ -1,9 +1,9 @@
 
 import pytest
 
-from approval_record import EXCLUDED_ACTIONS
-from people_core import Blocked
-from single_human_approval_record import ASSURANCE, SOURCE_KINDS, check, validate
+from geni_uploader.core.people import Blocked
+from geni_uploader.evidence.approval import EXCLUDED_ACTIONS
+from geni_uploader.evidence.single_human_approval import ASSURANCE, SOURCE_KINDS, check, validate
 
 
 def fixture():

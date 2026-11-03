@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-import geni_upload as g
+import geni_uploader.client.upload as g
 
 
 @pytest.mark.parametrize('kind,base', [('documents', 'document'), ('photos', 'photo')])

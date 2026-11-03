@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-import source_details as s
+import geni_uploader.client.source_details as s
 
 ITEM = {"key": "ZZsource", "kind": "document", "object_id": "101",
         "expect": {"source_url": "https://example.invalid/ZZsource"},

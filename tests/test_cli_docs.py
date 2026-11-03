@@ -19,10 +19,10 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 import build_man_pages as bmp
 
-import cli_spec
+from geni_uploader.client import cli_spec
 
-UPLOAD = "geni_upload.py"
-DETAILS = "source_details.py"
+UPLOAD = "src/geni_uploader/client/upload.py"
+DETAILS = "src/geni_uploader/client/source_details.py"
 MAN_DIR = ROOT / "man" / "man1"
 
 
@@ -233,8 +233,10 @@ def test_spec_covers_entrypoint_dispatch():
 def test_dockerfile_ships_every_parser_dependency():
     """geni_upload.py imports cli_spec; the image must carry both."""
     dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
-    for shipped in ("geni_upload.py", "source_details.py", "cli_spec.py"):
-        assert f"COPY {shipped} /opt/{shipped}" in dockerfile
+    for shipped, dest in (("src/geni_uploader/client/upload.py", "geni_upload.py"),
+                          ("src/geni_uploader/client/source_details.py", "source_details.py"),
+                          ("src/geni_uploader/client/cli_spec.py", "cli_spec.py")):
+        assert f"COPY {shipped} /opt/{dest}" in dockerfile
 
 
 # -- packaging ------------------------------------------------------------------

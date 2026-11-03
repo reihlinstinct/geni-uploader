@@ -3,8 +3,8 @@ import socket
 
 import pytest
 
-from parent_snapshot import parse
-from people_core import Blocked
+from geni_uploader.core.people import Blocked
+from geni_uploader.core.snapshot import parse
 
 OWNER = 'profile-99123'
 PROFILE = {'id': OWNER, 'merge_pending': False}

@@ -4,8 +4,8 @@ import socket
 
 import pytest
 
-import parent_output as p
-from people_core import Blocked
+import geni_uploader.cli.parent_output as p
+from geni_uploader.core.people import Blocked
 
 CONFIG = {'schema_version': 1, 'connection_id': 'ZZisolated',
           'owner_node': 'profile-99123', 'expect_name': 'ZZRoot ZZPerson'}

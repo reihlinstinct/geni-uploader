@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-import reconcile_parent_addition as r
+import geni_uploader.runners.reconcile_parent_addition as r
 from tests.test_bounded_parent_addition import ANCHOR, IO, NEW, OWNER, PARENTS, plan
 from tests.test_protected_parent_addition import TOKEN, config
 

@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_legacy_and_canonical_module_identity(monkeypatch):
-    import people_core
+    import geni_uploader.core.people as people_core
     from geni_uploader.core import people
     assert people_core is people
     assert people_core.Blocked is people.Blocked
@@ -21,8 +21,8 @@ def test_legacy_and_canonical_module_identity(monkeypatch):
 
 
 def test_fresh_import_order_identity():
-    for imports in ["import people_core; from geni_uploader.core import people",
-                    "from geni_uploader.core import people; import people_core"]:
+    for imports in ["import geni_uploader.core.people as people_core; from geni_uploader.core import people",
+                    "from geni_uploader.core import people; import geni_uploader.core.people as people_core"]:
         subprocess.run([sys.executable, "-c", imports + "; assert people_core is people"],
                        cwd=ROOT, check=True, capture_output=True, text=True)
 
@@ -47,16 +47,20 @@ def test_runtime_callers_use_canonical_import_not_legacy_facade():
     # /opt/pkg; people_core remains banned from the image.
     docker = (ROOT / "Dockerfile").read_text()
     assert "people_core" not in docker
-    assert "COPY geni_upload.py /opt/geni_upload.py" in docker
-    assert "COPY source_details.py /opt/source_details.py" in docker
+    assert "COPY src/geni_uploader/client/upload.py /opt/geni_upload.py" in docker
+    assert "COPY src/geni_uploader/client/source_details.py /opt/source_details.py" in docker
 
 
 def test_existing_offline_cli_from_outside_checkout(tmp_path):
-    for name in ["parent_plan.py", "parent_output.py", "parent_probe.py"]:
-        result = subprocess.run([sys.executable, str(ROOT / name), "--help"],
+    for module in ["geni_uploader.cli.parent_plan", "geni_uploader.cli.parent_output"]:
+        result = subprocess.run([sys.executable, "-m", module, "--help"],
                                 check=False, cwd=tmp_path, capture_output=True, text=True)
         assert result.returncode == 0, result.stderr
         assert "usage:" in result.stdout.lower()
+    result = subprocess.run([sys.executable, str(ROOT / "parent_probe.py"), "--help"],
+                            check=False, cwd=tmp_path, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert "usage:" in result.stdout.lower()
 
 
 def test_offline_node_parity_workflow_installs_project_before_subprocesses():

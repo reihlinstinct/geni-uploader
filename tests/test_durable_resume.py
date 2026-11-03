@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-import geni_upload as g
+import geni_uploader.client.upload as g
 
 
 def harness(tmp_path):
