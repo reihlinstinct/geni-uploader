@@ -151,26 +151,54 @@ def main():
         print(f'placeholder violation: {f}:{n}: {c} {v}')
     for f, n, v, c in stale:
         print(f'stale baseline entry: {f}:{n}: {c} {v}')
-    grown = []
     growth_violations = 0
+    is_pr = bool(os.environ.get('GITHUB_BASE_REF'))
     event_path = os.environ.get('GITHUB_EVENT_PATH')
-    if ci and event_path and Path(event_path).is_file():
-        event = json.loads(Path(event_path).read_text(encoding='utf-8'))
+    if ci and is_pr:
+        # Fail closed: on a PR the growth guard must be able to evaluate.
+        event = {}
+        if event_path and Path(event_path).is_file():
+            try:
+                event = json.loads(Path(event_path).read_text(encoding='utf-8'))
+            except (OSError, json.JSONDecodeError):
+                event = {}
         pr = event.get('pull_request') or {}
         base_sha = (pr.get('base') or {}).get('sha')
-        if base_sha:
-            base = subprocess.run(
-                ['git', 'show', f'{base_sha}:synthetic/public-corpus-baseline.json'],
-                cwd=root, check=False, capture_output=True, text=True)
-            if base.returncode == 0:
-                base_known = {(e['file'], e['line'], e['value'], e['class'])
-                              for e in json.loads(base.stdout).get('findings', [])}
-                now_findings = {(e['file'], e['line'], e['value'], e['class'])
-                                for e in baseline.get('findings', [])}
-                grown = sorted(now_findings - base_known)
+        if not base_sha:
+            print('baseline growth guard: pull-request payload missing or unreadable')
+            growth_violations += 1
+        else:
+            base_known = None
+            for attempt in range(2):
+                exists = subprocess.run(
+                    ['git', 'cat-file', '-e', f'{base_sha}^{{commit}}'],
+                    cwd=root, check=False, capture_output=True, text=True)
+                if exists.returncode != 0:
+                    # Shallow checkout: fetch the base commit explicitly, then retry.
+                    subprocess.run(['git', 'fetch', '--depth=1', 'origin', base_sha],
+                                   cwd=root, check=False, capture_output=True, text=True)
+                    continue
+                base = subprocess.run(
+                    ['git', 'show', f'{base_sha}:synthetic/public-corpus-baseline.json'],
+                    cwd=root, check=False, capture_output=True, text=True)
+                if base.returncode == 0:
+                    data = json.loads(base.stdout)
+                    base_known = {(e['file'], e['line'], e['value'], e['class'])
+                                  for e in data.get('findings', []) + data.get('allowlist', [])}
+                else:
+                    # Commit exists; the path is verifiably absent at base.
+                    base_known = set()  # absent at base: introduction is growth
+                break
+            if base_known is None:
+                print(f'baseline growth guard: base {base_sha} unreadable after fetch')
+                growth_violations += 1
+            else:
+                now_known = {(e['file'], e['line'], e['value'], e['class'])
+                             for e in baseline.get('findings', []) + baseline.get('allowlist', [])}
+                grown = sorted(now_known - base_known)
                 labels = {l.get('name') for l in pr.get('labels', [])}
                 if grown and 'synthetic-baseline-grow' not in labels:
-                    growth_violations = len(grown)
+                    growth_violations += len(grown)
                     for f, n, v, c in grown:
                         print(f'baseline growth without review label: {f}:{n}: {c} {v}')
                     print('baseline additions in a PR require the '

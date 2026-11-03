@@ -35,11 +35,17 @@ references outside the persona set. It embeds no real data and performs no
 external lookups.
 
 `synthetic/public-corpus-baseline.json` grandfathers the pre-existing
-corpus: entries are anchored by exact file + line + value + class, so moving
-or editing a grandfathered line re-flags it. `allowlist` entries (same
-anchoring plus a mandatory `reason`) cover values that must stay. Migration
-PRs shrink `findings` per area (tests, oauth-bootstrap, docs, src, tools);
-`--write-baseline` is migration tooling, never a way to bless new data.
+corpus. Scope note: grandfathered entries are not only synthetic-persona
+fixtures - they include legacy documentation examples (README, docs,
+workflows), source/test constants, and a few pattern false positives (digit
+alphabet strings, hash fragments). Every entry was verified non-real when
+anchored, but "in the baseline" means "reviewed and anchored", not "born
+synthetic". Entries are anchored by exact file + line + value + class, so
+moving or editing a grandfathered line re-flags it. `allowlist` entries
+(same anchoring plus a mandatory `reason`) cover values that must stay.
+Migration PRs shrink `findings` per area (tests, oauth-bootstrap, docs,
+src, tools); `--write-baseline` is migration tooling, never a way to bless
+new data.
 
 CI guards (active automatically under `GITHUB_ACTIONS=true` / `CI=true`,
 reading the pull-request payload at `GITHUB_EVENT_PATH`):
@@ -48,18 +54,23 @@ reading the pull-request payload at `GITHUB_EVENT_PATH`):
 - A baseline entry that no longer matches any finding is stale and fails
   the check; removing flagged content requires a regenerated (smaller)
   baseline in the same PR.
-- On pull requests the baseline may only shrink: added `findings` entries
-  versus the PR base fail the check unless the PR carries the
-  `synthetic-baseline-grow` label, which marks explicit owner review of the
-  added entries. The comparison is skipped (documented gap) when the base
-  commit's baseline is not readable in the checkout.
+- On pull requests the baseline may only shrink: added `findings` or
+  `allowlist` entries versus the PR base fail the check unless the PR
+  carries the `synthetic-baseline-grow` label, which marks explicit owner
+  review of the added entries. Moving an entry between `findings` and
+  `allowlist` is not growth. The guard fails closed: a missing/unreadable
+  pull-request payload or base commit is a violation (the checker fetches
+  the base commit explicitly, so a shallow checkout is fine). A verified
+  absent baseline at the base counts as empty - the initial introduction
+  of the baseline is growth and needs the label.
 
 The `synthetic/` directory itself is not scanned: it is the source of truth
 for the synthetic values (personas and the corpus baseline), so every value
 there is expected. Its correctness is instead pinned by complete validation
-tests over `synthetic/personas.json` (every persona field: name shapes,
-Hebrew variants, profile/union id ranges, reserved phones, checksum-failing
-national ids).
+tests over `synthetic/personas.json`: the approved persona values are pinned
+literally in the test, and every field is validated (invented-token name
+shapes, Hebrew variants, profile/union id ranges, field-specific reserved
+phone forms, checksum-failing national ids, uniqueness of keys and ids).
 
 ## Known blind spots
 

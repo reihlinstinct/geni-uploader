@@ -248,12 +248,13 @@ def test_pr_baseline_growth_needs_label(tmp_path):
     run_checker('--root', str(repo), '--write-baseline')
     subprocess.run(['git', 'add', '.'], cwd=repo, check=True)
 
-    def event(labels):
+    def event(labels, sha=base_sha):
         path = repo / 'event.json'
         path.write_text(json.dumps({'pull_request': {
-            'base': {'sha': base_sha},
+            'base': {'sha': sha},
             'labels': [{'name': n} for n in labels]}}), encoding='utf-8')
-        return {'GITHUB_ACTIONS': 'true', 'GITHUB_EVENT_PATH': str(path)}
+        return {'GITHUB_ACTIONS': 'true', 'GITHUB_EVENT_PATH': str(path),
+                'GITHUB_BASE_REF': 'master'}
 
     result = run_checker('--root', str(repo), env=event([]))
     assert result.returncode == 1
@@ -264,23 +265,223 @@ def test_pr_baseline_growth_needs_label(tmp_path):
 
 # ---- complete persona validation (#729 review) ----
 
-def test_every_persona_value_is_synthetic():
-    import re as re_
-    persons = json.loads((ROOT / 'synthetic/personas.json').read_text(
-        encoding='utf-8'))['personas']
-    assert len(persons) >= 4
-    keys = set()
+import copy as _copy
+import re as _re
+
+# Approved synthetic persona values, pinned literally: adding or editing a
+# persona requires updating this contract in the same reviewed change.
+EXPECTED_PERSONAS = [
+    {'key': 'primary', 'first_name': 'Abqef-2465', 'last_name': 'Torlin-3352',
+     'he_first_name': 'זז-Abqef-2465', 'he_last_name': 'זז-Torlin-3352',
+     'maiden_name': 'Droban-3656', 'phone': '+999-266-298-3188',
+     'phone_us': '+1-255-555-0177', 'national_id': '488127359',
+     'profile_id': 'profile-990001', 'union_id': 'union-980001'},
+    {'key': 'spouse', 'first_name': 'Veshka-3935', 'last_name': 'Droban-6120',
+     'he_first_name': 'זז-Veshka-3935', 'he_last_name': 'זז-Droban-6120',
+     'maiden_name': 'Sarpia-6257', 'phone': '+999-565-859-6567',
+     'phone_us': '+1-664-555-0136', 'national_id': '381014388',
+     'profile_id': 'profile-990002', 'union_id': 'union-980002'},
+    {'key': 'parent', 'first_name': 'Kelmut-4714', 'last_name': 'Sarpia-2856',
+     'he_first_name': 'זז-Kelmut-4714', 'he_last_name': 'זז-Sarpia-2856',
+     'maiden_name': 'Vindar-7524', 'phone': '+999-473-141-2392',
+     'phone_us': '+1-696-555-0126', 'national_id': '394409153',
+     'profile_id': 'profile-990003', 'union_id': 'union-980003'},
+    {'key': 'child', 'first_name': 'Olmek-8128', 'last_name': 'Vindar-4785',
+     'he_first_name': 'זז-Olmek-8128', 'he_last_name': 'זז-Vindar-4785',
+     'maiden_name': 'Torlin-8841', 'phone': '+999-117-763-9099',
+     'phone_us': '+1-369-555-0115', 'national_id': '281618195',
+     'profile_id': 'profile-990004', 'union_id': 'union-980004'},
+]
+
+PERSONA_FIELDS = set(EXPECTED_PERSONAS[0]) | {'invalidity'}
+
+
+def validate_personas(persons):
+    """Every persona value must be provably synthetic; raises AssertionError."""
+    assert len(persons) >= 4, 'persona set shrunk'
+    keys, profiles, unions = set(), set(), set()
     for p in persons:
-        assert p['key'] not in keys
+        assert set(p) == PERSONA_FIELDS, set(p) ^ PERSONA_FIELDS
+        assert p['key'] not in keys, 'duplicate key'
         keys.add(p['key'])
+        assert p['profile_id'] not in profiles, 'duplicate profile_id'
+        profiles.add(p['profile_id'])
+        assert p['union_id'] not in unions, 'duplicate union_id'
+        unions.add(p['union_id'])
         for field in ('first_name', 'last_name', 'maiden_name'):
-            assert re_.fullmatch(r'[A-Z][a-z]+-\d{4}', p[field]), (field, p[field])
+            # Invented syllable token + tag digits; real-name-shaped values fail.
+            assert _re.fullmatch(r'(Abqef|Torlin|Droban|Veshka|Sarpia|Kelmut|'
+                                 r'Vindar|Olmek)-\d{4}', p[field]), (field, p[field])
         for field in ('he_first_name', 'he_last_name'):
-            assert re_.fullmatch('זז-[A-Z][a-z]+-\\d{4}', p[field]), (field, p[field])
-        assert re_.fullmatch(r'profile-9900\d\d', p['profile_id'])
-        assert re_.fullmatch(r'union-9800\d\d', p['union_id'])
-        assert re_.fullmatch(r'\d{9}', p['national_id'])
+            assert p[field].startswith('זז-'), (field, p[field])
+            latin = p[field][len('זז-'):]
+            assert _re.fullmatch(r'(Abqef|Torlin|Droban|Veshka|Sarpia|Kelmut|'
+                                 r'Vindar|Olmek)-\d{4}', latin), (field, p[field])
+        assert _re.fullmatch(r'profile-9900\d\d', p['profile_id'])
+        assert _re.fullmatch(r'union-9800\d\d', p['union_id'])
+        assert _re.fullmatch(r'\d{9}', p['national_id'])
         assert not checker.checksum_valid(p['national_id'])
+        assert _re.fullmatch(r'\+999-\d{3}-\d{3}-\d{4}', p['phone'])
         assert checker.RESERVED_PHONE.fullmatch(p['phone'])
+        assert _re.fullmatch(r'\+1-\d{3}-555-01\d\d', p['phone_us'])
         assert checker.RESERVED_PHONE.fullmatch(p['phone_us'])
         assert set(p['invalidity']) == {'national_id', 'phone', 'phone_us'}
+
+
+def personas_file():
+    return json.loads((ROOT / 'synthetic/personas.json').read_text(
+        encoding='utf-8'))['personas']
+
+
+def test_personas_match_the_approved_values():
+    actual = [{k: v for k, v in p.items() if k != 'invalidity'}
+              for p in personas_file()]
+    assert actual == EXPECTED_PERSONAS
+
+
+def test_every_persona_value_is_synthetic():
+    validate_personas(personas_file())
+
+
+def test_persona_validation_rejects_mutations():
+    base = personas_file()
+    for mutate in (
+        lambda p: p[0].update(first_name='David-1234'),       # real-name shape
+        lambda p: p[0].update(first_name='Abqef2465'),        # missing tag digits
+        lambda p: p[1].update(profile_id=p[0]['profile_id']),  # duplicate id
+        lambda p: p[2].update(union_id=p[0]['union_id']),      # duplicate id
+        lambda p: p[0].update(phone=p[0]['phone_us']),         # field swapped
+        lambda p: p[0].update(key=p[1]['key']),                # duplicate key
+    ):
+        mutant = _copy.deepcopy(base)
+        mutate(mutant)
+        try:
+            validate_personas(mutant)
+        except AssertionError:
+            continue
+        raise AssertionError(f'mutant survived: {mutate}')
+
+
+# ---- CI baseline growth guard (#729 review round 2) ----
+
+def _guard_env(repo, labels, base_sha):
+    ev = repo / 'event.json'
+    ev.write_text(json.dumps({'pull_request': {
+        'base': {'sha': base_sha},
+        'labels': [{'name': n} for n in labels]}}), encoding='utf-8')
+    return {'GITHUB_ACTIONS': 'true', 'GITHUB_EVENT_PATH': str(ev),
+            'GITHUB_BASE_REF': 'master'}
+
+
+def _head(repo):
+    return subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=repo, check=True,
+                          capture_output=True, text=True).stdout.strip()
+
+
+def test_growth_guard_no_baseline_at_base(tmp_path):
+    # Baseline absent at base = empty: the initial introduction is growth.
+    repo = make_repo(tmp_path, {'a.md': 'id 000000000\n'})
+    subprocess.run(['git', 'add', '.'], cwd=repo, check=True)
+    commit_all(repo, 'base')
+    base_sha = _head(repo)
+    run_checker('--root', str(repo), '--write-baseline')
+    subprocess.run(['git', 'add', '.'], cwd=repo, check=True)
+    env = _guard_env(repo, [], base_sha)
+    result = run_checker('--root', str(repo), env=env)
+    assert result.returncode == 1
+    assert 'synthetic-baseline-grow' in result.stdout
+    env = _guard_env(repo, ['synthetic-baseline-grow'], base_sha)
+    assert run_checker('--root', str(repo), env=env).returncode == 0
+
+
+def test_growth_guard_fails_closed_on_missing_base_object(tmp_path):
+    repo = make_repo(tmp_path, {'a.md': 'id 000000000\n'})
+    run_checker('--root', str(repo), '--write-baseline')
+    subprocess.run(['git', 'add', '.'], cwd=repo, check=True)
+    commit_all(repo, 'base')
+    env = _guard_env(repo, [], '0' * 40)
+    result = run_checker('--root', str(repo), env=env)
+    assert result.returncode == 1
+    assert 'unreadable' in result.stdout
+
+
+def test_growth_guard_fails_closed_without_pr_payload(tmp_path):
+    repo = make_repo(tmp_path, {'a.md': 'id 000000000\n'})
+    run_checker('--root', str(repo), '--write-baseline')
+    subprocess.run(['git', 'add', '.'], cwd=repo, check=True)
+    env = {'GITHUB_ACTIONS': 'true', 'GITHUB_BASE_REF': 'master'}
+    result = run_checker('--root', str(repo), env=env)
+    assert result.returncode == 1
+    assert 'payload' in result.stdout
+
+
+def test_growth_guard_covers_allowlist_moves_and_additions(tmp_path):
+    repo = make_repo(tmp_path, {'a.md': 'id 000000000\ncall +972-50-123-4567\n'})
+    run_checker('--root', str(repo), '--write-baseline')
+    subprocess.run(['git', 'add', '.'], cwd=repo, check=True)
+    commit_all(repo, 'base')
+    base_sha = _head(repo)
+    path = repo / 'synthetic/public-corpus-baseline.json'
+
+    # Moving an entry findings -> allowlist (with reason) is not growth.
+    data = json.loads(path.read_text(encoding='utf-8'))
+    moved = data['findings'].pop()
+    moved['reason'] = 'documented example kept intentionally'
+    data['allowlist'] = [moved]
+    path.write_text(json.dumps(data), encoding='utf-8')
+    subprocess.run(['git', 'add', '.'], cwd=repo, check=True)
+    assert run_checker('--root', str(repo), env=_guard_env(repo, [], base_sha)).returncode == 0
+    # Adding a NEW allowlist entry is growth and needs the label.
+    data = json.loads(path.read_text(encoding='utf-8'))
+    data['allowlist'].append({'file': 'docs/c.md', 'line': 1,
+                              'value': '+972-50-000-0000', 'class': 'phone',
+                              'reason': 'new grandfathered example'})
+    path.write_text(json.dumps(data), encoding='utf-8')
+    subprocess.run(['git', 'add', '.'], cwd=repo, check=True)
+    result = run_checker('--root', str(repo), env=_guard_env(repo, [], base_sha))
+    assert result.returncode == 1
+    assert 'synthetic-baseline-grow' in result.stdout
+
+
+def test_growth_guard_fetches_base_in_shallow_checkout(tmp_path):
+    # Mirror the real workflow: the checkout is shallow (fetch-depth 1).
+    origin = make_repo(tmp_path / 'origin', {'a.md': 'id 000000000\n'})
+    run_checker('--root', str(origin), '--write-baseline')
+    subprocess.run(['git', 'add', '.'], cwd=origin, check=True)
+    commit_all(origin, 'base')
+    base_sha = _head(origin)
+    (origin / 'docs' / 'b.md').write_text('call +972-50-123-4567\n', encoding='utf-8')
+    subprocess.run(['git', 'add', '.'], cwd=origin, check=True)
+    commit_all(origin, 'pr head')
+    clone = tmp_path / 'clone'
+    subprocess.run(['git', 'clone', '-q', '--depth=1', f'file://{origin}',
+                    str(clone)], check=True)
+    env = _guard_env(clone, [], base_sha)
+    # New phone is not in the baseline: violation (base fetched explicitly).
+    result = run_checker('--root', str(clone), env=env)
+    assert result.returncode == 1
+    assert 'placeholder violation' in result.stdout
+
+
+def test_intl_phone_space_separated_flagged(tmp_path):
+    # International form with spaces: the [d -] character class must allow ' '.
+    repo = make_repo(tmp_path, {'a.md': 'dial +972 50 123 4567\n'})
+    assert run_checker('--root', str(repo)).returncode == 1
+
+
+def test_growth_guard_base_allowlist_entries_not_growth(tmp_path):
+    # An entry that lives in the BASE baseline's allowlist (with a reason) and
+    # stays put is not growth; the guard must compare against the union.
+    repo = make_repo(tmp_path, {'a.md': 'id 000000000\n'})
+    run_checker('--root', str(repo), '--write-baseline')
+    path = repo / 'synthetic/public-corpus-baseline.json'
+    data = json.loads(path.read_text(encoding='utf-8'))
+    moved = data['findings'].pop()
+    moved['reason'] = 'documented example kept intentionally'
+    data['allowlist'] = [moved]
+    path.write_text(json.dumps(data), encoding='utf-8')
+    subprocess.run(['git', 'add', '.'], cwd=repo, check=True)
+    commit_all(repo, 'base with allowlist')
+    base_sha = _head(repo)
+    env = _guard_env(repo, [], base_sha)
+    assert run_checker('--root', str(repo), env=env).returncode == 0
