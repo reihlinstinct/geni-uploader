@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 
 import yaml
+from yaml.nodes import MappingNode, ScalarNode, SequenceNode
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -26,7 +27,6 @@ PY_RUN_MODULE = re.compile(r"python3?\s+-m\s+([A-Za-z0-9_.]+)")
 # marker, coverage report's -m flag, etc. must NOT match).
 COVERAGE_RUN = re.compile(r"python3?\s+-m\s+coverage\s+run\b")
 PYTHONPATH_SRC = re.compile(r"PYTHONPATH=src")
-RUN_KEY = re.compile(r"^(\s*)(?:-\s+)?run:\s*(.*?)\s*$")
 # ROOT / some.py and Path(...) / name.py literals inside tests/
 TEST_PATH_LITERAL = re.compile(
     r"(?:ROOT|Path\([^)]*\))\s*/\s*['\"]([^'\"]+\.py)['\"]")
@@ -61,7 +61,6 @@ TEXT_SOURCES = (
     + sorted((ROOT / "man").rglob("*"))
 )
 
-BLOCK_HEADERS = {"|", "|-", "|+", ">", ">-", ">+"}
 
 
 def _fmt(file, lineno, token):
@@ -111,47 +110,65 @@ def collect_dockerfile_copies():
 
 
 def run_logical_lines(raw):
-    """Yield (physical_lineno, logical_line) for every `run:` block in a raw
-    workflow text, in document order.
+    """Yield (physical_lineno, logical_line, [physical_span]) for every
+    `run:` scalar in a workflow, located via yaml.compose source marks so
+    block-header comments and indentation indicators cannot confuse it.
 
-    Literal blocks (|): logical lines map 1:1 to physical lines, leading
-    blanks included. Folded blocks (>): consecutive non-blank physical lines
-    join into one logical line; the mapping from tokens back to physical
-    lines is kept via the line spans.
+    Literal blocks (|): each physical content line is one logical line.
+    Folded blocks (>): consecutive non-blank physical lines join into one
+    logical line (the YAML folding rule for commands); findings map back to
+    the physical line holding the token. More-indented lines inside folded
+    blocks are treated as regular lines (not present in this repo).
     """
-    lines = raw.splitlines()
-    for i, line in enumerate(lines):
-        m = RUN_KEY.match(line)
-        if not m:
-            continue
-        indent, rest = len(m.group(1)), m.group(2)
-        if rest not in BLOCK_HEADERS:
-            # plain single-line run (possibly quoted)
-            yield i + 1, rest.strip("'\""), [i + 1]
-            continue
-        block = []  # (physical_lineno, text)
-        for j in range(i + 1, len(lines)):
-            bline = lines[j]
-            if bline.strip() and len(bline) - len(bline.lstrip()) <= indent:
-                break
-            block.append((j + 1, bline))
-        if rest.startswith("|"):
-            for phys, text in block:
-                yield phys, text, [phys]
-        else:  # folded: join consecutive non-blank lines, blanks separate
-            buf = []
-            for phys, text in block:
-                if text.strip():
-                    buf.append((phys, text))
-                else:
-                    if buf:
-                        yield buf[0][0], " ".join(
-                            t.strip() for _, t in buf), [q for q, _ in buf]
-                        buf = []
-                    yield phys, "", [phys]
-            if buf:
-                yield buf[0][0], " ".join(
-                    t.strip() for _, t in buf), [q for q, _ in buf]
+    raw_lines = raw.splitlines()
+    root = yaml.compose(raw)
+    if root is None:
+        return
+    stack = [root]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, SequenceNode):
+            stack.extend(node.value)
+        if isinstance(node, MappingNode):
+            for key, value in node.value:
+                stack.append(key)
+                stack.append(value)
+                if (isinstance(key, ScalarNode) and key.value == "run"
+                        and isinstance(value, ScalarNode)):
+                    if value.style in ("|", ">"):
+                        first = value.start_mark.line + 1  # 0-based
+                        key_col = key.start_mark.column
+                        block = []  # (physical_lineno, text)
+                        for j in range(first, len(raw_lines)):
+                            bline = raw_lines[j]
+                            if (bline.strip()
+                                    and len(bline) - len(bline.lstrip())
+                                    <= key_col):
+                                break
+                            block.append((j + 1, bline))
+                        if value.style == "|":
+                            for phys, text in block:
+                                yield phys, text, [phys]
+                        else:
+                            buf = []
+                            for phys, text in block:
+                                if text.strip():
+                                    buf.append((phys, text))
+                                else:
+                                    if buf:
+                                        yield (buf[0][0],
+                                               " ".join(t.strip()
+                                                        for _, t in buf),
+                                               [q for q, _ in buf])
+                                        buf = []
+                                    yield phys, "", [phys]
+                            if buf:
+                                yield (buf[0][0],
+                                       " ".join(t.strip() for _, t in buf),
+                                       [q for q, _ in buf])
+                    else:
+                        yield (value.start_mark.line + 1,
+                               value.value, [value.start_mark.line + 1])
 
 
 def _module_missing(name, line):
@@ -185,11 +202,13 @@ def check_workflow_text(wf, raw):
             if _module_missing(m.group(1), line):
                 add(lineno, spans, line, m.group(1))
         crun = COVERAGE_RUN.search(line)
-        if crun:  # `coverage run ... -m <mod>` executes <mod> as a module
-            for m in re.finditer(r"-m\s+([A-Za-z0-9_.]+)",
-                                 line[crun.end():]):
-                if _module_missing(m.group(1), line):
-                    add(lineno, spans, line, m.group(1))
+        if crun:
+            # `coverage run -m <mod>` executes <mod> as a module; coverage
+            # consumes exactly one -m, so later -m args belong to the
+            # invoked tool (e.g. pytest's -m marker), not to python
+            m = re.search(r"-m\s+([A-Za-z0-9_.]+)", line[crun.end():])
+            if m and _module_missing(m.group(1), line):
+                add(lineno, spans, line, m.group(1))
         target = PY_RUN_FILE.search(line)
         if target and not (ROOT / target.group(1)).exists():
             add(lineno, spans, line, target.group(1))
@@ -270,6 +289,33 @@ class TestWorkflowParsingRegressions(unittest.TestCase):
         self.assertEqual(1, len(findings))
         lineno = int(findings[0].split(" -> ")[0].rsplit(":", 1)[1])
         self.assertIn("no_such_mod_704", raw.splitlines()[lineno - 1])
+
+    def test_coverage_run_consumes_one_nested_module(self):
+        raw = ("jobs:\n  t:\n    steps:\n      - run: |\n"
+               "          python -m coverage run -m pytest -m smoke tests/\n")
+        self.assertEqual([], self.check(raw))
+        raw = ("jobs:\n  t:\n    steps:\n      - run: |\n"
+               "          python -m coverage run -m no_such_mod_704 -m smoke\n")
+        findings = self.check(raw)
+        self.assertEqual(1, len(findings))
+        self.assertIn("no_such_mod_704", findings[0])
+
+    def test_block_header_comment_keeps_block(self):
+        raw = ("jobs:\n  t:\n    steps:\n"
+               "      - run: | # run tests\n"
+               "          python3 -m no_such_mod_704\n")
+        findings = self.check(raw)
+        self.assertEqual(1, len(findings))
+        lineno = int(findings[0].split(" -> ")[0].rsplit(":", 1)[1])
+        self.assertIn("no_such_mod_704", raw.splitlines()[lineno - 1])
+
+    def test_block_indentation_indicator_keeps_block(self):
+        raw = ("jobs:\n  t:\n    steps:\n"
+               "      - run: |2\n"
+               "          python3 -m no_such_mod_704\n")
+        findings = self.check(raw)
+        self.assertEqual(1, len(findings))
+        self.assertIn("no_such_mod_704", findings[0])
 
     def test_folded_block_physical_line_number(self):
         raw = ("jobs:\n  t:\n    steps:\n      - run: >-\n"
