@@ -32,7 +32,7 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
-          # Docs-only pull requests skip the heavy jobs; the Run summary gate
+          # Docs-only pull requests skip the heavy jobs; the CI gate summary
           # still runs and reports them as skipped.
           if [ "$EVENT_NAME" != "pull_request" ]; then
             echo "code=true" >> "$GITHUB_OUTPUT"
@@ -53,7 +53,7 @@ jobs:
     needs: [changes]
     # Always runs so branch protection sees the required "test (3.xx)" check
     # names. On a docs-only PR every real step is skipped and the job succeeds
-    # immediately; the docs-only gate remains the Run summary job. Code
+    # immediately; the docs-only gate remains the CI gate summary job. Code
     # changes can never skip the suite: code=true runs every step.
     runs-on: ubuntu-24.04
     strategy:
@@ -215,7 +215,7 @@ jobs:
   summary:
     permissions:
       contents: read
-    name: Run summary
+    name: CI gate summary
     if: always()
     needs: [changes, test, coverage, docker, layout]
     runs-on: ubuntu-24.04
