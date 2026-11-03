@@ -485,3 +485,42 @@ def test_growth_guard_base_allowlist_entries_not_growth(tmp_path):
     base_sha = _head(repo)
     env = _guard_env(repo, [], base_sha)
     assert run_checker('--root', str(repo), env=env).returncode == 0
+
+
+def test_growth_guard_clean_error_on_corrupt_base_json(tmp_path):
+    # A syntactically corrupt baseline at base fails closed with a clean
+    # error, not a traceback (#735).
+    repo = make_repo(tmp_path, {'a.md': 'id 000000000\n'})
+    run_checker('--root', str(repo), '--write-baseline')
+    path = repo / 'synthetic/public-corpus-baseline.json'
+    valid = path.read_text(encoding='utf-8')
+    path.write_text('{not json', encoding='utf-8')
+    subprocess.run(['git', 'add', '.'], cwd=repo, check=True)
+    commit_all(repo, 'base with corrupt baseline')
+    base_sha = _head(repo)
+    # The current-side baseline is valid again (not committed).
+    path.write_text(valid, encoding='utf-8')
+    env = _guard_env(repo, [], base_sha)
+    result = run_checker('--root', str(repo), env=env)
+    assert result.returncode == 1
+    assert 'not valid JSON' in result.stdout
+    assert 'Traceback' not in result.stderr
+
+
+def test_growth_guard_tolerates_null_labels(tmp_path):
+    # An event payload with "labels": null must not crash the guard (#735).
+    repo = make_repo(tmp_path, {'a.md': 'id 000000000\n'})
+    subprocess.run(['git', 'add', '.'], cwd=repo, check=True)
+    commit_all(repo, 'base')
+    base_sha = _head(repo)
+    run_checker('--root', str(repo), '--write-baseline')
+    subprocess.run(['git', 'add', '.'], cwd=repo, check=True)
+    ev = repo / 'event.json'
+    ev.write_text(json.dumps({'pull_request': {
+        'base': {'sha': base_sha}, 'labels': None}}), encoding='utf-8')
+    env = {'GITHUB_ACTIONS': 'true', 'GITHUB_EVENT_PATH': str(ev),
+           'GITHUB_BASE_REF': 'master'}
+    result = run_checker('--root', str(repo), env=env)
+    assert result.returncode == 1  # growth (empty base) without the label
+    assert 'synthetic-baseline-grow' in result.stdout
+    assert 'Traceback' not in result.stderr

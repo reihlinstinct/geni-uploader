@@ -182,7 +182,13 @@ def main():
                     ['git', 'show', f'{base_sha}:synthetic/public-corpus-baseline.json'],
                     cwd=root, check=False, capture_output=True, text=True)
                 if base.returncode == 0:
-                    data = json.loads(base.stdout)
+                    try:
+                        data = json.loads(base.stdout)
+                    except json.JSONDecodeError:
+                        print(f'baseline growth guard: baseline at base {base_sha} '
+                              'is not valid JSON')
+                        growth_violations += 1
+                        break
                     base_known = {(e['file'], e['line'], e['value'], e['class'])
                                   for e in data.get('findings', []) + data.get('allowlist', [])}
                 else:
@@ -196,7 +202,7 @@ def main():
                 now_known = {(e['file'], e['line'], e['value'], e['class'])
                              for e in baseline.get('findings', []) + baseline.get('allowlist', [])}
                 grown = sorted(now_known - base_known)
-                labels = {l.get('name') for l in pr.get('labels', [])}
+                labels = {l.get('name') for l in pr.get('labels') or []}
                 if grown and 'synthetic-baseline-grow' not in labels:
                     growth_violations += len(grown)
                     for f, n, v, c in grown:
