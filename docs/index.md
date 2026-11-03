@@ -1,3 +1,5 @@
+<script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "d80f5f9dca8c473b9497ebfbf5731d60"}'></script>
+
 # geni-uploader
 
 A personal, user-run command-line tool for uploading source documents to

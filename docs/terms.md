@@ -1,3 +1,5 @@
+<script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "d80f5f9dca8c473b9497ebfbf5731d60"}'></script>
+
 # Terms of use - geni-uploader
 
 Last updated: 27 October 2026

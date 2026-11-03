@@ -125,3 +125,11 @@ only into a separately agreed secure vault form, never chat, email or a public
 issue. Close the tab and clear the clipboard after use. Clipboard history, sync,
 extensions, other apps or screen captures can expose it. Clearing the page cannot
 erase prior copies, browser history, hosting retention or previously sent requests.
+
+## Project website
+
+The project website on GitHub Pages counts aggregate page views with
+Cloudflare Web Analytics: no cookies, no IP addresses stored and no
+personal data. The OAuth callback page is excluded and loads no
+external resources, as described above. The tool itself has no
+analytics in any operating mode.
