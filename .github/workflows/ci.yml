@@ -51,30 +51,41 @@ jobs:
           fi
   test:
     needs: [changes]
-    if: needs.changes.outputs.code == 'true'
+    # Always runs so branch protection sees the required "test (3.xx)" check
+    # names. On a docs-only PR every real step is skipped and the job succeeds
+    # immediately; the docs-only gate remains the Run summary job. Code
+    # changes can never skip the suite: code=true runs every step.
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - name: Docs-only change; suite intentionally skipped
+        if: needs.changes.outputs.code == 'false'
+        run: echo "docs-only PR; covered by the Run summary gate"
+      - if: needs.changes.outputs.code == 'true'
+        uses: actions/checkout@v7
+      - if: needs.changes.outputs.code == 'true'
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: requirements-dev.txt
       - name: Install dependencies
+        if: needs.changes.outputs.code == 'true'
         run: pip install -r requirements-dev.txt
       - name: Lint (ruff)
+        if: needs.changes.outputs.code == 'true'
         run: ruff check .
       - name: Tests
+        if: needs.changes.outputs.code == 'true'
         run: python -m pytest tests/ -v --junitxml=junit.xml
       - name: Per-test report
-        if: always()
+        if: always() && needs.changes.outputs.code == 'true'
         run: python .github/test_summary.py junit.xml >> "$GITHUB_STEP_SUMMARY"
       - name: Upload junit on failure
-        if: failure()
+        if: failure() && needs.changes.outputs.code == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: junit-${{ matrix.python-version }}
@@ -83,29 +94,38 @@ jobs:
 
   coverage:
     needs: [changes]
-    if: needs.changes.outputs.code == 'true'
+    # Always runs so branch protection sees the required "coverage" check
+    # name; on docs-only PRs only the skip notice runs (see test job).
     # Production-only statement coverage (#98). Measure-only by default; the
     # per-file floor in .github/coverage-floor.txt blocks only when the repo
     # variable COVERAGE_GATE is "on".
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - name: Docs-only change; coverage intentionally skipped
+        if: needs.changes.outputs.code == 'false'
+        run: echo "docs-only PR; covered by the Run summary gate"
+      - if: needs.changes.outputs.code == 'true'
+        uses: actions/checkout@v7
+      - if: needs.changes.outputs.code == 'true'
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: requirements-dev.txt
       - name: Install dependencies
+        if: needs.changes.outputs.code == 'true'
         run: pip install -r requirements-dev.txt
       - name: Measure production coverage
+        if: needs.changes.outputs.code == 'true'
         run: |
           python -m coverage run --include=src/geni_uploader/client/upload.py,src/geni_uploader/client/source_details.py -m pytest tests/ -q
           python -m coverage json -o coverage.json
           python -m coverage report -m
       - name: Coverage summary
+        if: needs.changes.outputs.code == 'true'
         run: python .github/coverage_report.py coverage.json --floor "$(cat .github/coverage-floor.txt)" >> "$GITHUB_STEP_SUMMARY"
       - name: Per-file floor gate (enabled when repo variable COVERAGE_GATE=on)
-        if: vars.COVERAGE_GATE == 'on'
+        if: needs.changes.outputs.code == 'true' && vars.COVERAGE_GATE == 'on'
         run: python .github/coverage_report.py coverage.json --floor "$(cat .github/coverage-floor.txt)" --fail-under
 
   docker:
