@@ -1,0 +1,235 @@
+"""Synthetic title/gender/photo adapter contracts (#715). No network or real names."""
+import copy
+
+import pytest
+
+import geni_uploader.runners.bounded_profile_tgp as core
+from geni_uploader.core.people import Blocked
+
+OWNER, TARGET, PHOTO = 'profile-101', 'profile-202', 'photo-808'
+HASH = 'ab' * 32
+
+
+def base_expected(**over):
+    value = {'first_name': 'ZZ First', 'last_name': 'ZZ Last', 'gender': 'female',
+             'is_alive': True, 'public': False, 'claimed': False, 'merge_pending': False,
+             'unions': ['union-303'], 'names': {
+                 'en-US': {'first_name': 'ZZ First', 'last_name': 'ZZ Last'},
+                 'he': {'first_name': 'ZZ Given', 'last_name': 'ZZ Family'}}}
+    value.update(over)
+    return value
+
+
+def plan(capability='gender', **over):
+    c = {'schema': 1, 'owner': OWNER, 'target': TARGET, 'expect_name': 'ZZ Owner',
+         'expires_at': 900, 'capability': capability}
+    if capability == 'title':
+        c['expected'] = base_expected()
+        c['set'] = {'title': 'ZZ Title'}
+        c['readback_contract'] = 'UNRESOLVED'
+    elif capability == 'gender':
+        c['expected'] = base_expected(gender='')
+        c['set'] = {'gender': 'female'}
+    else:
+        c['expected'] = base_expected(mugshot='https://ZZ.invalid/main.jpg')
+        c['set'] = {'title': 'ZZ Caption'}
+        c.update(image_sha256=HASH, consent_reference='ZZ-consent-1',
+                 privacy_acknowledged=True, main_portrait='keep-current')
+    c.update(over)
+    return c
+
+
+class IO:
+    def __init__(self, c, anomaly=None):
+        self.c, self.anomaly, self.posts = c, anomaly, []
+        self.value = dict(copy.deepcopy(c['expected']), id=TARGET)
+        self.edges = {TARGET: {'edges': {'union-303': {'rel': 'partner'}}}}
+
+    def get_profile(self, target):
+        if target == 'profile':
+            return {'id': OWNER, 'first_name': 'ZZ', 'last_name': 'Owner'}
+        value = copy.deepcopy(self.value)
+        if self.posts and self.anomaly == 'mugshot_changed':
+            value['mugshot'] = 'https://ZZ.invalid/other.jpg'
+        return value
+
+    def get_family(self, target):
+        nodes = copy.deepcopy(self.edges)
+        if self.posts and self.anomaly == 'graph':
+            nodes[TARGET]['edges']['union-404'] = {'rel': 'child'}
+        return {'focus': {'id': target}, 'nodes': nodes}
+
+    def get_photo(self, photo_id):
+        photo = {'id': photo_id, 'title': self.c['set']['title'],
+                 'tags': [{'id': TARGET}], 'sizes': {'large': 'https://ZZ.invalid/l.jpg'}}
+        if self.anomaly == 'caption':
+            photo['title'] = 'ZZ Other'
+        if self.anomaly == 'tags':
+            photo['tags'] = [{'id': TARGET}, {'id': 'profile-999'}]
+        if self.anomaly == 'sizes':
+            photo['sizes'] = {}
+        return photo
+
+    def update(self, target, body):
+        self.posts.append((target, copy.deepcopy(body)))
+        if self.anomaly == 'lost':
+            raise OSError()
+        self.value.update(body)
+        return {'id': TARGET}
+
+    def add_photo(self, target, body):
+        self.posts.append((target, copy.deepcopy(body)))
+        if self.anomaly == 'lost':
+            raise OSError()
+        return {'id': PHOTO}
+
+
+class Store:
+    def __init__(self, hashes=()):
+        self.used, self.receipts, self.hashes = set(), [], set(hashes)
+        self.recorded = []
+
+    def consume(self, marker):
+        if marker in self.used:
+            raise Blocked()
+        self.used.add(marker)
+
+    def receipt(self, marker, stage, value):
+        self.receipts.append(stage)
+
+    def photo_hashes(self, target):
+        return set(self.hashes)
+
+    def record_photo_hash(self, target, image_sha256):
+        self.recorded.append((target, image_sha256))
+
+
+def run(c=None, anomaly=None, store=None, read_only=False):
+    c = c or plan()
+    io, store = IO(c, anomaly), store or Store()
+    result = core.execute(c, io, store, lambda _: b'ZZ', lambda: 200, read_only=read_only)
+    return result, io, store
+
+
+# ---- gender ----
+
+@pytest.mark.parametrize('read_only', [False, True])
+def test_gender_fill_verified(read_only):
+    r, io, store = run(plan('gender'), read_only=read_only)
+    assert r['phase'] == ('READ_ONLY_TGP_VERIFIED' if read_only else 'VERIFIED')
+    assert len(io.posts) == (not read_only)
+    if not read_only:
+        assert io.posts[0][1] == {'gender': 'female'}
+        assert io.value['gender'] == 'female'
+        assert store.receipts == ['before', 'ack', 'final']
+
+
+@pytest.mark.parametrize('current', ['female', 'male', 'unknown'])
+def test_gender_present_blocks(current):
+    with pytest.raises(Blocked):
+        core.plan(plan('gender', expected=base_expected(gender=current)))
+
+
+def test_gender_absent_required():
+    c = plan('gender')
+    c['expected']['gender'] = None
+    assert core.plan(c)['capability'] == 'gender'
+
+
+def test_gender_invalid_value_blocks():
+    with pytest.raises(Blocked):
+        core.plan(plan('gender', set={'gender': 'ZZ'}))
+
+
+# ---- title ----
+
+def test_title_plan_mode_ok():
+    r, io, _ = run(plan('title'), read_only=True)
+    assert r['phase'] == 'READ_ONLY_TGP_VERIFIED' and not io.posts
+
+
+def test_title_update_refused_while_readback_unresolved():
+    with pytest.raises(Blocked):
+        run(plan('title'), read_only=False)
+
+
+def test_title_wrong_readback_marker_blocks():
+    with pytest.raises(Blocked):
+        core.plan(plan('title', readback_contract='photo-v1'))
+
+
+def test_title_never_enters_name_fields():
+    with pytest.raises(Blocked):
+        core.plan(plan('title', set={'title': 'ZZ T', 'first_name': 'ZZ X'}))
+
+
+# ---- photo ----
+
+@pytest.mark.parametrize('read_only', [False, True])
+def test_photo_upload_verified(read_only):
+    r, io, store = run(plan('photo'), read_only=read_only)
+    assert r['phase'] == ('READ_ONLY_TGP_VERIFIED' if read_only else 'VERIFIED')
+    assert len(io.posts) == (not read_only)
+    if not read_only:
+        assert io.posts[0][1] == {'title': 'ZZ Caption'}
+        assert store.receipts == ['before', 'ack', 'final']
+        assert store.recorded == [(TARGET, HASH)]
+
+
+def test_photo_missing_main_portrait_blocks():
+    c = plan('photo')
+    del c['expected']['mugshot']
+    with pytest.raises(Blocked):
+        core.plan(c)
+    c = plan('photo')
+    io = IO(c)
+    io.value['mugshot'] = 'https://ZZ.invalid/other.jpg'
+    r = core.execute(c, io, Store(), lambda _: b'ZZ', lambda: 200, read_only=False)
+    assert r['phase'] == 'STOPPED' and not io.posts
+
+
+def test_photo_duplicate_hash_blocks():
+    c = plan('photo')
+    r, io, _ = run(c, store=Store(hashes={HASH}))
+    assert r['phase'] == 'STOPPED' and not io.posts
+
+
+def test_photo_duplicate_hash_other_target_ok():
+    c = plan('photo')
+    r, _, _ = run(c, store=Store(hashes=set()))
+    assert r['phase'] == 'VERIFIED'
+
+
+@pytest.mark.parametrize('field,value', [('privacy_acknowledged', False),
+                                         ('main_portrait', 'set-as-main'),
+                                         ('consent_reference', '')])
+def test_photo_acknowledgments_required(field, value):
+    with pytest.raises(Blocked):
+        core.plan(plan('photo', **{field: value}))
+
+
+def test_photo_bad_image_hash_blocks():
+    with pytest.raises(Blocked):
+        core.plan(plan('photo', image_sha256='zz'))
+
+
+@pytest.mark.parametrize('anomaly', ['caption', 'tags', 'sizes', 'mugshot_changed', 'graph'])
+def test_photo_readback_mismatch_stops(anomaly):
+    r, _io, _ = run(plan('photo'), anomaly=anomaly)
+    assert r['phase'] == 'STOPPED' and r['retry_allowed'] is False
+
+
+def test_photo_failed_post_terminal():
+    r, io, store = run(plan('photo'), anomaly='lost')
+    assert r['phase'] == 'STOPPED' and r['retry_allowed'] is False
+    assert len(io.posts) == 1 and store.receipts == ['before']
+
+
+def test_mixed_name_scope_rejected():
+    with pytest.raises(Blocked):
+        core.plan(plan('gender', set={'gender': 'female', 'last_name': 'ZZ X'}))
+
+
+def test_photo_marker_pins_image_hash():
+    a, b = plan('photo'), plan('photo', image_sha256='cd' * 32)
+    assert core.marker(core.plan(a)) != core.marker(core.plan(b))
