@@ -69,7 +69,7 @@ union membership, names pinned) are identical to the name adapter's.
 
 ## Capability 3: photo upload
 
-`profile/add-photo` takes a POST with `base64file` and a required `title`
+`profile/add-photo` takes a POST with `file` (base64-encoded) and a required `title`
 (photo caption) and auto-tags the target profile. `GET photo` supports tags,
 sizes, title and description.
 
@@ -124,9 +124,10 @@ emit fixed public summary                 verify family edges unchanged
   name adapter does, plus the per-capability fields above (readback-contract
   ID for title, existing-value rule for gender, image hash / caption / privacy
   and main-portrait acknowledgments for photo).
-- Environment wiring mirrors the name adapter with isolated variables for this
-  entry point (`RELATIVE_MODE`-style plan/update select, config JSON + SHA256,
-  executor SHA, confirm, output dir, debug, tree PAT) and its own
+- Environment wiring uses its own variable names for this entry point, never
+  the name adapter's `RELATIVE_*` names: `TGP_MODE` (plan/update),
+  `TGP_CONFIG_JSON`, `TGP_CONFIG_SHA256`, `TGP_EXECUTOR_SHA`, `TGP_CONFIRM`,
+  `TGP_OUTPUT_DIR`, `TGP_DEBUG` and `TGP_TREE_PAT`, plus the
   `PROFILE_TGP_JSON` environment secret. The vendor credential remains
   `GENI_SECONDARY_ACCESS_TOKEN`. Sibling configurations are not reused.
 
