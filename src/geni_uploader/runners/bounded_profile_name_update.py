@@ -31,18 +31,21 @@ def union_reference(value):
     return match.group(1)
 
 
-def expected(value, *, birth_surname_only=False):
+def expected(value, *, birth_surname_only=False, surname_fill=False):
     require(type(value) is dict and set(value) <= set(SNAPSHOT_KEYS))
     require(value.get('public') is False and value.get('is_alive') is True
             and value.get('claimed') is False)
     merge_state(value)
-    require(all(k in value for k in ('first_name', 'gender', 'unions', *(() if birth_surname_only else ('last_name',))))
+    require(all(k in value for k in ('first_name', 'gender', 'unions',
+                                     *(() if birth_surname_only or surname_fill else ('last_name',))))
             and value['gender'] in ('male', 'female', 'unknown'))
+    require(not surname_fill or 'last_name' not in value)
     names({k: v for k, v in value.items() if k in NAME_KEYS})
     require(type(value.get('names')) is dict and set(value['names']) == {'en-US', 'he'})
     for fields in value['names'].values():
         names(fields)
-        require('first_name' in fields and (birth_surname_only or 'last_name' in fields))
+        require('first_name' in fields and (birth_surname_only or surname_fill or 'last_name' in fields))
+        require(not surname_fill or 'last_name' not in fields)
     require(type(value.get('unions')) is list and len(value['unions']) <= 8)
     require(len(set(value['unions'])) == len(value['unions']))
     for union in value['unions']:
@@ -51,17 +54,32 @@ def expected(value, *, birth_surname_only=False):
 
 
 def plan(value):
-    exact(value, ('schema', 'owner', 'expect_name', 'target', 'expected', 'set', 'expires_at'))
+    change = value.get('set')
+    require(type(change) is dict)
+    surname_fill = set(change) == {'last_name', 'names'}
+    exact(value, ('schema', 'owner', 'expect_name', 'target', 'expected', 'set', 'expires_at',
+                  *(('spouse',) if surname_fill else ())))
     require(type(value['schema']) is int and value['schema'] == 1)
     profile_id(value['owner'])
     profile_id(value['target'])
     require(value['owner'] != value['target'])
     require(type(value['expect_name']) is str and 2 <= len(value['expect_name'].split()) <= 8)
     require(type(value['expires_at']) is int and 0 < value['expires_at'] < 2**40)
-    change = value['set']
-    require(type(change) is dict)
     birth_only = set(change) == {'maiden_name', 'names'}
-    expected(value['expected'], birth_surname_only=birth_only)
+    expected(value['expected'], birth_surname_only=birth_only, surname_fill=surname_fill)
+    if surname_fill:
+        profile_id(value['spouse'])
+        require(value['spouse'] not in (value['owner'], value['target']))
+        exact(change, ('last_name', 'names'))
+        names({'last_name': change['last_name']})
+        require(type(change['names']) is dict and set(change['names']) == {'en-US', 'he'})
+        for locale, fields in change['names'].items():
+            exact(fields, ('last_name',))
+            names(fields)
+            require(fields['last_name'] == change['last_name'])
+        result = copy.deepcopy(value)
+        result['expected'] = snapshot(dict(value['expected']))
+        return result
     if birth_only:
         exact(change, ('maiden_name', 'names'))
         names({'maiden_name': change['maiden_name']})
@@ -121,7 +139,7 @@ def graph(actual, target):
 def marker(c):
     # Neither expiry nor executor/source commit can mint another send.
     return 'profile-name-consumed-v1-' + sha(canonical({
-        k: c[k] for k in ('owner', 'target', 'expected', 'set')}))
+        k: c[k] for k in ('owner', 'target', 'expected', 'set', *(('spouse',) if 'spouse' in c else ()))}))
 
 
 def execute(value, io, store, save, clock, *, read_only):
@@ -149,6 +167,14 @@ def execute(value, io, store, save, clock, *, read_only):
         before = read('profile', c['target'])
         require(before.get('id') == c['target'] and snapshot(before) == c['expected'])
         edges = graph(read('family', c['target']), c['target'])
+        if 'spouse' in c:
+            partner_unions = {u for u, e in edges[c['target']].items()
+                              if e.get('rel') == 'partner'}
+            require(partner_unions)
+            spouse_edges = edges.get(c['spouse'])
+            require(type(spouse_edges) is dict)
+            require(any(spouse_edges.get(u, {}).get('rel') == 'partner'
+                        for u in partner_unions))
         if read_only:
             r.update(phase='READ_ONLY_NAME_VERIFIED', stage='complete')
             save(copy.deepcopy(r))
