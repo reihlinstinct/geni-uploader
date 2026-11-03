@@ -53,8 +53,8 @@ requested value is STOPPED, never retried.
 standard. The adapter must READ the current gender in preflight before any
 write is proposed:
 
-- Current gender absent/empty (as in the Babet create that omitted it): a plan
-  to set an explicit value is admissible.
+- Current gender absent/empty (for example after a create that omitted it): a
+  plan to set an explicit value is admissible.
 - Current gender present and equal to the requested value: the plan is a no-op
   and blocks; idempotent rewrites are never sent.
 - Current gender present and different: blocks. Changing an existing gender
@@ -86,15 +86,21 @@ Contract:
   acknowledgment that the photo's privacy is whatever the vendor applies. A
   plan without that acknowledgment blocks.
 - **Main portrait.** The endpoint may not set the main portrait, and the
-  vendor's behavior for a profile's first photo is not assumed. The plan must
-  carry an explicit main-portrait choice: `keep-current` (default; the adapter
-  verifies after upload that the main portrait is unchanged) or an explicit
-  owner-approved alternative handled as a separate reviewed operation.
+  vendor's behavior for a profile's first photo is not assumed. Because the
+  upload is irreversible and there is no repair path, the plan must establish
+  BEFORE any send that the target already has a main portrait when the choice
+  is `keep-current`. A target with no existing main portrait blocks a
+  `keep-current` plan outright; uploading a first photo that could become the
+  main portrait requires an explicit owner-approved set-as-main operation,
+  reviewed separately. With an existing main portrait, the adapter verifies
+  after upload that it is unchanged.
 - **Caption.** The required `title` is supplied by the owner in the plan; the
   adapter never composes one from names, dates or file metadata.
 - **Readback.** After the acknowledged POST, `GET photo` on the returned photo
-  ID must confirm the caption, the exact target tag, and a size consistent with
-  the uploaded bytes. Any mismatch is STOPPED.
+  ID must confirm the caption and that the tag list contains exactly the
+  target profile, and must return at least one rendered size entry. Rendered
+  sizes are vendor-generated variants, so no byte count of the original is
+  asserted. Any mismatch is STOPPED.
 
 Consent for each depicted living person is a plan prerequisite recorded in the
 private package (as with the photo-hold practice); the adapter does not track,
@@ -115,7 +121,11 @@ emit fixed public summary                 verify family edges unchanged
  no vendor write)                         VERIFIED only after retention
 ```
 
-- 15-second minimum spacing between vendor requests; at most six per run.
+- 15-second minimum spacing between vendor requests. Title and gender runs
+  keep the name adapter's cap of at most six vendor requests (three preflight
+  GETs, one POST, two verification GETs). A photo run is capped at seven:
+  three preflight GETs, one POST, and three verification GETs (photo, target
+  profile, family).
 - Redirects, throttling, stale values and any ambiguity stop the run.
 - Evidence is age-encrypted; receipts use the existing create-only store in the
   private source repository. No private identifiers in public prose or logs.
@@ -133,11 +143,18 @@ emit fixed public summary                 verify family edges unchanged
 
 ## Testing
 
+Duplicate-hash blocking, defined: the receipt store records the image
+SHA256 of every VERIFIED photo upload per target. A plan whose image hash
+already has a VERIFIED receipt for the same target blocks as a re-upload of
+the same bytes, independent of one-use intent consumption (which blocks
+re-sending the same intent).
+
 Unit and regression tests cover: plan validation for each capability; the
 title readback gate (update refuses while UNRESOLVED); gender present/absent/
 equal/conflict cases; photo duplicate-hash blocking, missing privacy or
-main-portrait acknowledgment blocking, tag-list and caption verification;
-intent one-use consumption; and the no-retry STOPPED paths. Mutant checks prove
+main-portrait acknowledgment blocking, keep-current blocked when no main
+portrait exists, tag-list and caption verification; intent one-use
+consumption; and the no-retry STOPPED paths. Mutant checks prove
 each regression test bites. Tests use the mock vendor client; no network.
 Existing name-adapter tests must pass unchanged, proving no scope bleed.
 
