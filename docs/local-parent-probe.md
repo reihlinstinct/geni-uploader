@@ -36,7 +36,7 @@ binary on the operator's machine. No package installation or account creation is
 authorized by this document. Human runs:
 
 ```sh
-python parent_probe.py --connection-file /PRIVATE/connection.json \
+python -m geni_uploader.client.probe --connection-file /PRIVATE/connection.json \
   --token-file /PRIVATE/token --recipient AGE_PUBLIC_RECIPIENT \
   --output-dir /PRIVATE/new-probe-result --confirm-read-only YES
 ```

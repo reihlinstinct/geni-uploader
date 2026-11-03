@@ -3,7 +3,7 @@ import copy
 
 import pytest
 
-import bounded_relative_siblings as b
+from geni_uploader.core import bounded_relative_siblings as b
 from tests.test_bounded_parent_addition import (
     ANCHOR,
     FAMILY,

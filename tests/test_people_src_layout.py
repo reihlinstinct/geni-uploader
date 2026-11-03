@@ -57,7 +57,7 @@ def test_existing_offline_cli_from_outside_checkout(tmp_path):
                                 check=False, cwd=tmp_path, capture_output=True, text=True)
         assert result.returncode == 0, result.stderr
         assert "usage:" in result.stdout.lower()
-    result = subprocess.run([sys.executable, str(ROOT / "parent_probe.py"), "--help"],
+    result = subprocess.run([sys.executable, "-m", "geni_uploader.client.probe", "--help"],
                             check=False, cwd=tmp_path, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     assert "usage:" in result.stdout.lower()

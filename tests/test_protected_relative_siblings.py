@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-import protected_relative_siblings as p
+from geni_uploader.runners import protected_relative_siblings as p
 from tests.test_bounded_relative_siblings import ANCHOR, OWNER, PARENTS, plan
 from tests.test_bounded_relative_siblings import IO as ModelIO
 from tests.test_protected_parent_addition import TOKEN
@@ -198,7 +198,7 @@ def test_workflow_preserves_protected_human_gate_and_exact_inputs():
                   "github.actor == 'reihlinstinct'", "github.triggering_actor == 'reihlinstinct'",
                   "github.ref == 'refs/heads/master'", 'cancel-in-progress: false', 'permissions:\n  contents: read',
                   'secrets.RELATIVE_SIBLINGS_JSON', 'CREATE_APPROVED_RELATIVE_SIBLINGS',
-                  'protected_relative_siblings.py', 'if: always()', 'retention-days: 1']:
+                  'geni_uploader.runners.protected_relative_siblings', 'if: always()', 'retention-days: 1']:
         assert token in s
     assert 'schedule:' not in s and 'pull_request:' not in s
 
