@@ -48,6 +48,7 @@ src, tools); `--write-baseline` is migration tooling, never a way to bless
 new data.
 
 CI guards (active automatically under `GITHUB_ACTIONS=true` / `CI=true`,
+on pull requests (`GITHUB_BASE_REF` set),
 reading the pull-request payload at `GITHUB_EVENT_PATH`):
 
 - `--write-baseline` refuses to run in CI; regenerate locally and commit.
