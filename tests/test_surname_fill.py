@@ -158,3 +158,21 @@ def test_spouse_pins_consumption_marker():
     a, b = fill_plan(), fill_plan()
     b['spouse'] = 'profile-404'
     assert core.marker(core.plan(a)) != core.marker(core.plan(b))
+
+
+@pytest.mark.parametrize('locale', ['en-US', 'he'])
+@pytest.mark.parametrize('extra', ['maiden_name', 'first_name'])
+def test_locale_level_extra_fields_in_set_names_block(locale, extra):
+    c = fill_plan()
+    c['set']['names'][locale][extra] = 'ZZ Extra'
+    with pytest.raises(Blocked):
+        core.plan(c)
+
+
+def test_live_preflight_absence_recheck_blocks():
+    # The plan asserts no current surname; the live preflight read shows one.
+    c = fill_plan()
+    io = FillIO(c)
+    io.value['last_name'] = 'ZZ Appeared'
+    r = core.execute(c, io, Store(), lambda _: b'ZZ', lambda: 200, read_only=False)
+    assert r['phase'] == 'STOPPED' and not io.posts
