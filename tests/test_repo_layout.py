@@ -18,7 +18,7 @@ CHECKER = ROOT / "tools" / "check_repo_layout.py"
 def run_checker():
     return subprocess.run(
         [sys.executable, str(CHECKER), "--root", str(ROOT)],
-        capture_output=True, text=True,
+        check=False, capture_output=True, text=True,
     )
 
 
@@ -36,7 +36,6 @@ def test_no_python_at_repository_root():
 
 
 def test_checker_flags_root_python(tmp_path):
-    import json
     import shutil
 
     shutil.copy(ROOT / ".repo-layout.yml", tmp_path / ".repo-layout.yml")
@@ -45,7 +44,7 @@ def test_checker_flags_root_python(tmp_path):
     subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
     result = subprocess.run(
         [sys.executable, str(CHECKER), "--root", str(tmp_path)],
-        capture_output=True, text=True,
+        check=False, capture_output=True, text=True,
     )
     assert result.returncode == 1
     assert "denied at repository root: stray.py" in result.stdout
@@ -53,7 +52,6 @@ def test_checker_flags_root_python(tmp_path):
 
 def test_checker_flags_missing_required(tmp_path):
     import json
-    import shutil
 
     contract = json.loads((ROOT / ".repo-layout.yml").read_text(encoding="utf-8"))
     contract["required"] = ["DEFINITELY-MISSING.md"]
@@ -64,7 +62,7 @@ def test_checker_flags_missing_required(tmp_path):
     subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
     result = subprocess.run(
         [sys.executable, str(CHECKER), "--root", str(tmp_path)],
-        capture_output=True, text=True,
+        check=False, capture_output=True, text=True,
     )
     assert result.returncode == 1
     assert "required file missing: DEFINITELY-MISSING.md" in result.stdout

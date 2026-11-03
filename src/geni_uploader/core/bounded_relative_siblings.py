@@ -2,9 +2,9 @@
 import copy
 import re
 
-from geni_uploader.runners import bounded_parent_addition as parent
 from geni_uploader.core.parent_contract import payload, profile_id
 from geni_uploader.core.people import Blocked, exact, require
+from geni_uploader.runners import bounded_parent_addition as parent
 
 
 def plan(value):

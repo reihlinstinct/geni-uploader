@@ -92,6 +92,17 @@ jobs:
           path: junit.xml
           retention-days: 7
 
+  layout:
+    # Always runs, including on docs-only PRs: the layout contract applies to
+    # every change. Stdlib-only checker, no dependency install.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: python tools/check_repo_layout.py
+
   coverage:
     needs: [changes]
     # Always runs so branch protection sees the required "coverage" check
