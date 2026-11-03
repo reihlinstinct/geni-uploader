@@ -144,22 +144,6 @@
    "evidence": "pip install --no-cache-dir -r requirements-dev.txt",
    "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
    "reason": "Test-stage dev install without --require-hashes, same policy as the runtime stage; tracked for hash pinning in this issue."
-  },
-  {
-   "path": ".github/workflows/ci.yml",
-   "rule": "unpinned-action",
-   "scope": "layout",
-   "evidence": "actions/checkout@v7",
-   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
-   "reason": "Same pre-existing tag-pinned action as the test/coverage jobs; tracked for SHA pinning in this issue."
-  },
-  {
-   "path": ".github/workflows/ci.yml",
-   "rule": "unpinned-action",
-   "scope": "layout",
-   "evidence": "actions/setup-python@v7",
-   "issue": "https://github.com/reihlinstinct/geni-uploader/issues/494",
-   "reason": "Same pre-existing tag-pinned action as the test/coverage jobs; tracked for SHA pinning in this issue."
   }
  ]
 }
