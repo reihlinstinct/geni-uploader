@@ -50,6 +50,9 @@ ALLOWLIST_FILES = {
     # forward-looking layout plan: filenames are planned package members
     # under src/geni_uploader/, not current repo-root-relative paths
     "docs/src-layout-plan.md",
+    # forward-looking synthetic-data design (#725): planned tools/tests paths
+    # land with the implementation PR, not with the design doc
+    "docs/synthetic-public-data-design.md",
 }
 
 TEXT_SOURCES = (
