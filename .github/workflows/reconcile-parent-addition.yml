@@ -57,7 +57,7 @@ jobs:
           RECONCILE_OUTPUT_DIR: ${{ runner.temp }}/parent-evidence
         run: |
           set +x
-          PYTHONPATH=src python3 reconcile_parent_addition.py
+          PYTHONPATH=src python3 -m geni_uploader.runners.reconcile_parent_addition
       - name: Retain encrypted evidence even on uncertain outcome
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

@@ -58,7 +58,7 @@ jobs:
           DIAGNOSTIC_OUTPUT_DIR: ${{ runner.temp }}/diagnostic-evidence
         run: |
           set +x
-          PYTHONPATH=src python3 pilot_get_diagnostics.py
+          PYTHONPATH=src python3 -m geni_uploader.runners.pilot_get_diagnostics
       - name: Retain encrypted evidence even on uncertain outcome
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

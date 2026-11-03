@@ -48,4 +48,4 @@ jobs:
         run: |
           set +x
           umask 077
-          python3 source_slot_bridge.py
+          PYTHONPATH=src python3 -m geni_uploader.runners.source_slot_bridge

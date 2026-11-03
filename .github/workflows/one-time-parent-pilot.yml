@@ -51,7 +51,7 @@ jobs:
           PILOT_OUTPUT_DIR: ${{ runner.temp }}/pilot-evidence
         run: |
           set +x
-          PYTHONPATH=src python3 one_time_parent_pilot.py
+          PYTHONPATH=src python3 -m geni_uploader.runners.one_time_parent_pilot
       - name: Retain encrypted evidence even on uncertain outcome
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

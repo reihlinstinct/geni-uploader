@@ -57,7 +57,7 @@ jobs:
           MIXED_CHILD_OUTPUT_DIR: ${{ runner.temp }}/mixed-child-evidence
         run: |
           set +x
-          PYTHONPATH=src python3 name_update_child_create.py
+          PYTHONPATH=src python3 -m geni_uploader.runners.name_update_child_create
       - name: Retain encrypted evidence even on uncertain outcome
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

@@ -184,7 +184,7 @@ def test_workflow_is_separate_manual_protected_pinned_and_silent():
     assert 'secrets.GENI_ACCESS_TOKEN' not in text and 'REFRESH' not in text
     assert 'contents: write' not in text and 'retention-days: 1' in text
     assert 'if: always()' in text and 'persist-credentials: false' in text
-    assert 'PYTHONPATH=src python3 one_time_parent_pilot.py' in text
+    assert 'PYTHONPATH=src python3 -m geni_uploader.runners.one_time_parent_pilot' in text
 
 
 class Git:

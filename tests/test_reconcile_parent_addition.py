@@ -78,13 +78,13 @@ def test_workflow_read_only_confirmation_and_gate():
     s = Path('.github/workflows/reconcile-parent-addition.yml').read_text()
     for x in ['environment: father-create', 'READ_ONLY_EXISTING_PARENT',
         'secrets.RECONCILE_PARENT_ADDITION_JSON', 'inputs.debug == true',
-        'github.run_attempt == 1', 'reconcile_parent_addition.py']:
+        'github.run_attempt == 1', 'geni_uploader.runners.reconcile_parent_addition']:
         assert x in s
 
 
 def test_reconciliation_module_has_no_mutation_method_or_storage():
     from pathlib import Path
-    s = Path('reconcile_parent_addition.py').read_text()
+    s = Path('src/geni_uploader/runners/reconcile_parent_addition.py').read_text()
     assert "request('POST'" not in s and '.consume(' not in s and '.receipt(' not in s
     assert 'def add_parent' not in s
 

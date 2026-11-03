@@ -57,7 +57,7 @@ jobs:
           FAMILY_OUTPUT_DIR: ${{ runner.temp }}/family-evidence
         run: |
           set +x
-          PYTHONPATH=src python3 protected_family_additions.py
+          PYTHONPATH=src python3 -m geni_uploader.runners.protected_family_additions
       - name: Retain encrypted evidence even on uncertain outcome
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

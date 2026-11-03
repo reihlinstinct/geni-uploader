@@ -183,9 +183,9 @@ def test_workflow_gate_and_no_mutation_primitives():
     workflow = Path('.github/workflows/relative-baseline.yml').read_text()
     for marker in ('environment: father-create', 'github.run_attempt == 1',
                    'READ_ONLY_RELATIVE_BASELINE', 'secrets.RELATIVE_BASELINE_JSON',
-                   'relative_baseline.py', 'if: always()'):
+                   'geni_uploader.runners.relative_baseline', 'if: always()'):
         assert marker in workflow
-    source = Path('relative_baseline.py').read_text()
+    source = Path('src/geni_uploader/runners/relative_baseline.py').read_text()
     assert "request('POST'" not in source and '.consume(' not in source and '.receipt(' not in source
 
 

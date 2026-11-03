@@ -50,7 +50,7 @@ jobs:
           HOUSEHOLD_OUTPUT_DIR: ${{ runner.temp }}/diagnostic-evidence
         run: |
           set +x
-          PYTHONPATH=src python3 household_relationship_read.py
+          PYTHONPATH=src python3 -m geni_uploader.runners.household_relationship_read
       - name: Retain encrypted evidence even on uncertain outcome
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

@@ -138,7 +138,7 @@ def test_workflow_separate_protected_secondary_exact_pins():
     assert 'secrets.PILOT_GET_DIAGNOSTIC_JSON' in s
     assert 'secrets.ONE_TIME_PARENT_PILOT_JSON' not in s
     assert 'READ_ONLY_NO_CREATE' in s and 'CREATE_ONE_PRIVATE_PARENT' not in s
-    assert 'pilot_get_diagnostics.py' in s and 'one_time_parent_pilot.py' not in s
+    assert 'geni_uploader.runners.pilot_get_diagnostics' in s and 'one_time_parent_pilot' not in s
     assert 'contents: read' in s and 'contents: write' not in s
 
 

@@ -269,7 +269,7 @@ def test_workflow_gate_and_secret_are_separate():
     s = Path('.github/workflows/protected-parent-addition.yml').read_text()
     for required in ['environment: father-create', 'group: one-time-parent-pilot',
         'inputs.debug == true', 'github.run_attempt == 1', 'github.sha == inputs.executor_sha',
-        'secrets.ONE_PARENT_ADDITION_JSON', 'PYTHONPATH=src python3 protected_parent_addition.py',
+        'secrets.ONE_PARENT_ADDITION_JSON', 'PYTHONPATH=src python3 -m geni_uploader.runners.protected_parent_addition',
         'if: always()', 'retention-days: 1', 'persist-credentials: false']:
         assert required in s
     assert 'GUARDED_FAMILY_ADDITIONS_JSON' not in s

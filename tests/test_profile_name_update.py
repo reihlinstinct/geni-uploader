@@ -295,7 +295,7 @@ def test_new_workflow_uses_only_own_config_secret():
             '.github/workflows/protected-profile-name-update.yml').read_text()
     assert 'secrets.PROFILE_NAME_UPDATE_JSON' in text
     assert 'secrets.RELATIVE_SIBLINGS_JSON' not in text
-    assert 'PYTHONPATH=src python3 protected_profile_name_update.py' in text
+    assert 'PYTHONPATH=src python3 -m geni_uploader.runners.protected_profile_name_update' in text
 
 
 def test_omitted_merge_fields_are_unknown_but_admitted_with_explicit_safety():

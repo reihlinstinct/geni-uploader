@@ -39,7 +39,8 @@ fake HTTPSConnection, without network calls. Closes #678.
 ## Supporting implementation provenance
 
 Unchanged dependency base: 71d23cb1f10ac3d18a4dffdc95a4cca55a68791f.
-These dependencies are reviewed in place, not copied or modified:
+These dependencies are reviewed in place, not copied or modified.
+Layout note (#704): the root runner files below moved to src/geni_uploader/runners/ (one_time_parent_pilot.py, bounded_tree_snapshot.py) with import-identity shims left at the root; the hashes below pin the reviewed pre-move contents:
 - one_time_parent_pilot.py SHA256 59bd1d4862575dcdd5b29558083ff9937f295995f967075438b6b034d31aefc5, lines 76-82 initialization/host, 152-239 admission/request/redirect/status/deadline.
 - bounded_tree_snapshot.py SHA256 645edd485c3f1fe68e0105b4afb60a45e3fd7c7a2d47c2529387d2a90c08cbf2, lines 26-54 config/body/identity.
 - parent_probe.py SHA256 11f452824157ce489ae42d95bbeb3aa20d9e16f9754c905890f41d8c9ec3ff04, lines 1-9 import facade.

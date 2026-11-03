@@ -277,7 +277,7 @@ def test_workflow_protection_and_clear_route_name():
                  'PILOT_PRIVATE_EVIDENCE_WRITER', 'HOUSEHOLD_CREATE_PACKAGE_JSON',
                  'persist-credentials: false', 'if: always()', 'retention-days: 1'):
         assert text in s
-    assert 'GENI_ACCESS_TOKEN:' not in s and 'geni_protected_household_create.py' in s
+    assert 'GENI_ACCESS_TOKEN:' not in s and 'geni_uploader.runners.geni_protected_household_create' in s
 
 
 def test_failed_graph_raw_saved_before_proof_with_latch_closed():
