@@ -3,6 +3,6 @@
 /tests/test_token_probe.py @reihl
 /docs/token-probe.md @reihl
 
-/relative_baseline.py @reihl
+/src/geni_uploader/runners/relative_baseline.py @reihl
 /tests/test_relative_baseline.py @reihl
 /docs/read-only-relative-baseline.md @reihl
