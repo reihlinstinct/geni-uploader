@@ -16,19 +16,23 @@ ROOT = Path(__file__).resolve().parents[1]
 # expressions like ${{ matrix.python-version }} do not match as "matrix.py").
 PY_TOKEN = re.compile(
     r"(?<![A-Za-z0-9_.-])[A-Za-z0-9_./-]+\.py(?![A-Za-z0-9_-])")
-COPY_LINE = re.compile(r"^\s*COPY\s+(\S+)\s+\S+")
+# COPY src dst, tolerating flag tokens (--chown=..., --from=...) before src
+COPY_LINE = re.compile(r"^\s*COPY\s+(?:--\S+\s+)*(\S+)\s+\S+")
 # python / python3 invocation, optional short flags, then a file or -m module
 PY_RUN_FILE = re.compile(r"python3?(?:\s+-[A-Za-z])*\s+([A-Za-z0-9_./-]+\.py)")
 PY_RUN_MODULE = re.compile(r"python3?\s+-m\s+([A-Za-z0-9_.]+)")
+# a -m module later in a python command line (chained runners)
+CHAINED_MODULE = re.compile(r"(?<!\S)-m\s+([A-Za-z0-9_.]+)")
 PYTHONPATH_SRC = re.compile(r"PYTHONPATH=src")
 # ROOT / some.py and Path(...) / name.py literals inside tests/
 TEST_PATH_LITERAL = re.compile(
     r"(?:ROOT|Path\([^)]*\))\s*/\s*['\"]([^'\"]+\.py)['\"]")
 
-# Bare filename used as a unittest discovery pattern (-p), resolved under
-# tests/security by `discover -s tests/security`, not relative to repo root.
-ALLOWLIST_PATHS = {
-    "test_scorecard_guard.py": "unittest -p pattern, resolved by discover -s tests/security",
+# Bare filenames used as unittest discovery patterns (-p), resolved under a
+# specific directory by `discover -s <dir>`, not relative to repo root; the
+# mapped location must exist.
+PATTERN_PATHS = {
+    "test_scorecard_guard.py": "tests/security/test_scorecard_guard.py",
 }
 # `python -m X` targets that are interpreter/library modules, not repo files.
 ALLOWLIST_MODULES = {
@@ -71,7 +75,9 @@ def collect_text_references():
                     # container-internal path; the COPY source is checked
                     # separately by collect_dockerfile_copies
                     continue
-                if token in ALLOWLIST_PATHS:
+                if token in PATTERN_PATHS:
+                    if not (ROOT / PATTERN_PATHS[token]).exists():
+                        missing.append(_fmt(file, lineno, token))
                     continue
                 if file.relative_to(ROOT).as_posix() in ALLOWLIST_FILES:
                     continue
@@ -95,29 +101,47 @@ def collect_dockerfile_copies():
     return missing
 
 
+def _check_module(name, line, wf, lineno, missing):
+    if name in ALLOWLIST_MODULES:
+        return
+    rel = name.replace(".", "/")
+    cands = [ROOT / f"{rel}.py", ROOT / rel / "__init__.py"]
+    if PYTHONPATH_SRC.search(line):
+        cands += [ROOT / "src" / f"{rel}.py",
+                  ROOT / "src" / rel / "__init__.py"]
+    if not any(c.exists() for c in cands):
+        missing.append(_fmt(wf, lineno, name))
+
+
 def collect_workflow_python_targets():
     missing = []
     for wf in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
-        data = yaml.safe_load(wf.read_text(encoding="utf-8"))
+        raw = wf.read_text(encoding="utf-8")
+        data = yaml.safe_load(raw)
+        pos = 0  # raw-text cursor, keeps line numbers file-accurate
         for job in (data.get("jobs") or {}).values():
             for step in (job or {}).get("steps") or []:
                 run = (step or {}).get("run")
                 if not isinstance(run, str):
                     continue
-                for lineno, line in enumerate(run.splitlines(), 1):
-                    mod = PY_RUN_MODULE.search(line)
-                    if mod:
-                        name = mod.group(1)
-                        if name in ALLOWLIST_MODULES:
-                            continue
-                        rel = name.replace(".", "/")
-                        cands = [ROOT / f"{rel}.py",
-                                 ROOT / rel / "__init__.py"]
-                        if PYTHONPATH_SRC.search(line):
-                            cands += [ROOT / "src" / f"{rel}.py",
-                                      ROOT / "src" / rel / "__init__.py"]
-                        if not any(c.exists() for c in cands):
-                            missing.append(_fmt(wf, lineno, name))
+                first = next(
+                    (ln for ln in run.splitlines() if ln.strip()), "")
+                idx = raw.find(first, pos)
+                if idx < 0:
+                    idx = raw.find(first)
+                base = raw.count("\n", 0, idx) if idx >= 0 else 0
+                pos = (idx + len(first)) if idx >= 0 else pos
+                for off, line in enumerate(run.splitlines()):
+                    lineno = base + off + 1
+                    if PY_RUN_MODULE.search(line):
+                        # every -m target on the line, including chained
+                        # invocations (e.g. `python -m coverage run -m pytest`)
+                        for m in PY_RUN_MODULE.finditer(line):
+                            _check_module(m.group(1), line, wf, lineno, missing)
+                        if "python" in line:
+                            for m in CHAINED_MODULE.finditer(line):
+                                _check_module(
+                                    m.group(1), line, wf, lineno, missing)
                         continue
                     target = PY_RUN_FILE.search(line)
                     if target and not (ROOT / target.group(1)).exists():
