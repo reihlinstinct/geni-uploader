@@ -340,3 +340,50 @@ def test_positive_merge_blocks_even_when_omission_risk_accepted():
     io.profiles[ANCHOR]['merge_pending'] = True
     r, io, st, _ = execute(io=io)
     assert r['phase'] == 'STOPPED' and not io.posts and not st.consumed
+
+
+def test_anchor_own_omitted_parent_union_cannot_bypass_first_parent_guard():
+    c = plan()
+    omitted = 'union-990001'
+    c['external_edges'] = {ANCHOR: {omitted: 'child'}}
+    c['path_families'][ANCHOR]['external_edges'] = copy.deepcopy(c['external_edges'])
+    io = IO(c)
+    with pytest.raises(model.Blocked):
+        execute(c, io)
+    assert not io.reads and not io.posts
+
+
+def test_any_path_focus_boundary_is_rejected_before_reads():
+    c = plan()
+    c['path_families'][OWNER]['external_edges'] = {OWNER: {'union-990001': 'child'}}
+    io = IO(c)
+    with pytest.raises(model.Blocked):
+        execute(c, io)
+    assert not io.reads and not io.posts
+
+
+@pytest.mark.parametrize('key', ['public', 'claimed', 'is_alive'])
+@pytest.mark.parametrize('value', [0, 1, None, 'false'])
+def test_served_context_booleans_require_actual_bool(key, value):
+    c = plan()
+    io = IO(c)
+    io.profiles[ANCHOR][key] = value
+    r, io, st, _ = execute(c, io)
+    assert r['phase'] == 'STOPPED' and not io.posts and not st.consumed
+
+
+@pytest.mark.parametrize('key', ['public', 'claimed', 'is_alive'])
+@pytest.mark.parametrize('value', [0, 1, None, 'false'])
+def test_served_created_booleans_require_actual_bool(key, value):
+    c = plan()
+    io = IO(c)
+    send = io.add_parent
+
+    def create(anchor, fields):
+        ack = send(anchor, fields)
+        io.profiles[NEW][key] = value
+        return ack
+
+    io.add_parent = create
+    r, io, st, _ = execute(c, io)
+    assert r['phase'] == 'STOPPED' and len(io.posts) == 1 and len(st.consumed) == 1

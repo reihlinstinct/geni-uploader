@@ -93,12 +93,14 @@ def plan(value):
         legacy.union_id(union)
     family = graph(value['family'], value['anchor'], anchor=True)
     external = boundary(value['external_edges'], family)
+    require(value['anchor'] not in external)
     families = value['path_families']
     require(type(families) is dict and set(families) == set(path))
     for node, baseline in families.items():
         exact(baseline, ('family', 'external_edges'))
         spec = graph(baseline['family'], node, anchor=node == value['anchor'])
         boundary(baseline['external_edges'], spec)
+        require(node not in baseline['external_edges'])
     require(families[value['anchor']] == {'family': family, 'external_edges': external})
     memberships = value['path_union_members']
     require(type(memberships) is dict and set(memberships) == set(unions))
@@ -140,6 +142,8 @@ def request_budget(value):
 def profile_check(actual, expected, node, allow_unknown, *, created=False):
     require(type(actual) is dict and actual.get('id') == node and 'error' not in actual)
     merge_clear(actual, allow_unknown)
+    for key in ('public', 'claimed', 'is_alive'):
+        require(type(actual.get(key)) is bool)
     fields = legacy.vendor_parent_payload(expected) if created else existing_payload(expected)
     for key, leaf in fields.items():
         require(actual.get(key) == leaf)
