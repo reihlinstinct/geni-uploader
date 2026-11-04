@@ -184,3 +184,85 @@ def test_success_evidence_encrypted_and_token_not_recorded(tmp_path, monkeypatch
     assert all(b'ZZ-token-123' not in value for value in captures)
     assert all(x.read_bytes() == b'ZZ-ciphertext' for x in (tmp_path / 'evidence').glob('*.age'))
     assert capsys.readouterr().out == ''
+
+
+@pytest.mark.parametrize('mode,stage', [
+    ('malformed', 'response_malformed'),
+    ('oversize', 'response_oversize'),
+    ('deadline', 'response_deadline'),
+])
+def test_real_transport_body_edges_close_without_retry(mode, stage, monkeypatch, capsys):
+    import geni_uploader.runners.one_time_parent_pilot as transport
+    now = [0.0]
+    calls = []; closed = []
+    monkeypatch.setattr(h.time, 'time', lambda: 200)
+    monkeypatch.setattr(h.time, 'monotonic', lambda: now[0])
+
+    class Response:
+        status = 200
+
+        def __init__(self):
+            self.sent = False
+
+        def getheader(self, _):
+            return None
+
+        def read(self, size):
+            if self.sent:
+                return b''
+            self.sent = True
+            if mode == 'deadline':
+                now[0] += 31
+            return b'x' * size if mode == 'oversize' else (
+                b'{ZZ' if mode == 'malformed' else b'{}')
+
+    class Connection:
+        def __init__(self, host, port, timeout):
+            assert (host, port, timeout) == ('www.geni.com', 443, 20)
+            self.response = Response()
+
+        def request(self, method, route, **kwargs):
+            calls.append((method, route))
+
+        def getresponse(self):
+            return self.response
+
+        def close(self):
+            closed.append(True)
+
+    monkeypatch.setattr(transport.http.client, 'HTTPSConnection', Connection)
+    monkeypatch.setattr(transport, 'LIMIT', 8)
+    v = h.Vendor('ZZ-token-123', cfg())
+    with pytest.raises(transport.TransportStop) as error:
+        v.request('GET', h.routes(cfg())[0][0])
+    assert str(error.value) == stage
+    assert v.calls == len(calls) == len(closed) == 1
+    assert calls[0][0] == 'GET'
+    assert capsys.readouterr().out == ''
+
+
+def test_real_transport_paces_every_get_and_stops_if_wait_expires(monkeypatch):
+    now = [100.0]; wall = [200.0]; waits = []
+    monkeypatch.setattr(h.time, 'monotonic', lambda: now[0])
+    monkeypatch.setattr(h.time, 'time', lambda: wall[0])
+
+    def sleep(seconds):
+        waits.append(seconds)
+        now[0] += seconds
+        wall[0] += seconds
+
+    monkeypatch.setattr(h.time, 'sleep', sleep)
+    v = h.Vendor('ZZ-token-123', cfg())
+    sequence = h.routes(cfg())
+    v.admit_vendor('GET', sequence[0][0])
+    now[0] += 4
+    v.admit_vendor('GET', sequence[1][0])
+    assert waits == [11]
+    now[0] += 20
+    v.admit_vendor('GET', sequence[2][0])
+    assert waits == [11, 0]
+    wall[0] = v.c['expires_at'] - 1
+    with pytest.raises(Blocked):
+        v.admit_vendor('GET', sequence[3][0])
+    assert waits[-1] == 15
+    assert v.calls == 4  # consumed before wait; expiry cannot authorize a retry
