@@ -324,3 +324,18 @@ def test_post_failure_after_consume_is_terminal_and_private():
     assert len(post_calls) == 1 and len(st.consumed) == 1
     assert result['phase'] == 'STOPPED' and result['item']['phase'] == 'UNCERTAIN'
     assert not any('ZZ-private-vendor-text' in x for x in snapshots)
+
+
+def test_parent_policy_and_transport_failure_are_distinct_and_value_free():
+    policy = p.setup_failure('private_source', p.Blocked('ZZ-private-sentinel'))
+    transport = p.setup_failure('private_source', p.TransportStop(
+        'response_status', evidence={'http_status': 503,
+                                    'location_present': False,
+                                    'link_present': True,
+                                    'private': 'ZZ-private-sentinel'}))
+    assert policy == {'setup_stage': 'private_source', 'exception_type': 'Blocked'}
+    assert transport == {'setup_stage': 'private_source',
+                         'exception_type': 'TransportStop',
+                         'transport_code': 'response_status', 'http_status': 503,
+                         'location_present': False, 'link_present': True}
+    assert 'ZZ-private-sentinel' not in json.dumps([policy, transport])
