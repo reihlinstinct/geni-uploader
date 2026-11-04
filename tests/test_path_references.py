@@ -47,6 +47,8 @@ ALLOWLIST_MODULES = {
 
 # Whole-file allowlist, with reasons:
 ALLOWLIST_FILES = {
+    # Accepted forward-looking design: protected wiring lands in a later slice.
+    "docs/bounded-relative-parent-design.md",
     # forward-looking layout plan: filenames are planned package members
     # under src/geni_uploader/, not current repo-root-relative paths
     "docs/src-layout-plan.md",
