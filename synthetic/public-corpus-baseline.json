@@ -55,18 +55,6 @@
    "class": "structured-id"
   },
   {
-   "file": "docs/usage.md",
-   "line": 88,
-   "value": "profile_id: \"1234567890123456789",
-   "class": "structured-id"
-  },
-  {
-   "file": "docs/usage.md",
-   "line": 102,
-   "value": "profile_id: \"9876543210987654321",
-   "class": "structured-id"
-  },
-  {
    "file": "oauth-bootstrap/ZZ-prewrite-fixture.mjs",
    "line": 4,
    "value": "profile-999001",

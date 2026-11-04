@@ -85,7 +85,7 @@ One YAML file in your repo, for example
 `packages/my-batch/upload-manifest.yaml`:
 
     targets:
-      - profile_id: "1234567890123456789"   # the Geni profile number
+      - profile_id: "990001"   # the Geni profile number
         expect_name: "ZZ Sample Person"      # >= 2 words; checked against Geni
         documents:
           - title: "Short descriptive title"
@@ -97,9 +97,9 @@ One YAML file in your repo, for example
           - title: "Another scan"
             description_en: "Describe the scan, its provenance and evidence limits in English."
             file: "scan-page-12.jpg"        # relative to THIS manifest file
-            also_tag: ["9876543210987654321"]  # optional: tag the SAME object
+            also_tag: ["990002"]  # optional: tag the SAME object
                                                # to these profiles too
-      - profile_id: "9876543210987654321"
+      - profile_id: "990002"
         expect_name: "ZZ Second Person"
         documents: []
         photos: []
