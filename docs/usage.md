@@ -90,10 +90,12 @@ One YAML file in your repo, for example
         documents:
           - title: "Short descriptive title"
             source_url: "https://example.org/source-page"  # or use file:
-            description: "What this source is, dated and attributed"
+            description_en: "Describe this source in English, with date, attribution and limits."
+            description: "Optional Hebrew or original-language text."
             labels: "source"
         photos:
           - title: "Another scan"
+            description_en: "Describe the scan, its provenance and evidence limits in English."
             file: "scan-page-12.jpg"        # relative to THIS manifest file
             also_tag: ["9876543210987654321"]  # optional: tag the SAME object
                                                # to these profiles too
@@ -110,8 +112,12 @@ Rules enforced by the loader (it fails loudly, before any network call):
   number is usually the profile's **guid**, not its API node id; the
   tool resolves it automatically (fail-closed, with the name guard)
   before any other call. See [guid-resolution.md](guid-resolution.md).
-- Every item needs a `title`. Documents need `source_url` or `file`;
-  photos need `file`.
+- Every item needs a `title` and a human-reviewed English `description_en`.
+  Documents need `source_url` or `file`; photos need `file`.
+- `description` is optional supplementary Hebrew or original-language text.
+  It does not replace `description_en`. English appears first in the rendered
+  API description. Local checks reject missing, URL-only or non-Latin-only
+  English sections, but cannot verify language or translation accuracy.
 - `file:` paths resolve relative to the MANIFEST's own directory (not the
   repository root), must stay inside that directory, and must exist. Keep
   scans next to the manifest and reference them by bare filename.
