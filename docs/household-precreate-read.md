@@ -46,3 +46,13 @@ Layout note (#704, updated #721): the root runner files below moved to src/geni_
 - root parent_probe facade (removed in #721) SHA256 11f452824157ce489ae42d95bbeb3aa20d9e16f9754c905890f41d8c9ec3ff04, lines 1-9 import facade (root facade removed in #721; the packaged module it wrapped is pinned next).
 - src/geni_uploader/client/probe.py SHA256 fac8f9e42d24c9cbac3d3d9927cacf4ca73638151b2bad4a523efbd6d86ccd16, lines 187-193 age encryption.
 - src/geni_uploader/core/people.py SHA256 fb5878fe39ca2f245ed9e520c17c7fafd86fa6c8fb2393fd6fe4ca4b28ebf651, lines 10-20 value-free require/exact.
+
+
+## Encrypted transport failure diagnostics (#760)
+
+TransportStop failures retain their fixed reason and class in the encrypted
+report. An explicit allowlist keeps only HTTP status (100-599), bounded numeric
+rate-limit/retry values, and exact boolean redirect/header-presence flags.
+Arbitrary exception text, error messages, raw bodies, headers and unknown fields
+are omitted. The console stays fixed text. This does not add requests, retries,
+redirect following or any write capability.

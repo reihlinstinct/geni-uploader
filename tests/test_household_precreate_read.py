@@ -156,6 +156,11 @@ def test_real_transport_no_redirect_or_retry(status, headers, monkeypatch, capsy
     with pytest.raises(transport.TransportStop): v.request('GET', h.routes(cfg())[0][0])
     assert len(opened) == len(requests) == v.calls == 1
     assert requests[0][0] == 'GET' and requests[0][1].endswith('&api_version=1')
+    r = h.observe(cfg(), h.Vendor('ZZ-token-123', cfg()), lambda _: None, lambda: 200)
+    assert r['exception_type'] == 'TransportStop'
+    assert r['http_failure']['http_status'] == status
+    assert len(r['requests']) == 1 and r['responses'] == []
+    assert 'ZZ-private-name' not in h.canonical(r).decode()
     assert capsys.readouterr().out == ''
 
 
@@ -266,3 +271,46 @@ def test_real_transport_paces_every_get_and_stops_if_wait_expires(monkeypatch):
         v.admit_vendor('GET', sequence[3][0])
     assert waits[-1] == 15
     assert v.calls == 4  # consumed before wait; expiry cannot authorize a retry
+
+
+@pytest.mark.parametrize('code', ['transport_unavailable', 'response_oversize',
+    'response_deadline', 'response_status', 'response_redirect', 'response_malformed'])
+def test_transport_reason_and_safe_evidence_preserved(code, capsys):
+    c = Client(); saved = []
+    def request(*_):
+        raise h.TransportStop(code, evidence={'http_status': 401,
+            'geni_rate_remaining': 0, 'retry_after_seconds': 15,
+            'location_present': True, 'geni_error_message': 'ZZ-secret',
+            'Authorization': 'ZZ-secret', 'body': 'ZZ-private'})
+    c.request = request
+    r = h.observe(cfg(), c, saved.append, lambda: 200)
+    assert r['phase'] == 'STOPPED' and len(r['requests']) == 1
+    assert r['responses'] == [] and r['retry_allowed'] is False
+    assert r['exception_type'] == 'TransportStop' and r['failure_code'] == code
+    assert r['http_failure'] == {'http_status': 401, 'geni_rate_remaining': 0,
+        'retry_after_seconds': 15, 'location_present': True}
+    assert saved[-1] == r and 'ZZ-secret' not in h.canonical(r).decode()
+    assert 'ZZ-private' not in h.canonical(r).decode() and capsys.readouterr().out == ''
+
+
+@pytest.mark.parametrize('value', [None, [], 'ZZ-secret', True, 1])
+def test_transport_evidence_non_dict_ignored(value):
+    assert h.safe_transport_evidence(value) == {}
+
+
+@pytest.mark.parametrize('key', ['http_status', 'geni_rate_limit',
+    'geni_rate_remaining', 'geni_rate_window', 'retry_after_seconds'])
+@pytest.mark.parametrize('value', [True, False, None, '401', -1, 10000000000, {}])
+def test_transport_numeric_fields_strict_and_bounded(key, value):
+    assert h.safe_transport_evidence({key: value}) == {}
+
+
+@pytest.mark.parametrize('value', [99, 600])
+def test_transport_status_range(value):
+    assert h.safe_transport_evidence({'http_status': value}) == {}
+
+
+@pytest.mark.parametrize('key', ['location_present', 'link_present', 'request_id_present'])
+@pytest.mark.parametrize('value', [0, 1, None, 'true', {}])
+def test_transport_boolean_fields_strict(key, value):
+    assert h.safe_transport_evidence({key: value}) == {}

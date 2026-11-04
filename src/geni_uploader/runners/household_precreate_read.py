@@ -8,7 +8,7 @@ from pathlib import Path
 import geni_uploader.runners.bounded_tree_snapshot as snapshot
 from geni_uploader.client.probe import encrypt
 from geni_uploader.core.people import Blocked, exact, require
-from geni_uploader.runners.one_time_parent_pilot import HTTPS, canonical, decode, sha
+from geni_uploader.runners.one_time_parent_pilot import HTTPS, TransportStop, canonical, decode, sha
 
 FIELDS = ('id,guid,url,profile_url,first_name,middle_name,last_name,maiden_name,names,'
           'gender,public,is_alive,claimed,merge_pending,merged_into,unions')
@@ -53,6 +53,23 @@ class Vendor(HTTPS):
         self.last = time.monotonic()
 
 
+def safe_transport_evidence(evidence):
+    """Keep only bounded numeric/boolean fields, never arbitrary error strings."""
+    if type(evidence) is not dict:
+        return {}
+    result = {}
+    for key in ('http_status', 'geni_rate_limit', 'geni_rate_remaining',
+                'geni_rate_window', 'retry_after_seconds'):
+        value = evidence.get(key)
+        if type(value) is int and (100 <= value <= 599 if key == 'http_status'
+                                  else 0 <= value <= 9999999999):
+            result[key] = value
+    for key in ('location_present', 'link_present', 'request_id_present'):
+        if type(evidence.get(key)) is bool:
+            result[key] = evidence[key]
+    return result
+
+
 def observe(value, client, save, clock):
     c = config(value)
     report = {'phase': 'STOPPED', 'read_only': True, 'retry_allowed': False,
@@ -94,8 +111,11 @@ def observe(value, client, save, clock):
         require(clock() < c['expires_at'])
         report.update(phase='HOUSEHOLD_BASELINE_COLLECTED', stage='complete')
     except Exception as exc:  # noqa: BLE001 - fixed output, no retry
+        if type(exc) is TransportStop:
+            report['failure_code'] = exc.code
+            report['http_failure'] = safe_transport_evidence(exc.evidence)
         report.update(phase='STOPPED', failure='transport_schema_storage_or_expiry',
-                      exception_type=type(exc).__name__ if type(exc) in (Blocked, OSError, ValueError,
+                      exception_type=type(exc).__name__ if type(exc) in (TransportStop, Blocked, OSError, ValueError,
                                       TypeError, KeyError, AttributeError) else 'other')
     save(copy.deepcopy(report))
     return report
