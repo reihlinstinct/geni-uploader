@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 import tools.check_public_placeholders as checker
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -523,4 +525,32 @@ def test_growth_guard_tolerates_null_labels(tmp_path):
     result = run_checker('--root', str(repo), env=env)
     assert result.returncode == 1  # growth (empty base) without the label
     assert 'synthetic-baseline-grow' in result.stdout
+    assert 'Traceback' not in result.stderr
+
+
+@pytest.mark.parametrize('value', ['{not json', '[]'])
+def test_current_baseline_malformed_fails_cleanly(tmp_path, value):
+    repo = make_repo(tmp_path, {'a.md': 'ZZ safe fixture\n'})
+    path = repo / 'synthetic/public-corpus-baseline.json'
+    path.parent.mkdir(exist_ok=True)
+    path.write_text(value, encoding='utf-8')
+    result = run_checker('--root', str(repo))
+    assert result.returncode == 1
+    assert 'current baseline' in result.stdout
+    assert 'Traceback' not in result.stderr
+
+
+def test_base_baseline_wrong_type_fails_cleanly(tmp_path):
+    repo = make_repo(tmp_path, {'a.md': 'ZZ safe fixture\n'})
+    run_checker('--root', str(repo), '--write-baseline')
+    path = repo / 'synthetic/public-corpus-baseline.json'
+    valid = path.read_text(encoding='utf-8')
+    path.write_text('[]', encoding='utf-8')
+    subprocess.run(['git', 'add', '.'], cwd=repo, check=True)
+    commit_all(repo, 'wrong-type base')
+    base_sha = _head(repo)
+    path.write_text(valid, encoding='utf-8')
+    result = run_checker('--root', str(repo), env=_guard_env(repo, [], base_sha))
+    assert result.returncode == 1
+    assert 'base baseline must be a JSON object' in result.stdout
     assert 'Traceback' not in result.stderr
