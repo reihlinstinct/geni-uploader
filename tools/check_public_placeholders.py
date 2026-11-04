@@ -114,8 +114,15 @@ def main():
                              'from the current tree (migration tooling)')
     args = parser.parse_args()
     root = Path(args.root).resolve()
-    baseline = load_json(root, 'synthetic/public-corpus-baseline.json',
-                         {'findings': [], 'allowlist': []})
+    try:
+        baseline = load_json(root, 'synthetic/public-corpus-baseline.json',
+                             {'findings': [], 'allowlist': []})
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        print('placeholder violation: current baseline is unreadable or not valid JSON')
+        return 1
+    if not isinstance(baseline, dict):
+        print('placeholder violation: current baseline must be a JSON object')
+        return 1
     ci = os.environ.get('GITHUB_ACTIONS') == 'true' or os.environ.get('CI') == 'true'
     if args.write_baseline:
         if ci:
@@ -187,6 +194,10 @@ def main():
                     except json.JSONDecodeError:
                         print(f'baseline growth guard: baseline at base {base_sha} '
                               'is not valid JSON')
+                        growth_violations += 1
+                        break
+                    if not isinstance(data, dict):
+                        print('baseline growth guard: base baseline must be a JSON object')
                         growth_violations += 1
                         break
                     base_known = {(e['file'], e['line'], e['value'], e['class'])
