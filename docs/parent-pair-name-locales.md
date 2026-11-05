@@ -17,4 +17,6 @@ Synthetic tests were run before the source fix: seven failed and five passed.
 They cover both locale mappings, case, Unicode decomposition, whitespace already
 rejected by payload validation, different first/last pairs, extra middle names
 and absent pinned name maps. No credentials, network, workflow dispatch or Geni
-effects are involved. The change restores a guard; it is not live-run approval.
+effects are involved. Seven isolated mutations (guard removal, locale mapping,
+either locale dropped, casefold, trim and NFC removal) are killed by the new
+regression file alone. The change restores a guard; it is not live-run approval.

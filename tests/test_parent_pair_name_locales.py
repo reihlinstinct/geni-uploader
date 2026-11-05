@@ -54,3 +54,21 @@ def test_absent_pinned_name_map_is_not_inferred_from_top_level():
     c = collision('en')
     for profile in c['groups'][0]['profiles'].values(): profile.pop('names', None)
     assert m.plan(c) == c
+
+
+@pytest.mark.parametrize('variant', ['trim', 'case', 'nfd'])
+def test_served_name_variant_collides_with_valid_creation(variant):
+    c = collision('en'); pinned = next(iter(c['groups'][0]['profiles'].values()))
+    fields = pinned['names']['en-US']
+    for key in ('first_name', 'last_name'):
+        if variant == 'trim': fields[key] = '  ' + fields[key] + '  '
+        if variant == 'case': fields[key] = fields[key].swapcase()
+        if variant == 'nfd': fields[key] = unicodedata.normalize('NFD', fields[key])
+    with pytest.raises(m.Blocked): m.plan(c)
+
+
+def test_distinct_locale_text_is_not_cross_compared():
+    c = collision('en'); g = c['groups'][0]
+    pinned = next(iter(g['profiles'].values()))
+    pinned['names']['he'] = pinned['names'].pop('en-US')
+    assert m.plan(c) == c
