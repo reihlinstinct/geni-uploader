@@ -8,7 +8,7 @@ from geni_uploader.runners import bounded_alias_append as core
 from geni_uploader.runners import protected_alias_append as protected
 from tests.test_profile_name_update import Store
 
-OWNER, TARGET = 'profile-101', 'profile-202'
+OWNER, TARGET = 'profile-990001', 'profile-990002'
 
 
 def plan():
@@ -16,7 +16,7 @@ def plan():
             'expires_at': 900, 'accept_unknown_merge_metadata': True,
             'expected': {'first_name': 'ZZ First', 'last_name': 'ZZ Before',
                          'gender': 'female', 'is_alive': False, 'public': False,
-                         'claimed': False, 'merge_pending': False, 'unions': ['union-303'],
+                         'claimed': False, 'merge_pending': False, 'unions': ['union-980001'],
                          'names': {'en-US': {'first_name': 'ZZ First', 'last_name': 'ZZ Before'},
                                    'he': {'first_name': 'ZZ Given', 'last_name': 'ZZ Birth'}},
                          'nicknames': ['ZZ Old'], 'display_name': 'ZZ Display'},
@@ -45,9 +45,9 @@ class IO:
         return value
 
     def get_family(self, target):
-        edges = {'union-303': {'rel': 'partner'}}
+        edges = {'union-980001': {'rel': 'partner'}}
         if self.posts and self.anomaly == 'graph':
-            edges['union-404'] = {'rel': 'child'}
+            edges['union-980002'] = {'rel': 'child'}
         return {'focus': {'id': target}, 'nodes': {target: {'edges': edges}}}
 
     def update(self, target, body):
@@ -57,7 +57,7 @@ class IO:
         self.value['nicknames'] = body['nicknames'].split(',')
         if self.anomaly == 'drop_old':
             self.value['nicknames'].pop(0)
-        return {'id': TARGET if self.anomaly != 'wrong_id' else 'profile-999'}
+        return {'id': TARGET if self.anomaly != 'wrong_id' else 'profile-990003'}
 
 
 def run(c=None, anomaly=None, store=None, read_only=False):
@@ -108,7 +108,7 @@ def test_bad_additions_block(value):
 
 
 @pytest.mark.parametrize('field,value', [('public', True), ('is_alive', True), ('claimed', True),
-                                        ('merge_pending', True), ('merged_into', 'profile-9')])
+                                        ('merge_pending', True), ('merged_into', 'profile-990004')])
 def test_unsafe_baseline_blocks(field, value):
     c = plan()
     c['expected'][field] = value
