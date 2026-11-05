@@ -108,3 +108,23 @@ def test_confirmation_rejected_before_encryption(case, bad, tmp_path, monkeypatc
         env[key] = bad
     with pytest.raises(Blocked):
         module.run(env)
+
+
+OTHER_TGP = {'tgp-plan': 'UPDATE_APPROVED_TGP', 'tgp-update': 'READ_ONLY_TGP'}
+
+
+@pytest.mark.parametrize('case', CASES)
+@pytest.mark.parametrize('variant', ['lower', 'lead-space', 'trail-newline', 'other-mode'])
+def test_near_miss_confirmation_rejected(case, variant, tmp_path, monkeypatch):
+    module, env, key = build(case, tmp_path)
+    boundary(module, monkeypatch)
+    good = env[key]
+    if variant == 'other-mode':
+        if case not in OTHER_TGP:
+            pytest.skip('single-mode entry point')
+        env[key] = OTHER_TGP[case]
+    else:
+        env[key] = {'lower': good.lower(), 'lead-space': ' ' + good,
+                    'trail-newline': good + '\n'}[variant]
+    with pytest.raises(Blocked):
+        module.run(env)

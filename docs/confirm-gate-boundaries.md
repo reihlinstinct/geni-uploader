@@ -23,14 +23,21 @@ with create/update paths first:
 
 Each valid synthetic environment must reach an encryption preflight patched to
 raise `ReachedEncryption`, a distinct exception, not Blocked. Missing, empty and
-incorrect confirmation values must raise Blocked before that boundary. Downstream
+incorrect confirmation values must raise Blocked before that boundary. Lowercase,
+leading-space and trailing-newline variants are rejected, as is the other TGP
+mode's phrase. Downstream
 network/credential constructors are fail sentinels. No invalid synthetic age
 recipient can make a missing admission check look like success: real encryption
 is never called, and the positive control proves the preceding schema/hash/time
 checks pass. Reuse synthetic config builders, not production secrets or settings.
 
-All twelve isolated mutations replacing the confirmation require() with a bare
-expression were killed by these tests. The TGP mutation fails both mode groups.
+All 37 isolated mutations were killed by these tests: twelve gate removals,
+twelve case-fold relaxations, twelve whitespace-strip relaxations, and one TGP
+cross-mode relaxation. TGP removal and cross-mode mutations fail both mode groups.
+This pins exact matching as well as gate presence.
+
+No workflow currently maps `TGP_CONFIRM` or invokes `protected_profile_tgp`; the
+runner gate is tested directly, not assumed to have a workflow-level counterpart.
 This proves these particular gates are pinned; it does not prove every adjacent
 actor/hash/expiry check is covered or that workflow protection is configured.
 Previously covered entry points and newer separate runners retain their own tests.
