@@ -6,10 +6,14 @@ from geni_uploader.core import bounded_parent_pair_batch as core
 from geni_uploader.core.people import require
 from geni_uploader.runners import bounded_parent_addition as graph
 from geni_uploader.runners import bounded_relative_parent as profile
-from geni_uploader.runners.one_time_parent_pilot import FIELDS, HTTPS
+from geni_uploader.runners.one_time_parent_pilot import FIELDS as LEGACY_FIELDS
+from geni_uploader.runners.one_time_parent_pilot import HTTPS
 from geni_uploader.runners.protected_parent_addition import IO as ParentIO
 
 HARD_REQUEST_CEILING = 120
+# This adapter requires claimed as a served boolean. Do not weaken the check or
+# change legacy runners: explicitly request the field on this isolated route.
+FIELDS = LEGACY_FIELDS + ",claimed"
 
 
 class ScopedVendor(HTTPS):
@@ -63,7 +67,7 @@ class IO(ParentIO):
         self.profile_proof = self.anchor_proof = self.reciprocal_proof = None
 
     def get_profile(self, target):
-        actual = super().get_profile(target)
+        actual = self.request('GET', '/api/' + target + '?fields=' + FIELDS + '&only_ids=true')
         if self.active and target == self.active['id']:
             profile.profile_check(actual, self.active['entry']['payload'], target,
                                   self.client.plan['allow_new_unknown_merge'], created=True)

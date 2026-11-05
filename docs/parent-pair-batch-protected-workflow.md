@@ -69,3 +69,14 @@ this entry point to the vendor boundary offline. Review exact pins, operations,
 uncertainties, time budget and permanent consumption with the user. Only their
 approval permits secret installation and one manual dispatch. The human then
 approves GitHub's environment gate. Monitor, decrypt and reconcile exact results.
+
+## Explicit claimed field (Refs #774)
+
+The batch-local profile projection explicitly requests `claimed`, including the
+owner, path profiles and created-profile proof reads. The historical pilot field
+constant omits it and remains unchanged for legacy runners. Route admission and
+the batch IO use the same local projection. A response that still omits claimed
+continues to stop: it is never filled from an older receipt or treated as false.
+No boolean checks, exact pins, budgets, proof latches or retry rules are relaxed.
+A transport projection fix needs a newly reviewed executor and a fresh exact
+package approval before another protected run; no automatic rerun is authorized.

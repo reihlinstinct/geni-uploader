@@ -184,3 +184,45 @@ def test_actual_private_git_base64_decoder_boundary():
     private = PrivateGit(Git(), cfg['data_repo'], cfg['data_sha'], cfg['owner'])
     assert p.admit_source(p.config(cfg), private) == c
     assert len(calls) == 4 and all(x[0] == 'GET' for x in calls)
+
+
+def test_batch_profile_reads_explicitly_request_claimed_without_legacy_change():
+    from geni_uploader.runners.one_time_parent_pilot import FIELDS as legacy_fields
+    from geni_uploader.runners.protected_parent_addition import FIELDS as parent_fields
+    assert 'claimed' not in legacy_fields.split(',')
+    assert parent_fields == legacy_fields
+    assert p.FIELDS.split(',').count('claimed') == 1
+    c = f.config(); c['max_requests'] = p.core.inventory(c)
+    client = p.ScopedVendor('ZZ-token-123', c); calls = []
+    client.request = lambda method, route, body=None: calls.append((method, route)) or {'ZZ': True}
+    io = p.IO(client)
+    assert io.get_profile('profile') == {'ZZ': True}
+    assert calls == [('GET', '/api/profile?fields=' + p.FIELDS + '&only_ids=true')]
+
+
+def test_legacy_profile_route_without_claimed_rejected_before_transport():
+    from geni_uploader.runners.one_time_parent_pilot import FIELDS as legacy_fields
+    with patch.object(p.time, 'time', lambda: 200):
+        c = f.config(); c['max_requests'] = p.core.inventory(c)
+        client = p.ScopedVendor('ZZ-token-123', c)
+        with pytest.raises(p.core.Blocked):
+            client.admit_vendor('GET', '/api/profile?fields=' + legacy_fields + '&only_ids=true')
+        assert client.calls == 0
+
+
+@pytest.mark.parametrize('created', [False, True])
+def test_claimed_omission_still_blocks_before_any_next_write(created):
+    def mutate(client, backend, io):
+        if not created:
+            backend.profiles[client.plan['owner']].pop('claimed')
+        else:
+            original = backend.get_profile
+            def get_profile(target):
+                value = original(target)
+                if target in client.created: value.pop('claimed', None)
+                return value
+            backend.get_profile = get_profile
+    result, client, backend, _, _ = execute(mutate=mutate)
+    assert result['phase'] == 'STOPPED'
+    assert len(backend.posts) == (1 if created else 0)
+    assert client.pending is created
