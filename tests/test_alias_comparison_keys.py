@@ -85,3 +85,14 @@ def test_compatibility_forms_stay_distinct(old, new):
     approved = core.plan(c)
     assert approved['expected']['nicknames'] == [old]
     assert approved['append'] == [new]
+
+
+def test_inner_nfc_needed_for_noncanonical_stored_alias():
+    # U+0345 (ccc 240) precedes U+0301 (ccc 230) in the stored value.
+    # Casefold before canonical ordering would compose a different vowel.
+    old, new = 'ZZ \u03b1\u0345\u0301a', 'ZZ \u1fb4a'
+    c = plan(); c['expected']['nicknames'] = [old]; c['append'] = [new]
+    before = copy.deepcopy(c)
+    with pytest.raises(core.Blocked):
+        core.plan(c)
+    assert c == before
