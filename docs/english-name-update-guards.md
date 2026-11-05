@@ -14,3 +14,9 @@ No credentials, live Geni calls, dispatch, plan run or age binary are used by
 these tests. The display_name recomputation question is tracked separately in
 #794. Current fail-closed readback remains unchanged. Offline guard coverage is
 not approval for a live update, nor proof of vendor display-name behavior.
+
+The added file has 36 passing cases. A broad isolated scan removed 53 require/now
+statements across both runners: 37 are killed by the original plus new tests.
+This is not a claim that every statement is independently pinned. The remaining
+16 include guards outside the review scope and checks masked by other layers;
+post-count/read-only checks are redundant under the fixed request sequence.
