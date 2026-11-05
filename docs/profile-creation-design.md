@@ -4,6 +4,15 @@ Version: 0.5, 2026-10-28. Status: design only, not implemented or enabled. This
 includes the v0.4 baseline and v0.5 amendment below, replacing versions 0.2 and
 0.3 in full. No live API calls or test writes.
 
+## Later bounded work does not release this general design
+
+The status above belongs to this earlier general design. Later protected pilots
+and bounded runners are separate deployment-specific paths, not a general
+independent-user creation CLI in the upload image. See
+[independent setup status](independent-setup-status.md) for current boundaries
+and the source references. Do not read this document as denying that a separately
+approved bounded pilot can operate, or read pilot success as opening these gates.
+
 ## Goal and roles
 
 Prepare a bounded user-run addition of at most two parents to the tree owner's own

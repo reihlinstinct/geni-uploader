@@ -267,3 +267,8 @@ An upload `plan` without a token can return exit code 0 for a local preview,
 but its report remains incomplete and says `Safe to run: no`. Exit code 0
 alone does not prove readiness or authorize a write. This differs from the
 metadata `details-plan` above, which exits nonzero when no token is available.
+
+For independent onboarding and what is still unverified, see
+[setup status](docs/independent-setup-status.md). It distinguishes owner-local
+uploads from hosted custody and deployment-specific creation, and records the
+image provenance, credential-scope and app-registration gaps.

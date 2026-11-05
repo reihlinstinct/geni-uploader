@@ -9,6 +9,12 @@ is never executed.
 Everything below reflects the actual published image. Where behavior is
 known from observation rather than Geni documentation, it says so.
 
+Before setup, read [independent setup status](independent-setup-status.md) for
+selected-repository token scope, current image-pin discovery and the missing
+full provenance proof. This is the owner-local existing-profile upload path,
+not a generic assistant service or people-creation release. Local uploads do not
+inherit the earlier creation design's paid private-ruleset requirements.
+
 ## 1. Install and pull
 
 Requirements: Linux (or macOS with a Linux VM) with Podman. Check your
@@ -263,7 +269,7 @@ Read-only diagnostics, run directly against the pinned uploader in the image
 `whoami` require `--manifest`:
 
 ```
-python src/geni_uploader/client/upload.py --token-file <private-file> auth-url --client-id <app-id>
+python src/geni_uploader/client/upload.py --token-file <private-file> auth-url --client-id <verified-client-id>
 python src/geni_uploader/client/upload.py --token-file <private-file> whoami
 python src/geni_uploader/client/upload.py --token-file <private-file> contrast --manifest <file>
 python src/geni_uploader/client/upload.py --token-file <private-file> guidmap --manifest <file>

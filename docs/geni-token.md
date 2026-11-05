@@ -9,13 +9,25 @@ Observed behavior is marked "(observed)": it is what we saw on the dates
 noted, not a guarantee from Geni. Geni's own documentation is at
 https://www.geni.com/platform/developer/help (requires a Geni login).
 
+## Setup status and unresolved app labels
+
+Read [independent setup status](independent-setup-status.md) first. The older
+"numeric App ID" / "Key" wording below does not establish a current form-label
+mapping. Geni calls OAuth `client_id` the "application key"; the CLI passes its
+`--client-id` value verbatim. Do not enter an app secret there or guess which
+current UI field is intended. Registration-field requiredness for personal
+Native/Desktop apps remains unverified. [Issue #136](https://github.com/reihlinstinct/geni-uploader/issues/136)
+tracks the unfinished guide and links the observed HTTPS/bare-hostname correction.
+That correction is not a complete registration recipe. No secret settings need
+be shared to resolve the public-label gap.
+
 ## 1. Register a Geni application
 
 1. Log in at https://www.geni.com/ and open
    https://www.geni.com/platform/developer/apps (login required).
-2. Register a new application. Note the numeric **App ID** and the **Key**
-   Geni shows; keep the Key in a local file (for example `~/geni-app-key`,
-   mode 600). Never commit it anywhere.
+2. Before registration, resolve the current app-label mapping and required fields
+   described above. Do not treat this older local-flow guide as a verified form
+   recipe. Keep any app secret in private local custody, never git or chat.
 3. For the flow described here (Geni's documented "Desktop App" flow), no
    callback URL is needed. The registration form may show fields such as a
    deauthorize/callback URL - those apply to server-side integrations, not
@@ -29,7 +41,7 @@ https://www.geni.com/platform/developer/help (requires a Geni login).
          -e GENI_UPLOAD_REPO=https://github.com/<you>/<repo>.git \
          -v ~/.gh-token:/run/gh-token:ro,Z \
          ghcr.io/reihlinstinct/geni-uploader@sha256:<pinned-digest> \
-         auth-url --client-id <your-app-id>
+         auth-url --client-id <verified-client-id>
 
 2. Open the printed URL in your browser and authorize the application.
    (observed, 2026-10-25) The browser then lands on a Geni page that says

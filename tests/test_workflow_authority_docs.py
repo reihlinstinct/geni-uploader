@@ -8,8 +8,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.mark.parametrize('path,expected', [
-    ('README.md', '6b7caa86ca314550adb39dbdf8ebc2f4945e9dc8bc100e09959902a09e7368e3'), ('docs/usage.md', '1ce4f570c38c4df9389a2227f090fc1003defa09f3208fba0f06dadb4c073a50'),
-    ('docs/privacy.md', '7778830154e2a00a10a983d2fdc2e87f5255ae1d901b587683096211f028e9eb'), ('PRIVACY.md', '7778830154e2a00a10a983d2fdc2e87f5255ae1d901b587683096211f028e9eb'),
-    ('docs/workflow-authority.md', '4e217d8771ca19b67942552108bc6d1ad66575165d37a4e747675c1a907120c8')])
+    ('README.md', '41ba01f3bb4e7a856d984bc86bb11f9ceed802fa52ed3e124e3224d6a3ae21f0'), ('docs/usage.md', '24869d6255babdd444baa7cfe097c063c14248feeef3cc4546c82edd7ad3c90d'),
+    ('docs/privacy.md', '7e43f24316a9927213d6a43fa88b4613b838de4742f7fab81b99f390c160b65a'), ('PRIVACY.md', '7e43f24316a9927213d6a43fa88b4613b838de4742f7fab81b99f390c160b65a'),
+    ('docs/workflow-authority.md', '94840e83d1c1b95cd8044a9b631311ad5f9bdc24bc6007acd74f2a17b20c545a')])
 def test_workflow_authority_doc_whole_file_pin(path, expected):
     assert hashlib.sha256(' '.join((ROOT/path).read_text().split()).encode()).hexdigest() == expected

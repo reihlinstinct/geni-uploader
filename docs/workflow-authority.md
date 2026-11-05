@@ -5,6 +5,13 @@ environment, permission, secret, schedule, deployment or account state changes.
 No legal conclusion is implied. Geni and GitHub terms still apply. This document
 is not consent, a run request, OAuth authorization or exact payload approval.
 
+## Historical scope and later paths
+
+This 28 October account of the general unreleased gate is not a complete inventory
+of later bounded protected runners. See [independent setup status](independent-setup-status.md)
+for the distinction between deployment-specific creation and a general upload-image
+release. The approval requirements here are not blanket authority for any run.
+
 ## Current checked-in paths
 
 - `geni-upload.yml`: manual workflow_dispatch. Both actor and triggering actor
