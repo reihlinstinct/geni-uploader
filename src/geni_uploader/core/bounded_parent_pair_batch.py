@@ -1,6 +1,7 @@
 """Pure effect-injected parent-pair batch. No transport or credential construction."""
 import copy
 import re
+import unicodedata
 
 from geni_uploader.core.parent_contract import payload, profile_id
 from geni_uploader.core.people import Blocked, digest, exact, require
@@ -32,6 +33,15 @@ def inventory(c):
     # GET + POST + profile/anchor-family/created-family/direct-union proof GETs.
     return sum(2 * (len(g['profiles']) + len(g['path']) + len(g['path_unions']))
                + 6 * (2 + (g['sibling'] is not None)) for g in c['groups'])
+
+
+def locale_name_pairs(names):
+    """Exact first/last collision keys, not fuzzy identity or merge evidence."""
+    def normalized(value):
+        return unicodedata.normalize('NFC', value.strip().casefold())
+    return {('en-US' if locale == 'en' else locale,
+             normalized(fields['first_name']), normalized(fields.get('last_name', '')))
+            for locale, fields in names.items()}
 
 
 def plan(value):
@@ -67,8 +77,12 @@ def plan(value):
                 require(key not in dest or dest[key] == body)
                 dest[key] = copy.deepcopy(body)
     require(sibling_count <= 1)
-    known_names = {digest(v['names']) for v in profiles.values() if 'names' in v}
-    require(not (names & known_names))
+    known_names = {pair for v in profiles.values() if 'names' in v
+                   for pair in locale_name_pairs(v['names'])}
+    new_names = {pair for g in value['groups']
+                 for e in g['entries'] + ([] if g['sibling'] is None else [g['sibling']])
+                 for pair in locale_name_pairs(e['payload']['names'])}
+    require(not (new_names & known_names))
     # Unknown policy is scoped to all and only this package's explicitly pinned
     # existing profiles; new profiles have a separate, explicit policy flag.
     require(inventory(value) <= value['max_requests'])
