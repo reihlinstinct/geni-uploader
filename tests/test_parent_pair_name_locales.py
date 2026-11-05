@@ -72,3 +72,9 @@ def test_distinct_locale_text_is_not_cross_compared():
     pinned = next(iter(g['profiles'].values()))
     pinned['names']['he'] = pinned['names'].pop('en-US')
     assert m.plan(c) == c
+
+
+def test_collision_key_canonicalizes_decomposed_unicode_directly():
+    composed = {'en': {'first_name': 'ZZ-Caf\u00e9', 'last_name': 'ZZ-Family'}}
+    decomposed = {'en-US': {'first_name': 'ZZ-Cafe\u0301', 'last_name': 'ZZ-Family'}}
+    assert m.locale_name_pairs(composed) == m.locale_name_pairs(decomposed)
