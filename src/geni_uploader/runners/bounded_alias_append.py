@@ -44,6 +44,12 @@ def snapshot(actual):
     return result
 
 
+def comparison_key(text):
+    """Collision key only; never rewrite stored or approved alias text."""
+    return unicodedata.normalize('NFC', ' '.join(
+        unicodedata.normalize('NFC', text).split()).casefold())
+
+
 def plan(value):
     exact(value, ('schema', 'owner', 'expect_name', 'target', 'expected', 'append',
                   'expires_at', 'accept_unknown_merge_metadata'))
@@ -67,7 +73,7 @@ def plan(value):
                 and '  ' not in text
                 and not any(unicodedata.category(c) in ('Cf', 'Zl', 'Zp', 'Cc')
                             or (c.isspace() and c != ' ') for c in text))
-    folded = [text.casefold() for text in old + added]
+    folded = [comparison_key(text) for text in old + added]
     require(len(set(folded)) == len(folded))
     result = copy.deepcopy(value)
     result['expected'] = before
