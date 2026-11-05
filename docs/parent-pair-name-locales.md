@@ -13,7 +13,8 @@ edit or change to privacy/life-status requirements. A missing served name map
 is not filled from a top-level display name. Existing payload validation still
 runs before comparison; malformed or untrimmed creation fields remain blocked.
 
-Synthetic tests were run before the source fix: seven failed and five passed.
+The initial 12-test synthetic suite was run before the source fix: seven failed
+and five passed. Five later tests bring the final regression file to 17 tests.
 They cover both locale mappings, case, Unicode decomposition, whitespace already
 rejected by payload validation, different first/last pairs, extra middle names
 and absent pinned name maps. No credentials, network, workflow dispatch or Geni
