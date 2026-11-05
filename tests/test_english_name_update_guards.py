@@ -20,7 +20,7 @@ class OwnerIO(IO):
 
 
 @pytest.mark.parametrize('owner', [
-    {'id': 'profile-990009', 'first_name': 'ZZ', 'last_name': 'Owner'},   # wrong account
+    {'id': 'profile-990004', 'first_name': 'ZZ', 'last_name': 'Owner'},   # wrong account
     {'id': OWNER, 'first_name': 'ZZ', 'last_name': 'Other'}])             # wrong expect_name
 def test_probe_account_binding_before_any_write(owner):
     c, store = plan(), Store()
@@ -145,7 +145,7 @@ def _env_with_config(tmp_path, c, **cfg_changes):
 
 
 @pytest.mark.parametrize('changes', [{'expires_at': 899}, {'expect_name': 'ZZ Someone Else'},
-                                     {'owner': 'profile-990009'}])
+                                     {'owner': 'profile-990004'}])
 def test_probe_plan_config_consistency(tmp_path, monkeypatch, changes):
     c = plan()
 
