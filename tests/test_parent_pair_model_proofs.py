@@ -60,7 +60,7 @@ def test_each_family_proof_blocks_on_its_own(where, posts):
         if where == 'created_reciprocal':
             hit = len(io.posts) == 1 and n not in g['profiles']
         if hit:
-            v['nodes'][n]['edges'][f.PARENTS] = {'rel': 'partner'}
+            v['nodes'][n]['edges']['union-980004'] = {'rel': 'partner'}
         return v
     io.get_family = get
     r, io, _, _ = run(c, io)
