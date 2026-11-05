@@ -58,9 +58,9 @@ def test_each_family_proof_blocks_on_its_own(where, posts):
             state['anchor_reads_after_second'] += 1
             hit = state['anchor_reads_after_second'] == 1
         if where == 'created_reciprocal':
-            hit = len(io.posts) == 1 and n.startswith('profile-9901')  # created ids
+            hit = len(io.posts) == 1 and n not in g['profiles']
         if hit:
-            v['nodes'][n]['edges']['union-980099'] = {'rel': 'partner'}
+            v['nodes'][n]['edges'][f.PARENTS] = {'rel': 'partner'}
         return v
     io.get_family = get
     r, io, _, _ = run(c, io)
@@ -69,7 +69,7 @@ def test_each_family_proof_blocks_on_its_own(where, posts):
 
 def test_path_union_extra_member_stops_before_send():
     c = config(); io = IO(c); u = c['groups'][0]['path_unions'][0]
-    io.unions[u]['profile-990099'] = 'child'
+    io.unions[u]['profile-990004'] = 'child'
     r, io, _, _ = run(c, io)
     assert r['phase'] == 'STOPPED' and not io.posts
 
