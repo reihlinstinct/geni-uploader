@@ -1,6 +1,7 @@
 # Private keyed forbidden-term check (#733, separate security slice)
 
-Status: proposal only. No terms, hashes, keys, workflow or scanner added.
+Status: approved. Public scanner core: `tools/check_private_terms.py`.
+No terms, keys, real digests or workflow added.
 This complements the pattern-only placeholder checker, not a replacement for it.
 
 ## Placement and custody

@@ -101,6 +101,27 @@ updates drifted outputs locally and is refused when `GITHUB_ACTIONS=true` or
 `CI=true`. The renderer does not prove prose free of real names; review is
 still required.
 
+## Keyed private-term scanner core (#733)
+
+`tools/check_private_terms.py` is the public core of the keyed check in
+`docs/keyed-public-terms-design.md`. It holds no terms, key or real digests;
+no workflow runs it yet.
+
+```sh
+PRIVATE_TERMS_KEY=... python tools/check_private_terms.py --policy FILE [--root DIR] [--expect-tree OID] [--findings]
+```
+
+The HMAC key comes only from the `PRIVATE_TERMS_KEY` environment variable
+(at least 32 bytes), never from an argument. `--policy` names the JSON
+digest file (schema, algorithm, normalization and policy versions, keyed
+HMAC-SHA256 entries, optional exact-position exceptions with reason and
+expiry). `--expect-tree` binds the result to an exact git tree id;
+`--findings` adds `PATH:LINE:TOKEN: private-term` lines. Output never
+contains a term, normalized token, digest or key. Exit 0 clean, 1 blocked,
+2 not evaluated (missing key or policy, unsupported version, cap exceeded,
+unreadable file, symlink, tree mismatch). Public tests use synthetic
+persona fields and a public test key only.
+
 ## Known blind spots
 
 Bare numeric IDs in prose are not reliably distinguishable from fixture

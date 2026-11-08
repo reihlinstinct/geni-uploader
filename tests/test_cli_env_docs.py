@@ -30,6 +30,7 @@ ENTRY_POINTS = {
     'tools/check_repo_layout.py': ['docs/repo-layout.md'],
     'tools/check_public_placeholders.py': ['docs/synthetic-personas.md'],
     'tools/render_persona_docs.py': ['docs/synthetic-personas.md'],
+    'tools/check_private_terms.py': ['docs/synthetic-personas.md'],
     'tools/image_descriptor.py': ['docs/image-release.md'],
     'tools/build_man_pages.py': ['README.md'],
 }
@@ -70,7 +71,8 @@ ENV_DOCS = {
         'TGP_MODE', 'TGP_CONFIG_JSON', 'TGP_CONFIG_SHA256', 'TGP_EXECUTOR_SHA',
         'TGP_CONFIRM', 'TGP_OUTPUT_DIR', 'TGP_DEBUG', 'TGP_TREE_PAT')},
     **{key: ['docs/synthetic-personas.md'] for key in (
-        'CI', 'GITHUB_ACTIONS', 'GITHUB_BASE_REF', 'GITHUB_EVENT_PATH')},
+        'CI', 'GITHUB_ACTIONS', 'GITHUB_BASE_REF', 'GITHUB_EVENT_PATH',
+        'PRIVATE_TERMS_KEY')},
     **{key: ['docs/protected-parent-addition.md'] for key in (
         'PARENT_CONFIG_JSON', 'PARENT_CONFIG_SHA256', 'PARENT_EXECUTOR_SHA',
         'PARENT_CONFIRM', 'PARENT_OUTPUT_DIR', 'PARENT_DEBUG', 'PARENT_TREE_PAT')},
@@ -179,6 +181,7 @@ MARKERS = {
     'tools/check_repo_layout.py': 'tools/check_repo_layout.py',
     'tools/check_public_placeholders.py': 'tools/check_public_placeholders.py',
     'tools/render_persona_docs.py': 'tools/render_persona_docs.py',
+    'tools/check_private_terms.py': 'tools/check_private_terms.py',
     'image_descriptor.py': 'tools/image_descriptor.py',
     'build_man_pages.py': 'tools/build_man_pages.py',
 }
