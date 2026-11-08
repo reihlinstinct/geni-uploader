@@ -23,8 +23,7 @@
       "Dockerfile.*",
       "entrypoint.sh",
       "pyproject.toml",
-      "requirements*.txt",
-      "deps-inventory.json"
+      "requirements*.txt"
     ],
     "deny": [
       "*.py"
