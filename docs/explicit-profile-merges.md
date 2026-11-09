@@ -66,7 +66,7 @@ open it. The module has no HTTP client, credential reader, CLI or workflow.
 Synthetic shape:
 
 ```json
-{"schema":"geni-explicit-merge/v1","request_id":"ZZ-request","owner":"profile-91",
+{"schema":"geni-explicit-merge/v1","request_id":"ZZ-request","owner":"profile-990001",
  "expires_at":2000000000,"pairs":[{"pair_id":"ZZ-pair",
  "left":{"url":"https://www.geni.com/people/ZZPersona/101","guid":"101","expect_name":"ZZPersona"},
  "right":{"url":"https://www.geni.com/people/ZZPersona/102","guid":"102","expect_name":"ZZPersona"},
@@ -77,7 +77,7 @@ Synthetic shape:
 ## API contract: what is and is not known
 
 Official [merge documentation](https://www.geni.com/platform/developer/help/api?path=profile%2Fmerge&version=1)
-shows POST `/api/profile-122248213/merge/profile-2`, but does not state which
+shows a POST with canonical profile node IDs in both path positions, but does not state which
 profile survives, GUID acceptance, permission behavior, response shape, pending
 merge behavior, conflict handling or rollback. Do not invent an unmerge API from
 an undocumented path. Survivor direction and final-state contract need official

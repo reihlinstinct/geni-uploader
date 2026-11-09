@@ -25,7 +25,7 @@ def proposal():
     return {
         "schema": "geni-explicit-merge/v1",
         "request_id": "ZZ-request",
-        "owner": "profile-91",
+        "owner": "profile-990001",
         "expires_at": 2000000000,
         "pairs": [
             {
@@ -104,7 +104,7 @@ def test_unknown_fields_and_bool_timestamp_rejected(proposal):
 
 def test_canonical_resolution_does_not_conflate_guid_with_node(proposal):
     served = {
-        "id": "profile-42",
+        "id": "profile-990002",
         "guid": "101",
         "name": "ZZPersona",
         "merge_pending": False,
@@ -112,12 +112,12 @@ def test_canonical_resolution_does_not_conflate_guid_with_node(proposal):
         "locked": False,
     }
     profile = proposal["pairs"][0]["left"]
-    assert verify_resolution(profile, served) == "profile-42"
+    assert verify_resolution(profile, served) == "profile-990002"
     for key, value in [
         ("guid", "999"),
         ("name", "ZZOther"),
         ("merge_pending", True),
-        ("merged_into", "profile-9"),
+        ("merged_into", "profile-990003"),
         ("claimed", True),
         ("locked", True),
         ("id", "profile-g101"),
