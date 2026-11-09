@@ -287,6 +287,8 @@ def test_each_preflight_guard_blocks_before_claim(proposal, binding, field, valu
         ("conflict_center_checked", False),
         ("conflicts", ["ZZ-invalid"]),
         ("conflicts", [{}]),
+        ("conflicts", [{"field": "ZZ-field", "kept": None, "alternative": None, "ZZ-extra": None}]),
+        ("conflicts", [{"field": "Z" * 129, "kept": None, "alternative": None}]),
         ("conflicts", [{"field": "", "kept": None, "alternative": None}]),
         ("conflicts", [{"field": "ZZ-field", "kept": float("inf"), "alternative": None}]),
         ("conflicts", [{"field": "ZZ-field", "kept": None, "alternative": None}] * 257),
@@ -355,3 +357,46 @@ def test_only_literal_true_acquires_a_claim(returned):
     backend = Backend()
     backend.compare_and_append = lambda *args: returned
     assert PrivateGitClaims(backend).claim("c" * 64, "d" * 64) is False
+
+
+@pytest.mark.parametrize("change", ["label", "order"])
+def test_same_approval_claim_ignores_pair_label_and_guid_order(proposal, binding, change):
+    backend = Backend()
+    adapter = Adapter(admit(proposal, binding, binding, 150), binding)
+    _execute_admitted(
+        proposal, binding, binding, 150, adapter, PrivateGitClaims(backend), Evidence()
+    )
+    pair = proposal["pairs"][0]
+    if change == "label":
+        pair["pair_id"] = "ZZ-new-label"
+    else:
+        pair["left"], pair["right"] = pair["right"], pair["left"]
+    binding["proposal_sha256"] = digest(proposal)
+    second = Adapter(admit(proposal, binding, binding, 150), binding)
+    result = _execute_admitted(
+        proposal, binding, binding, 150, second, PrivateGitClaims(backend), Evidence()
+    )
+    assert result[0]["status"] == "ALREADY_CLAIMED_REVIEW_REQUIRED"
+    assert second.posts == 0 and len(backend.records) == 1
+
+
+@pytest.mark.parametrize("flag", [False, None, "missing"])
+@pytest.mark.parametrize(
+    "failed", ["identity_verified", "information_preserved", "conflict_center_checked"]
+)
+def test_survivor_review_stop_precedes_generic_failure(proposal, binding, flag, failed):
+    adapter = Adapter(admit(proposal, binding, binding, 150), binding)
+    raw = adapter.readback(None, None, None)
+    raw[failed] = False
+    if flag == "missing":
+        del raw["remaining_is_approved_survivor"]
+    else:
+        raw["remaining_is_approved_survivor"] = flag
+    adapter.readback = lambda *args: raw
+    evidence = Evidence()
+    result = _execute_admitted(
+        proposal, binding, binding, 150, adapter, PrivateGitClaims(Backend()), evidence
+    )
+    assert result[0]["status"] == "SURVIVOR_FLIP_REVIEW_REQUIRED"
+    assert result[0]["readback"] == raw and evidence.rows[-1] == result[0]
+    assert result[0]["readback"] is not raw and adapter.posts == 1

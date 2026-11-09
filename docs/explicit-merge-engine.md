@@ -21,16 +21,18 @@ Synthetic coordinator tests exercise this sequence: fresh admission and exact
 pair preflight, durable single-use claim, private CLAIMED evidence, one POST,
 private readback. No uncertain write is retried. Any post-attempt exception,
 pending result, unverified identity/data or unchecked Conflict Center is UNKNOWN
+when the survivor flag is explicitly True
 and stops the batch. A retained conflict is reported for human choice, never
 resolved by this coordinator. Remaining ID must be one of the two resolved IDs.
 The adapter must explicitly confirm `remaining_is_approved_survivor is True`.
 A false, missing or non-boolean flag retains the private readback and stops with
-SURVIVOR_FLIP_REVIEW_REQUIRED, never VERIFIED. This is a conservative review stop,
+SURVIVOR_FLIP_REVIEW_REQUIRED, never VERIFIED. This status takes precedence over
+other verification failures; bounded detached readback is retained before checks.
+No review-stop status claims successful data verification. This is a conservative review stop,
 not a claim about a user's survivor choice or the provider's merge direction.
 Readback is detached bounded JSON (1 MiB); at most 256 conflicts each carry exactly
 field, kept and alternative, with a non-empty field name of at most 128 characters;
-non-finite values are rejected. Neither conflicts nor evidence are silently dropped;
-
+non-finite values are rejected. Neither conflicts nor evidence are silently dropped.
 HTTP200 alone is not merge verification. Unavailable private evidence stops work.
 
 The injected preflight/readback contracts still need a reviewed implementation.

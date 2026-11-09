@@ -132,29 +132,26 @@ def _execute_admitted(proposal, binding, trusted, now, adapter, ledger, evidence
             response = adapter.post_once(plan)
             readback = adapter.readback(pair, plan, response)
             readback = _detached_readback(readback)
-            _require(readback.get("identity_verified") is True)
-            _require(readback.get("information_preserved") is True)
-            _require(readback.get("conflict_center_checked") is True)
-            conflicts = readback.get("conflicts")
-            _require(type(conflicts) is list and len(conflicts) <= 256)
-            for conflict in conflicts:
-                _require(
-                    type(conflict) is dict and set(conflict) == {"field", "kept", "alternative"}
-                )
-                _require(type(conflict["field"]) is str and 0 < len(conflict["field"]) <= 128)
-            _require(type(readback.get("remaining_id")) is str)
-            _require(re.fullmatch(r"profile-[1-9][0-9]{0,19}", readback["remaining_id"]))
-            _require(readback["remaining_id"] in ids)
-            _require(readback.get("pending") is False)
-            # Conflicts are retained for human choice, never selected or cleared.
-            state.update(
-                status=(
-                    "VERIFIED"
-                    if readback.get("remaining_is_approved_survivor") is True
-                    else "SURVIVOR_FLIP_REVIEW_REQUIRED"
-                ),
-                readback=readback,
-            )
+            state["readback"] = readback
+            if readback.get("remaining_is_approved_survivor") is not True:
+                state["status"] = "SURVIVOR_FLIP_REVIEW_REQUIRED"
+            else:
+                _require(readback.get("identity_verified") is True)
+                _require(readback.get("information_preserved") is True)
+                _require(readback.get("conflict_center_checked") is True)
+                conflicts = readback.get("conflicts")
+                _require(type(conflicts) is list and len(conflicts) <= 256)
+                for conflict in conflicts:
+                    _require(
+                        type(conflict) is dict and set(conflict) == {"field", "kept", "alternative"}
+                    )
+                    _require(type(conflict["field"]) is str and 0 < len(conflict["field"]) <= 128)
+                _require(type(readback.get("remaining_id")) is str)
+                _require(re.fullmatch(r"profile-[1-9][0-9]{0,19}", readback["remaining_id"]))
+                _require(readback["remaining_id"] in ids)
+                _require(readback.get("pending") is False)
+                # Conflicts are retained for human choice, never selected or cleared.
+                state["status"] = "VERIFIED"
         except Exception:  # noqa: BLE001 - terminal boundary, no external exception text
             state["status"] = "UNKNOWN"
         _persist(evidence, state)
