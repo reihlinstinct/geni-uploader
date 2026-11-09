@@ -51,3 +51,9 @@ path and file type, lowercase hexadecimal intent shape, and GET bodies before
 any request. A real urllib opener is tested against an ephemeral loopback-only
 redirect server: one request, a fixed HTTP error, and no follow-up. No external
 service or credential is used by that test.
+
+The transport explicitly disables environment-derived proxies with
+`ProxyHandler({})`. Its actual client opener must install the no-redirect handler;
+a regression sets ambient proxy variables and checks the constructed client.
+Only direct requests to the configured allowed origin are supported. This is
+not certificate pinning or evidence of a reviewed live connection.

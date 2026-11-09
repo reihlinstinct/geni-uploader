@@ -4,7 +4,7 @@ import json
 import math
 from urllib.error import HTTPError
 from urllib.parse import urlsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 from geni_uploader.core.merge_request import InvalidMergeRequest
 
@@ -26,7 +26,7 @@ class BoundedJSONHTTP:
             raise InvalidMergeRequest("merge transport credential blocked")
         self.origin = origin
         self._token = token
-        self._opener = build_opener(_NoRedirect())
+        self._opener = build_opener(ProxyHandler({}), _NoRedirect())
 
     def __call__(self, method, path, body=None):
         try:

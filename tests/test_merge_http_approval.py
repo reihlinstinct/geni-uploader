@@ -279,3 +279,16 @@ def test_real_opener_blocks_redirect_without_followup():
 def test_finite_json_float_remains_allowed():
     client = client_with(b'{"ZZ":1.25e2}')
     assert client("GET", "/ZZ") == {"ZZ": 125.0}
+
+
+def test_actual_client_installs_no_redirect_and_ignores_ambient_proxy(monkeypatch):
+    from urllib.request import ProxyHandler
+
+    from geni_uploader.workflow.merge_http import _NoRedirect
+
+    monkeypatch.setenv("HTTPS_PROXY", "http://ZZ-proxy.invalid:8888")
+    monkeypatch.setenv("HTTP_PROXY", "http://ZZ-proxy.invalid:8888")
+    client = BoundedJSONHTTP("https://api.github.com", "ZZ-token")
+    assert any(isinstance(handler, _NoRedirect) for handler in client._opener.handlers)
+    proxies = [handler for handler in client._opener.handlers if isinstance(handler, ProxyHandler)]
+    assert not proxies or all(not handler.proxies for handler in proxies)
