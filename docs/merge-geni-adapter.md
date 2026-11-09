@@ -43,10 +43,10 @@ a proposal, a provider body or a caller's own copy.
   it. If the actual remaining profile is not the approved survivor, the
   readback returns the explicit outcome `remaining_is_approved_survivor=false`
   with the actual remaining ID and the adapter fails closed
-  (`identity_verified=false`): a flip is never VERIFIED. The current engine
-  records UNKNOWN and stops the batch; the engine lane's PR adds the distinct
-  SURVIVOR_FLIP_REVIEW_REQUIRED state, which takes priority over the generic
-  booleans, and this slice lands only after rebasing onto it. Stopping on a
+  (`identity_verified=false`): a flip is never VERIFIED. The engine
+  prioritizes the flag over the generic booleans and records the distinct
+  SURVIVOR_FLIP_REVIEW_REQUIRED state with the readback evidence, stopping the
+  batch for private review. Stopping on a
   flip is the conservative first-run policy choice; relaxing it to
   report-without-stop is a documented one-line change in the engine if the
   owner later decides direction does not matter. Identity (ID, GUID, name)

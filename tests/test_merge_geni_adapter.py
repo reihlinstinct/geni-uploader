@@ -536,8 +536,9 @@ def test_readback_direction_flip_is_a_distinct_reported_outcome(
     readback = adapter.readback(proposal["pairs"][0], plan, response)
     assert readback["remaining_id"] == SOURCE
     assert readback["remaining_is_approved_survivor"] is False
-    # Fail closed: the current engine records UNKNOWN and stops; the engine
-    # lane's update prioritizes the flip flag as SURVIVOR_FLIP_REVIEW_REQUIRED.
+    # Fail closed: the engine prioritizes the flag and records
+    # SURVIVOR_FLIP_REVIEW_REQUIRED; identity_verified=False keeps even an
+    # engine without flag handling from ever verifying a flip.
     assert readback["identity_verified"] is False
     assert readback["information_preserved"] is True
     assert readback["conflict_center_checked"] is True
@@ -718,7 +719,7 @@ def test_engine_flow_verified_with_conflicts(proposal, binding, approved_plan):
     assert [row["status"] for row in evidence.rows] == ["CLAIMED", "VERIFIED"]
 
 
-def test_engine_flow_flip_fails_closed_until_the_engine_update_lands(
+def test_engine_flow_flip_is_review_required_never_verified(
     proposal, binding, approved_plan
 ):
     routes = premerge_routes()
@@ -726,16 +727,18 @@ def test_engine_flow_flip_fails_closed_until_the_engine_update_lands(
     routes[_node_path(SOURCE)] = served(SOURCE, "102", **SOURCE_TRACKED)
     routes[_node_path(SURVIVOR)] = served(SURVIVOR, "101", merged_into=SOURCE, **SURVIVOR_TRACKED)
     adapter = make_adapter(routes, proposal, binding, approved_plan)
+    evidence = Evidence()
     results = _execute_admitted(
-        proposal, binding, copy.deepcopy(binding), 150, adapter, Ledger(), Evidence()
+        proposal, binding, copy.deepcopy(binding), 150, adapter, Ledger(), evidence
     )
-    # The base engine has no flip handling: the fail-closed
-    # identity_verified=False records UNKNOWN and stops the batch, never
-    # VERIFIED. Once this slice rebases onto the engine lane's update, the
-    # remaining_is_approved_survivor=False flag takes priority and the
-    # outcome becomes SURVIVOR_FLIP_REVIEW_REQUIRED.
-    assert [r["status"] for r in results] == ["UNKNOWN"]
+    # A flipped survivor is a distinct review stop with the actual remaining ID
+    # reported in the persisted readback evidence, never VERIFIED.
+    assert [r["status"] for r in results] == ["SURVIVOR_FLIP_REVIEW_REQUIRED"]
     assert results[0]["post_attempted"] is True
+    assert results[0]["readback"]["remaining_id"] == SOURCE
+    assert results[0]["readback"]["remaining_is_approved_survivor"] is False
+    assert results[0]["readback"]["identity_verified"] is False
+    assert evidence.rows[-1]["status"] == "SURVIVOR_FLIP_REVIEW_REQUIRED"
 
 
 def test_engine_flow_unknown_on_failed_readback_stops_batch(proposal, binding, approved_plan):

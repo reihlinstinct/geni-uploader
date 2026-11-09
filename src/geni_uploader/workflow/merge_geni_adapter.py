@@ -22,8 +22,8 @@ Contract (consumed by merge_engine._execute_admitted):
   profile that is not the approved survivor is reported as the explicit outcome
   remaining_is_approved_survivor=False with the actual remaining ID; the adapter
   fails closed on a flip (identity_verified=False), so a flip is never VERIFIED:
-  the current engine records UNKNOWN and stops, and the engine lane's update
-  records the distinct SURVIVOR_FLIP_REVIEW_REQUIRED.
+  the engine prioritizes the flag and records the distinct
+  SURVIVOR_FLIP_REVIEW_REQUIRED, stopping the batch for private review.
 Any transport failure (including 429) latches the adapter: every later call fails
 without a new request, so a rate block can never be fed more calls.
 """
@@ -344,9 +344,9 @@ class GeniMergeAdapter:
         If the actual remaining profile is not the approved survivor, the
         explicit outcome remaining_is_approved_survivor=False is returned with
         the actual remaining ID and the adapter fails closed
-        (identity_verified=False): the current engine records UNKNOWN and stops,
-        and the engine lane's update records the distinct
-        SURVIVOR_FLIP_REVIEW_REQUIRED. A flip is never VERIFIED. The retired
+        (identity_verified=False): the engine prioritizes the flag and records
+        the distinct SURVIVOR_FLIP_REVIEW_REQUIRED, stopping the batch for
+        private review. A flip is never VERIFIED. The retired
         profile must still carry its exact pre-merge tracked values: those
         retained values are the provider's Conflict Center alternatives, so
         their presence is what conflict_center_checked confirms. Conflicts are
@@ -383,9 +383,8 @@ class GeniMergeAdapter:
         )
         # A flipped direction is an explicit, distinctly named outcome with the
         # actual remaining ID reported, never VERIFIED. The adapter fails closed
-        # (identity_verified=False): the current engine records UNKNOWN and
-        # stops, and the engine lane's update records the distinct
-        # SURVIVOR_FLIP_REVIEW_REQUIRED.
+        # (identity_verified=False): the engine prioritizes the flag and records
+        # the distinct SURVIVOR_FLIP_REVIEW_REQUIRED, stopping the batch.
         approved_survivor = remaining_id == stored["expected_survivor_id"]
         for node in order:
             body = served[node]
