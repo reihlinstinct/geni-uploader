@@ -242,7 +242,7 @@ class GeniMergeAdapter:
             raise InvalidMergeRequest("merge adapter plan blocked")
         self._clock = clock
         self._halted = False
-        self._preflighted = set()
+        self._plans = {}
         self._posted = set()
 
     def now(self):
@@ -284,8 +284,7 @@ class GeniMergeAdapter:
             tracked = _extract_tracked(served)
             _require(tracked == approved["tracked"], "merge adapter preflight blocked")
             before[node] = {"guid": side["guid"], "name": served["name"], "tracked": tracked}
-        self._preflighted.add(pair_id)
-        return {
+        plan = {
             "ready": True,
             "pair_id": pair_id,
             "binding_sha256": binding_hash,
@@ -295,18 +294,23 @@ class GeniMergeAdapter:
             "expected_survivor_id": pair_plan["resolved"][pair_plan["survivor_guid"]]["id"],
             "before": before,
         }
+        self._plans[pair_id] = plan
+        return plan
 
     def post_once(self, plan):
-        """Exactly one merge POST in the approved path order. Never retried."""
+        """Exactly one merge POST in the approved path order. Never retried.
+
+        Only the adapter's own preflight artifact is honored: a caller-supplied
+        plan that differs from it never reaches the transport.
+        """
         self._require_open()
-        _require(type(plan) is dict and plan.get("ready") is True, "merge adapter post blocked")
-        pair_id = plan.get("pair_id")
+        pair_id = plan.get("pair_id") if type(plan) is dict else None
+        stored = self._plans.get(pair_id)
         _require(
-            pair_id in self._preflighted and pair_id not in self._posted,
+            stored is not None and plan == stored and pair_id not in self._posted,
             "merge adapter post blocked",
         )
-        order = plan.get("path_order")
-        _require(order == self._pair_plan(pair_id)["path_order"], "merge adapter post blocked")
+        order = stored["path_order"]
         # Consume before the attempt: an exception can follow vendor receipt.
         self._posted.add(pair_id)
         try:
@@ -319,27 +323,27 @@ class GeniMergeAdapter:
     def readback(self, pair, plan, response):
         """Combined-data and Conflict Center readback after the single attempt.
 
-        Both profiles must survive: exactly one remaining with no merged_into, the
-        other retired into it. The actual remaining profile is identified from the
-        readback, not assumed from the approved direction. Conflicts are enumerated
-        for human resolution in the provider's Conflict Center and never stop the
-        executor; missing, hidden, partial or changed data is reported unverified.
+        Only the adapter's own preflight artifact is honored: a caller-supplied
+        plan that differs from it is rejected. Both profiles must survive:
+        exactly one remaining with no merged_into, the other retired into it.
+        The remaining profile must be the approved survivor; a flipped direction
+        is never a verified merge and stops for private review. The retired
+        profile must still carry its exact pre-merge tracked values: those
+        retained values are the provider's Conflict Center alternatives, so
+        their presence is what conflict_center_checked confirms. Conflicts are
+        enumerated for human resolution and never stop the executor; missing,
+        hidden, partial, redirected, pending or changed data fails verification.
         """
         self._require_open()
         _require(type(pair) is dict and type(plan) is dict, "merge adapter readback blocked")
+        pair_id = pair.get("pair_id")
+        stored = self._plans.get(pair_id)
         _require(
-            plan.get("pair_id") == pair.get("pair_id") and pair.get("pair_id") in self._posted,
+            stored is not None and plan == stored and pair_id in self._posted,
             "merge adapter readback blocked",
         )
-        order = plan.get("path_order")
-        before = plan.get("before")
-        _require(
-            type(order) is list
-            and len(order) == 2
-            and type(before) is dict
-            and set(before) == set(order),
-            "merge adapter readback blocked",
-        )
+        order = stored["path_order"]
+        before = stored["before"]
         if type(response) is dict:
             _require(response.get("merge_pending") is not True, "merge adapter readback blocked")
             _require(
@@ -358,6 +362,9 @@ class GeniMergeAdapter:
         _require(
             served[retired_id]["merged_into"] == remaining_id, "merge adapter readback blocked"
         )
+        # The approved survivor must be the one that remains; a flipped direction
+        # is an unresolved outcome, never a verified merge.
+        _require(remaining_id == stored["expected_survivor_id"], "merge adapter readback blocked")
         for node in order:
             body = served[node]
             _require(body.get("id") == node, "merge adapter readback blocked")
@@ -366,12 +373,17 @@ class GeniMergeAdapter:
             _require(body.get("merge_pending") is False, "merge adapter readback blocked")
         _require(served[remaining_id].get("claimed") is False, "merge adapter readback blocked")
         _require(served[remaining_id].get("locked") is False, "merge adapter readback blocked")
+        # Conflict Center check: the retired profile survives and must retain its
+        # exact pre-merge tracked values, which are the conflict alternatives.
+        conflict_center_checked = _extract_tracked(served[retired_id]) == before[retired_id][
+            "tracked"
+        ]
         after_tracked = _extract_tracked(served[remaining_id])
         preserved, conflicts = _coverage(before, remaining_id, retired_id, after_tracked)
         return {
             "identity_verified": True,
             "information_preserved": preserved,
-            "conflict_center_checked": True,
+            "conflict_center_checked": conflict_center_checked,
             "conflicts": conflicts,
             "remaining_id": remaining_id,
             "pending": False,

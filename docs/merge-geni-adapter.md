@@ -29,22 +29,25 @@ a proposal, a provider body or a caller's own copy.
   approved path order and the canonical before-snapshot.
 - `post_once(plan)` sends exactly one `POST /api/profile-<A>/merge/profile-<B>`
   per the official merge documentation, with `<A>`/`<B>` taken from the approved
-  plan's path order. The pair is consumed before the attempt: a consumed pair
-  can never POST twice. No retry, no fallback direction, no partner discovery,
-  no profile creation, no field resolution. Which path position survives is not
+  plan's path order as captured by this adapter's own preflight artifact. The
+  pair is consumed before the attempt: a consumed pair can never POST twice. No
+  retry, no fallback direction, no partner discovery, no profile creation, no
+  field resolution. Which path position survives is not
   documented by the provider; the adapter maps the approved order mechanically
   and direction semantics remain a release gate, settled only by reviewed
   human-observed evidence.
 - `readback(pair, plan, response)` re-reads both profiles by canonical node ID.
-  Both profiles must survive: exactly one remaining with no merged_into, the
-  other retired with merged_into pointing at it. The actual remaining profile is
-  identified from the readback, not assumed from the approved direction.
-  Identity (ID, GUID, name) must match the before-snapshot, and false flags are
-  never assumed from omitted fields: merge_pending must be explicitly false on
-  both, claimed/locked explicitly false on the remaining profile. Tracked data
-  is preserved exactly or fully enumerated as retained conflicts (below).
-  Anything missing, hidden, partial, redirected, pending or changed fails
-  verification; the engine records UNKNOWN and stops the batch.
+  Only the adapter's own preflight artifact is honored; a caller-supplied plan
+  that differs from it is rejected. Both profiles must survive: exactly one
+  remaining with no merged_into, the other retired with merged_into pointing at
+  it. The remaining profile must be the approved survivor: a flipped direction
+  is an unresolved outcome, never a verified merge, and stops for private
+  review. Identity (ID, GUID, name) must match the before-snapshot, and false
+  flags are never assumed from omitted fields: merge_pending must be explicitly
+  false on both, claimed/locked explicitly false on the remaining profile.
+  Tracked data is preserved exactly or fully enumerated as retained conflicts
+  (below). Anything missing, hidden, partial, redirected, pending or changed
+  fails verification; the engine records UNKNOWN and stops the batch.
 
 ## Approved plan schema `geni-explicit-merge-plan/v1`
 
@@ -89,9 +92,13 @@ The adapter only enumerates and reports conflicts; it never selects, clears or
 resolves one, and conflicts never stop the executor. For each tracked field,
 the remaining profile's post-merge value must equal its own pre-merge value or
 the retired profile's. When both pre-merge values were non-blank and differ,
-the value that did not survive is reported as a conflict alternative. Any other
-outcome - lost, hidden or partial data - is unverified, never success, and the
-engine records UNKNOWN and stops the batch.
+the value that did not survive is reported as a conflict alternative.
+`conflict_center_checked` is a real postcondition, never hard-coded: the
+retired profile must still carry its exact pre-merge tracked values, because
+those retained values are the Conflict Center alternatives; if any of them is
+lost or changed, the check reports unchecked and the engine records UNKNOWN.
+Any other outcome - lost, hidden or partial data - is unverified, never
+success, and the engine records UNKNOWN and stops the batch.
 
 ## Rate block and one-attempt rules
 

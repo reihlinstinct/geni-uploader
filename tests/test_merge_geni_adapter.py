@@ -106,7 +106,9 @@ def postmerge_routes():
     remaining = served(
         SURVIVOR, "101", first_name="ZZFirst", maiden_name="ZZSource", birth={"date": "ZZ-1900"}
     )
-    retired = served(SOURCE, "102", merge_pending=False, merged_into=SURVIVOR)
+    # The retired profile survives and retains its exact pre-merge tracked
+    # values; those retained values are the Conflict Center alternatives.
+    retired = served(SOURCE, "102", merged_into=SURVIVOR, **SOURCE_TRACKED)
     return {_node_path(SURVIVOR): remaining, _node_path(SOURCE): retired}
 
 
@@ -451,21 +453,85 @@ def test_readback_happy_reports_conflicts(proposal, binding, approved_plan):
     }
 
 
-def test_readback_identifies_actual_remaining_when_direction_flips(
-    proposal, binding, approved_plan
-):
-    remaining = served(
-        SOURCE, "102", first_name="ZZFirst", maiden_name="ZZSource", birth={"date": "ZZ-1901"}
-    )
-    retired = served(SURVIVOR, "101", merge_pending=False, merged_into=SOURCE)
+def test_readback_direction_flip_is_never_verified(proposal, binding, approved_plan):
+    remaining = served(SOURCE, "102", **SOURCE_TRACKED)
+    retired = served(SURVIVOR, "101", merged_into=SOURCE, **SURVIVOR_TRACKED)
     routes = {_node_path(SOURCE): remaining, _node_path(SURVIVOR): retired}
     adapter, plan, response = verified_adapter(proposal, binding, approved_plan, routes)
+    with pytest.raises(InvalidMergeRequest, match="^merge adapter readback blocked$"):
+        adapter.readback(proposal["pairs"][0], plan, response)
+
+
+def test_readback_survivor_adopting_source_value_is_a_reported_conflict(
+    proposal, binding, approved_plan
+):
+    routes = postmerge_routes()
+    routes[_node_path(SURVIVOR)] = served(
+        SURVIVOR, "101", first_name="ZZFirst", maiden_name="ZZSource", birth={"date": "ZZ-1901"}
+    )
+    adapter, plan, response = verified_adapter(proposal, binding, approved_plan, routes)
     readback = adapter.readback(proposal["pairs"][0], plan, response)
-    assert readback["remaining_id"] == SOURCE
+    assert readback["remaining_id"] == SURVIVOR
     assert readback["identity_verified"] is True
     assert readback["information_preserved"] is True
+    assert readback["conflict_center_checked"] is True
     assert readback["conflicts"] == [
         {"field": "birth", "kept": {"date": "ZZ-1901"}, "alternative": {"date": "ZZ-1900"}}
+    ]
+
+
+def test_readback_unconfirmed_conflict_alternatives_are_unchecked(
+    proposal, binding, approved_plan
+):
+    routes = postmerge_routes()
+    del routes[_node_path(SOURCE)]["maiden_name"]
+    adapter, plan, response = verified_adapter(proposal, binding, approved_plan, routes)
+    readback = adapter.readback(proposal["pairs"][0], plan, response)
+    assert readback["identity_verified"] is True
+    assert readback["information_preserved"] is True
+    assert readback["conflict_center_checked"] is False
+
+
+def test_readback_rejects_caller_substituted_plan(proposal, binding, approved_plan):
+    adapter, plan, response = verified_adapter(proposal, binding, approved_plan, postmerge_routes())
+    tampered_order = copy.deepcopy(plan)
+    tampered_order["path_order"] = [SOURCE, SURVIVOR]
+    with pytest.raises(InvalidMergeRequest, match="^merge adapter readback blocked$"):
+        adapter.readback(proposal["pairs"][0], tampered_order, response)
+    tampered_before = copy.deepcopy(plan)
+    tampered_before["before"][SURVIVOR]["tracked"]["birth"] = {"date": "ZZ-1999"}
+    with pytest.raises(InvalidMergeRequest, match="^merge adapter readback blocked$"):
+        adapter.readback(proposal["pairs"][0], tampered_before, response)
+
+
+def test_preflight_rejects_listing_shaped_response(proposal, binding, approved_plan):
+    routes = premerge_routes()
+    routes[_guid_path("101")] = {"results": [served(SURVIVOR, "101", **SURVIVOR_TRACKED)]}
+    adapter = make_adapter(routes, proposal, binding, approved_plan)
+    with pytest.raises(InvalidMergeRequest):
+        adapter.preflight(proposal["pairs"][0], binding)
+
+
+def test_blank_string_is_not_a_value(proposal, binding, approved_plan):
+    approved_plan["pairs"][0]["resolved"]["102"]["tracked"]["maiden_name"] = ""
+    binding["plan_sha256"] = _canonical_hash(approved_plan)
+    routes = premerge_routes()
+    routes[_guid_path("102")] = dict(routes[_guid_path("102")], maiden_name="")
+    post = postmerge_routes()
+    post[_node_path(SURVIVOR)] = served(SURVIVOR, "101", first_name="ZZFirst",
+                                        birth={"date": "ZZ-1900"})
+    post[_node_path(SOURCE)] = served(SOURCE, "102", merged_into=SURVIVOR,
+                                      **dict(SOURCE_TRACKED, maiden_name=""))
+    routes.update(post)
+    routes["/api/" + SURVIVOR + "/merge/" + SOURCE] = {"id": SURVIVOR}
+    adapter = make_adapter(routes, proposal, binding, approved_plan)
+    plan = adapter.preflight(proposal["pairs"][0], binding)
+    response = adapter.post_once(plan)
+    readback = adapter.readback(proposal["pairs"][0], plan, response)
+    assert readback["information_preserved"] is True
+    assert readback["conflict_center_checked"] is True
+    assert readback["conflicts"] == [
+        {"field": "birth", "kept": {"date": "ZZ-1900"}, "alternative": {"date": "ZZ-1901"}}
     ]
 
 
