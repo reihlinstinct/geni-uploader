@@ -251,6 +251,7 @@ def test_pair_plan_rejections(proposal, binding, approved_plan, mutate):
 
 def test_plan_expiry_beyond_the_proposal_is_rejected(proposal, binding, approved_plan):
     approved_plan["expires_at"] = proposal["expires_at"] + 1
+    binding["plan_sha256"] = _canonical_hash(approved_plan)
     with pytest.raises(InvalidMergeRequest, match="^merge adapter plan blocked$"):
         make_adapter(premerge_routes(), proposal, binding, approved_plan)
 
