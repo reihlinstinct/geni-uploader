@@ -249,6 +249,20 @@ def test_pair_plan_rejections(proposal, binding, approved_plan, mutate):
         make_adapter(premerge_routes(), proposal, binding, approved_plan)
 
 
+def test_plan_expiry_beyond_the_proposal_is_rejected(proposal, binding, approved_plan):
+    approved_plan["expires_at"] = proposal["expires_at"] + 1
+    with pytest.raises(InvalidMergeRequest, match="^merge adapter plan blocked$"):
+        make_adapter(premerge_routes(), proposal, binding, approved_plan)
+
+
+def test_plan_over_the_byte_cap_is_rejected(proposal, binding, approved_plan, monkeypatch):
+    monkeypatch.setattr(
+        "geni_uploader.workflow.merge_geni_adapter._MAX_PLAN_BYTES", 10
+    )
+    with pytest.raises(InvalidMergeRequest, match="^merge adapter plan blocked$"):
+        make_adapter(premerge_routes(), proposal, binding, approved_plan)
+
+
 def test_plan_digest_must_match_binding(proposal, binding, approved_plan):
     binding["plan_sha256"] = "0" * 64
     with pytest.raises(InvalidMergeRequest, match="^merge adapter plan blocked$"):
@@ -476,6 +490,23 @@ def verified_adapter(proposal, binding, approved_plan, post_routes):
     plan = adapter.preflight(proposal["pairs"][0], binding)
     response = adapter.post_once(plan)
     return adapter, plan, response
+
+
+def test_readback_requires_the_single_post_first(proposal, binding, approved_plan):
+    routes = premerge_routes()
+    routes.update(postmerge_routes())
+    adapter = make_adapter(routes, proposal, binding, approved_plan)
+    plan = adapter.preflight(proposal["pairs"][0], binding)
+    with pytest.raises(InvalidMergeRequest, match="^merge adapter readback blocked$"):
+        adapter.readback(proposal["pairs"][0], plan, {"id": SURVIVOR})
+
+
+def test_readback_rejects_node_id_mismatch(proposal, binding, approved_plan):
+    routes = postmerge_routes()
+    routes[_node_path(SURVIVOR)]["id"] = SOURCE
+    adapter, plan, response = verified_adapter(proposal, binding, approved_plan, routes)
+    with pytest.raises(InvalidMergeRequest, match="^merge adapter readback blocked$"):
+        adapter.readback(proposal["pairs"][0], plan, response)
 
 
 def test_readback_happy_reports_conflicts(proposal, binding, approved_plan):
