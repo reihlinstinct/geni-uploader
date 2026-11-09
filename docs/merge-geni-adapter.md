@@ -42,12 +42,14 @@ a proposal, a provider body or a caller's own copy.
   remaining with no merged_into, the other retired with merged_into pointing at
   it. If the actual remaining profile is not the approved survivor, the
   readback returns the explicit outcome `remaining_is_approved_survivor=false`
-  with the actual remaining ID: the engine records
-  SURVIVOR_FLIP_REVIEW_REQUIRED with the readback evidence and stops the batch
-  for private review, never VERIFIED. Stopping on a flip is the conservative
-  first-run policy choice; relaxing it to report-without-stop is a documented
-  one-line change in the engine if the owner later decides direction does not
-  matter. Identity (ID, GUID, name)
+  with the actual remaining ID and the adapter fails closed
+  (`identity_verified=false`): a flip is never VERIFIED. The current engine
+  records UNKNOWN and stops the batch; the engine lane's PR adds the distinct
+  SURVIVOR_FLIP_REVIEW_REQUIRED state, which takes priority over the generic
+  booleans, and this slice lands only after rebasing onto it. Stopping on a
+  flip is the conservative first-run policy choice; relaxing it to
+  report-without-stop is a documented one-line change in the engine if the
+  owner later decides direction does not matter. Identity (ID, GUID, name)
   must match the before-snapshot, and false
   flags are never assumed from omitted fields: merge_pending must be explicitly
   false on both, claimed/locked explicitly false on the remaining profile.

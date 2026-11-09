@@ -20,12 +20,15 @@ Contract (consumed by merge_engine._execute_admitted):
   missing, hidden, partial, redirected, pending or changed is UNKNOWN via the
   engine. False flags are never assumed from omitted fields. An actual remaining
   profile that is not the approved survivor is reported as the explicit outcome
-  remaining_is_approved_survivor=False with the actual remaining ID; the engine
-  records SURVIVOR_FLIP_REVIEW_REQUIRED, never VERIFIED.
+  remaining_is_approved_survivor=False with the actual remaining ID; the adapter
+  fails closed on a flip (identity_verified=False), so a flip is never VERIFIED:
+  the current engine records UNKNOWN and stops, and the engine lane's update
+  records the distinct SURVIVOR_FLIP_REVIEW_REQUIRED.
 Any transport failure (including 429) latches the adapter: every later call fails
 without a new request, so a rate block can never be fed more calls.
 """
 
+import copy
 import hashlib
 import json
 import re
@@ -297,8 +300,10 @@ class GeniMergeAdapter:
             "expected_survivor_id": pair_plan["resolved"][pair_plan["survivor_guid"]]["id"],
             "before": before,
         }
-        self._plans[pair_id] = plan
-        return plan
+        self._plans[pair_id] = copy.deepcopy(plan)
+        # The caller gets its own deep copy: mutating it can never alias the
+        # adapter-owned artifact that post_once and readback act on.
+        return copy.deepcopy(plan)
 
     def post_once(self, plan):
         """Exactly one merge POST in the approved path order. Never retried.
@@ -313,6 +318,13 @@ class GeniMergeAdapter:
             stored is not None and plan == stored and pair_id not in self._posted,
             "merge adapter post blocked",
         )
+        # Freshness is re-checked at the single attempt, not only at preflight.
+        _require(
+            self.now() < min(self._binding["expires_at"], self._plan["expires_at"]),
+            "merge adapter post blocked",
+        )
+        # The POST path comes only from the adapter-owned artifact: the approved
+        # path order, never caller-mutable data.
         order = stored["path_order"]
         # Consume before the attempt: an exception can follow vendor receipt.
         self._posted.add(pair_id)
@@ -331,8 +343,10 @@ class GeniMergeAdapter:
         exactly one remaining with no merged_into, the other retired into it.
         If the actual remaining profile is not the approved survivor, the
         explicit outcome remaining_is_approved_survivor=False is returned with
-        the actual remaining ID; the engine records
-        SURVIVOR_FLIP_REVIEW_REQUIRED, never VERIFIED. The retired
+        the actual remaining ID and the adapter fails closed
+        (identity_verified=False): the current engine records UNKNOWN and stops,
+        and the engine lane's update records the distinct
+        SURVIVOR_FLIP_REVIEW_REQUIRED. A flip is never VERIFIED. The retired
         profile must still carry its exact pre-merge tracked values: those
         retained values are the provider's Conflict Center alternatives, so
         their presence is what conflict_center_checked confirms. Conflicts are
@@ -368,8 +382,10 @@ class GeniMergeAdapter:
             served[retired_id]["merged_into"] == remaining_id, "merge adapter readback blocked"
         )
         # A flipped direction is an explicit, distinctly named outcome with the
-        # actual remaining ID reported, never VERIFIED; the engine records
-        # SURVIVOR_FLIP_REVIEW_REQUIRED and stops for private review.
+        # actual remaining ID reported, never VERIFIED. The adapter fails closed
+        # (identity_verified=False): the current engine records UNKNOWN and
+        # stops, and the engine lane's update records the distinct
+        # SURVIVOR_FLIP_REVIEW_REQUIRED.
         approved_survivor = remaining_id == stored["expected_survivor_id"]
         for node in order:
             body = served[node]
@@ -387,7 +403,7 @@ class GeniMergeAdapter:
         after_tracked = _extract_tracked(served[remaining_id])
         preserved, conflicts = _coverage(before, remaining_id, retired_id, after_tracked)
         return {
-            "identity_verified": True,
+            "identity_verified": approved_survivor,
             "information_preserved": preserved,
             "conflict_center_checked": conflict_center_checked,
             "conflicts": conflicts,
@@ -433,12 +449,21 @@ def _coverage(before, remaining_id, retired_id, after_tracked):
         pre_kept = before[remaining_id]["tracked"].get(field)
         pre_other = before[retired_id]["tracked"].get(field)
         if _blank(pre_kept) and _blank(pre_other):
+            # Nothing was tracked before the merge; a value appearing now is an
+            # unexplained change, never success.
+            if not _blank(post):
+                preserved = False
             continue
         if not _blank(pre_kept) and not _blank(pre_other) and pre_kept != pre_other:
             if post == pre_kept:
                 conflicts.append({"field": field, "kept": pre_kept, "alternative": pre_other})
             elif post == pre_other:
                 conflicts.append({"field": field, "kept": pre_other, "alternative": pre_kept})
+                # The remaining profile adopted the retired profile's value, so
+                # its own pre-merge value is served nowhere: the retired-side
+                # check cannot confirm it, and with no real Conflict Center read
+                # this alternative is unverified, not preserved.
+                preserved = False
             else:
                 preserved = False
         else:

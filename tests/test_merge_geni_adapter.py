@@ -266,6 +266,15 @@ def test_tracked_with_null_bytes_still_bounded(proposal, binding, approved_plan)
 # Section: Clock and wire shape
 
 
+def test_constructor_rejects_non_geni_origin(proposal, binding, approved_plan):
+    transport = BoundedJSONHTTP("https://api.github.com", "ZZ-token")
+    transport._opener = Opener({})
+    with pytest.raises(InvalidMergeRequest, match="^merge adapter transport blocked$"):
+        GeniMergeAdapter(
+            transport, proposal, binding, copy.deepcopy(binding), approved_plan, clock=lambda: 150
+        )
+
+
 def test_now_is_utc_epoch_int_with_real_clock(proposal, binding, approved_plan):
     adapter = GeniMergeAdapter(
         transport_with({}), proposal, binding, copy.deepcopy(binding), approved_plan
@@ -410,6 +419,37 @@ def test_post_once_requires_preflight_and_approved_order(proposal, binding, appr
         adapter.post_once(tampered)
 
 
+def test_post_once_rejects_in_place_mutated_plan(proposal, binding, approved_plan):
+    routes = premerge_routes()
+    routes["/api/" + SURVIVOR + "/merge/" + SOURCE] = {"id": SURVIVOR}
+    adapter = make_adapter(routes, proposal, binding, approved_plan)
+    plan = adapter.preflight(proposal["pairs"][0], binding)
+    plan["path_order"].reverse()
+    with pytest.raises(InvalidMergeRequest, match="^merge adapter post blocked$"):
+        adapter.post_once(plan)
+    assert len([r for r in adapter._transport._opener.calls if r.get_method() == "POST"]) == 0
+
+
+def test_readback_rejects_in_place_mutated_before(proposal, binding, approved_plan):
+    adapter, plan, response = verified_adapter(proposal, binding, approved_plan, postmerge_routes())
+    plan["before"][SURVIVOR]["tracked"]["birth"] = {"date": "ZZ-1901"}
+    with pytest.raises(InvalidMergeRequest, match="^merge adapter readback blocked$"):
+        adapter.readback(proposal["pairs"][0], plan, response)
+
+
+def test_post_once_rechecks_freshness_at_the_attempt(proposal, binding, approved_plan):
+    routes = premerge_routes()
+    routes["/api/" + SURVIVOR + "/merge/" + SOURCE] = {"id": SURVIVOR}
+    now = [150]
+    adapter = make_adapter(routes, proposal, binding, approved_plan, clock=lambda: now[0])
+    plan = adapter.preflight(proposal["pairs"][0], binding)
+    # The binding expires at 200; a POST long after preflight is never sent.
+    now[0] = 10**9
+    with pytest.raises(InvalidMergeRequest, match="^merge adapter post blocked$"):
+        adapter.post_once(plan)
+    assert len([r for r in adapter._transport._opener.calls if r.get_method() == "POST"]) == 0
+
+
 def test_post_once_http_failure_latches(proposal, binding, approved_plan):
     routes = premerge_routes()
     routes["/api/" + SURVIVOR + "/merge/" + SOURCE] = HTTPError(
@@ -464,7 +504,9 @@ def test_readback_direction_flip_is_a_distinct_reported_outcome(
     readback = adapter.readback(proposal["pairs"][0], plan, response)
     assert readback["remaining_id"] == SOURCE
     assert readback["remaining_is_approved_survivor"] is False
-    assert readback["identity_verified"] is True
+    # Fail closed: the current engine records UNKNOWN and stops; the engine
+    # lane's update prioritizes the flip flag as SURVIVOR_FLIP_REVIEW_REQUIRED.
+    assert readback["identity_verified"] is False
     assert readback["information_preserved"] is True
     assert readback["conflict_center_checked"] is True
     assert readback["conflicts"] == [
@@ -483,7 +525,9 @@ def test_readback_survivor_adopting_source_value_is_a_reported_conflict(
     readback = adapter.readback(proposal["pairs"][0], plan, response)
     assert readback["remaining_id"] == SURVIVOR
     assert readback["identity_verified"] is True
-    assert readback["information_preserved"] is True
+    # The survivor adopted the source value, so its own pre-merge value is
+    # served nowhere: unverified, not preserved, still enumerated as a conflict.
+    assert readback["information_preserved"] is False
     assert readback["conflict_center_checked"] is True
     assert readback["conflicts"] == [
         {"field": "birth", "kept": {"date": "ZZ-1901"}, "alternative": {"date": "ZZ-1900"}}
@@ -500,6 +544,19 @@ def test_readback_unconfirmed_conflict_alternatives_are_unchecked(
     assert readback["identity_verified"] is True
     assert readback["information_preserved"] is True
     assert readback["conflict_center_checked"] is False
+
+
+def test_readback_new_value_on_previously_blank_field_is_unverified(
+    proposal, binding, approved_plan
+):
+    routes = postmerge_routes()
+    routes[_node_path(SURVIVOR)]["suffix"] = "ZZJr"
+    adapter, plan, response = verified_adapter(proposal, binding, approved_plan, routes)
+    readback = adapter.readback(proposal["pairs"][0], plan, response)
+    assert readback["information_preserved"] is False
+    assert readback["conflicts"] == [
+        {"field": "birth", "kept": {"date": "ZZ-1900"}, "alternative": {"date": "ZZ-1901"}}
+    ]
 
 
 def test_readback_rejects_caller_substituted_plan(proposal, binding, approved_plan):
@@ -627,6 +684,26 @@ def test_engine_flow_verified_with_conflicts(proposal, binding, approved_plan):
     assert results[0]["readback"]["remaining_id"] == SURVIVOR
     assert results[0]["readback"]["conflicts"][0]["field"] == "birth"
     assert [row["status"] for row in evidence.rows] == ["CLAIMED", "VERIFIED"]
+
+
+def test_engine_flow_flip_fails_closed_until_the_engine_update_lands(
+    proposal, binding, approved_plan
+):
+    routes = premerge_routes()
+    routes["/api/" + SURVIVOR + "/merge/" + SOURCE] = {"id": SURVIVOR}
+    routes[_node_path(SOURCE)] = served(SOURCE, "102", **SOURCE_TRACKED)
+    routes[_node_path(SURVIVOR)] = served(SURVIVOR, "101", merged_into=SOURCE, **SURVIVOR_TRACKED)
+    adapter = make_adapter(routes, proposal, binding, approved_plan)
+    results = _execute_admitted(
+        proposal, binding, copy.deepcopy(binding), 150, adapter, Ledger(), Evidence()
+    )
+    # The base engine has no flip handling: the fail-closed
+    # identity_verified=False records UNKNOWN and stops the batch, never
+    # VERIFIED. Once this slice rebases onto the engine lane's update, the
+    # remaining_is_approved_survivor=False flag takes priority and the
+    # outcome becomes SURVIVOR_FLIP_REVIEW_REQUIRED.
+    assert [r["status"] for r in results] == ["UNKNOWN"]
+    assert results[0]["post_attempted"] is True
 
 
 def test_engine_flow_unknown_on_failed_readback_stops_batch(proposal, binding, approved_plan):
