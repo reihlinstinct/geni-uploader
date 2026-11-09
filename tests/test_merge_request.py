@@ -81,6 +81,11 @@ def test_rejects_self_pair_and_overlapping_batch(proposal):
         "https://www.geni.com/people/ZZ/999",
         "https://www.geni.com/people/ZZ/101?token=ZZ",
         "https://www.geni.com:443/people/ZZ/101",
+        "https://www.geni.com/people/ZZPersona/101#ZZ-fragment",
+        "https://evilgeni.com/people/ZZPersona/101",
+        "https://other.geni.com/people/ZZPersona/101",
+        "https://www.geni.com/people/ZZ/x/101",
+        "https://www.geni.com/x/people/ZZPersona/101",
     ],
 )
 def test_rejects_unbound_url(proposal, url):
@@ -286,3 +291,13 @@ def test_resolution_missing_flags_and_error_guard(proposal, missing):
         del served[missing]
     with pytest.raises(InvalidMergeRequest):
         verify_resolution(proposal["pairs"][0]["left"], served)
+
+
+@pytest.mark.parametrize(
+    "character",
+    ["\u0378", "\ue000", "\u034f", "\u115f", "\u1160", "\u17b4", "\u17b5", "\u3164", "\uffa0"],
+)
+def test_unassigned_private_use_and_display_fillers_rejected(proposal, character):
+    proposal["pairs"][0]["left"]["expect_name"] = "ZZ" + character
+    with pytest.raises(InvalidMergeRequest, match="^invalid merge proposal$"):
+        digest(proposal)

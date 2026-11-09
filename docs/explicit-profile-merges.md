@@ -56,7 +56,9 @@ conflicts note. Canonical URLs have no query/fragment. The validator admits data
 only; it does not verify evidence, expiration against a clock, ownership or consent.
 The digest is a content binding, not an approval token. Bounds count the original
 string, including padding. Text rejects controls (except newline/tab in notes),
-format controls, surrogates and line/paragraph separators. URLs additionally reject
+format controls, surrogates, unassigned/private-use code points, known invisible
+fillers and line/paragraph separators. This is not a complete confusable-character
+or visual-identity detector. URLs additionally reject
 all whitespace, have a 512-character cap and require a lowercase HTTPS prefix.
 Expiration is a positive integer below 2**63. Repeated profile GUIDs must carry
 identical URL/name expectations across the batch.

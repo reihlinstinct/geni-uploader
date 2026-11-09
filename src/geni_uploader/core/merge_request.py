@@ -95,9 +95,11 @@ def _keys(value, expected):
 
 def _text(value, maximum):
     _require(type(value) is str and value.strip() and len(value) <= maximum)
+    _require(not any(c in "\u034f\u115f\u1160\u17b4\u17b5\u3164\uffa0" for c in value))
     _require(
         not any(
-            unicodedata.category(c) in {"Cc", "Cf", "Cs", "Zl", "Zp"} and c not in "\n\t"
+            unicodedata.category(c) in {"Cc", "Cf", "Cs", "Cn", "Co", "Zl", "Zp"}
+            and c not in "\n\t"
             for c in value
         )
     )
