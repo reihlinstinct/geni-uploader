@@ -149,3 +149,140 @@ def test_shared_survivor_allowed_without_chains(proposal):
     other["left"]["url"] = "https://www.geni.com/people/ZZPersona/102"
     with pytest.raises(InvalidMergeRequest):
         validate(proposal)
+
+
+# Section: Review regressions for bounds, display safety and batch guards
+
+
+@pytest.mark.parametrize("field,maximum", [("expect_name", 512), ("url", 512)])
+def test_profile_padding_cannot_bypass_bounds(proposal, field, maximum):
+    profile = proposal["pairs"][0]["left"]
+    profile[field] += " " * maximum
+    with pytest.raises(InvalidMergeRequest, match="^invalid merge proposal$"):
+        digest(proposal)
+
+
+@pytest.mark.parametrize("field,maximum", [("source", 2048), ("reason", 4000)])
+def test_evidence_padding_cannot_bypass_bounds(proposal, field, maximum):
+    proposal["pairs"][0]["evidence"][0][field] += " " * maximum
+    with pytest.raises(InvalidMergeRequest):
+        validate(proposal)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "ZZ" + " " * 4000,
+        "ZZ\x00",
+        "ZZ\x7f",
+        "ZZ\x85",
+        "ZZ\u202e",
+        "ZZ\u2066",
+        "ZZ\u200b",
+        "ZZ\u2028",
+        "ZZ\u2029",
+        "ZZ\ud800",
+    ],
+)
+def test_unsafe_text_has_fixed_failure_without_payload(proposal, text):
+    proposal["pairs"][0]["conflicts"] = text
+    for operation in (validate, digest):
+        with pytest.raises(InvalidMergeRequest) as error:
+            operation(proposal)
+        assert str(error.value) == "invalid merge proposal"
+        assert not hasattr(error.value, "object")
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://www.geni.com/people/ZZ\nPersona/1\t01",
+        "https://www.geni.com/people/ZZ\rPersona/101",
+        "HTTPS://www.geni.com/people/ZZPersona/101",
+        "https://www.geni.com/people/" + "Z" * 512 + "/101",
+    ],
+)
+def test_url_is_bound_without_parser_normalization(proposal, url):
+    proposal["pairs"][0]["left"]["url"] = url
+    with pytest.raises(InvalidMergeRequest):
+        validate(proposal)
+
+
+@pytest.mark.parametrize(
+    "expiry", [0, -1, 2**63, 10**5000], ids=["zero", "negative", "boundary", "huge"]
+)
+def test_expiry_bounds_have_fixed_failure(proposal, expiry):
+    proposal["expires_at"] = expiry
+    with pytest.raises(InvalidMergeRequest, match="^invalid merge proposal$"):
+        digest(proposal)
+
+
+def _additional_pair(proposal, number):
+    pair = copy.deepcopy(proposal["pairs"][0])
+    pair["pair_id"] = f"ZZ-pair-{number}"
+    pair["right"]["guid"] = str(102 + number)
+    pair["right"]["url"] = f"https://www.geni.com/people/ZZPersona/{102 + number}"
+    return pair
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_both_chain_orders_rejected(proposal, reverse):
+    other = _additional_pair(proposal, 1)
+    other["survivor_guid"] = "103"
+    proposal["pairs"].append(other)
+    if reverse:
+        proposal["pairs"].reverse()
+    with pytest.raises(InvalidMergeRequest):
+        validate(proposal)
+
+
+def test_duplicate_pair_id_rejected_independently(proposal):
+    other = _additional_pair(proposal, 1)
+    other["pair_id"] = proposal["pairs"][0]["pair_id"]
+    proposal["pairs"].append(other)
+    with pytest.raises(InvalidMergeRequest):
+        validate(proposal)
+
+
+@pytest.mark.parametrize(
+    "field,value", [("expect_name", "ZZOther"), ("url", "https://www.geni.com/people/ZZOther/101")]
+)
+def test_shared_guid_requires_identical_expectations(proposal, field, value):
+    other = _additional_pair(proposal, 1)
+    other["left"][field] = value
+    proposal["pairs"].append(other)
+    with pytest.raises(InvalidMergeRequest):
+        validate(proposal)
+
+
+def test_pair_and_evidence_caps(proposal):
+    proposal["pairs"].extend(_additional_pair(proposal, n) for n in range(1, 10))
+    assert len(validate(proposal)["pairs"]) == 10
+    proposal["pairs"].append(_additional_pair(proposal, 10))
+    with pytest.raises(InvalidMergeRequest):
+        validate(proposal)
+    proposal["pairs"] = proposal["pairs"][:1]
+    pair = proposal["pairs"][0]
+    pair["evidence"] *= 20
+    assert len(validate(proposal)["pairs"][0]["evidence"]) == 20
+    pair["evidence"].append(copy.deepcopy(pair["evidence"][0]))
+    with pytest.raises(InvalidMergeRequest):
+        validate(proposal)
+
+
+@pytest.mark.parametrize("missing", ["merge_pending", "claimed", "locked", "error"])
+def test_resolution_missing_flags_and_error_guard(proposal, missing):
+    served = {
+        "id": "profile-990002",
+        "guid": "101",
+        "name": "ZZPersona",
+        "merge_pending": False,
+        "claimed": False,
+        "locked": False,
+    }
+    if missing == "error":
+        served["error"] = None
+    else:
+        del served[missing]
+    with pytest.raises(InvalidMergeRequest):
+        verify_resolution(proposal["pairs"][0]["left"], served)

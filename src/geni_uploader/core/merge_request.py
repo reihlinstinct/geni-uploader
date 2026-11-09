@@ -3,6 +3,7 @@
 import hashlib
 import json
 import re
+import unicodedata
 from urllib.parse import urlsplit
 
 
@@ -19,16 +20,20 @@ def validate(value):
     _require(value["schema"] == "geni-explicit-merge/v1")
     _require(_label(value["request_id"]))
     _require(_node(value["owner"]))
-    _require(type(value["expires_at"]) is int and value["expires_at"] > 0)
+    _require(type(value["expires_at"]) is int and 0 < value["expires_at"] < 2**63)
     pairs = value["pairs"]
     _require(type(pairs) is list and 1 <= len(pairs) <= 10)
     sources, survivors, pair_ids = set(), set(), set()
+    profiles = {}
     for pair in pairs:
         _keys(pair, {"pair_id", "left", "right", "survivor_guid", "evidence", "conflicts"})
         _require(_label(pair["pair_id"]) and pair["pair_id"] not in pair_ids)
         pair_ids.add(pair["pair_id"])
         for side in ("left", "right"):
-            _profile(pair[side])
+            profile = pair[side]
+            _profile(profile)
+            _require(profile["guid"] not in profiles or profiles[profile["guid"]] == profile)
+            profiles[profile["guid"]] = profile
         _require(pair["survivor_guid"] in (pair["left"]["guid"], pair["right"]["guid"]))
         source = (
             next(
@@ -89,8 +94,13 @@ def _keys(value, expected):
 
 
 def _text(value, maximum):
-    _require(type(value) is str and 0 < len(value.strip()) <= maximum)
-    _require(not any(ord(c) < 32 and c not in "\n\t" for c in value))
+    _require(type(value) is str and value.strip() and len(value) <= maximum)
+    _require(
+        not any(
+            unicodedata.category(c) in {"Cc", "Cf", "Cs", "Zl", "Zp"} and c not in "\n\t"
+            for c in value
+        )
+    )
 
 
 def _label(value):
@@ -106,7 +116,8 @@ def _profile(value):
     guid = value["guid"]
     _require(type(guid) is str and re.fullmatch(r"[1-9][0-9]{0,24}", guid) is not None)
     _text(value["expect_name"], 512)
-    _require(type(value["url"]) is str)
+    _text(value["url"], 512)
+    _require(value["url"].startswith("https://") and not any(c.isspace() for c in value["url"]))
     url = urlsplit(value["url"])
     _require(url.scheme == "https" and url.netloc == "www.geni.com")
     _require(not url.query and not url.fragment)

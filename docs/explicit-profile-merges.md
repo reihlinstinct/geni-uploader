@@ -54,12 +54,19 @@ included. Existing upload, token and creation workflows remain unchanged.
 expect_name, one explicit survivor_guid, evidence source/reason entries and a
 conflicts note. Canonical URLs have no query/fragment. The validator admits data
 only; it does not verify evidence, expiration against a clock, ownership or consent.
-The digest is a content binding, not an approval token.
+The digest is a content binding, not an approval token. Bounds count the original
+string, including padding. Text rejects controls (except newline/tab in notes),
+format controls, surrogates and line/paragraph separators. URLs additionally reject
+all whitespace, have a 512-character cap and require a lowercase HTTPS prefix.
+Expiration is a positive integer below 2**63. Repeated profile GUIDs must carry
+identical URL/name expectations across the batch.
 
 `verify_resolution` checks a captured profile record offline and returns a node
 only after GUID, expected name and explicit unmerged/unclaimed/unlocked flags match.
-Missing flags fail closed. A live adapter must use those checks against fresh
-GETs, validate the actual token owner and revalidate before each effect.
+Missing merge_pending, claimed or locked flags fail closed. An absent or empty
+merged_into is accepted in this offline shape check, but is not proof that a live
+profile is unmerged. A live adapter must establish the released status contract
+against fresh GETs, validate the token owner and revalidate before each effect.
 `require_live_release` always raises. No environment variable or proposal can
 open it. The module has no HTTP client, credential reader, CLI or workflow.
 
@@ -85,8 +92,9 @@ clarification or independently reviewed human-observed evidence before release.
 
 Official [profile fields](https://www.geni.com/platform/developer/help/api?path=profile&version=1)
 distinguish id and guid and document merge_pending/merged_into. Blank fields may
-be omitted. This design deliberately blocks missing status rather than interpreting
-absence as false. [GUID resolution](guid-resolution.md) records GET-only
+be omitted. The offline validator requires explicit false merge_pending, claimed
+and locked flags, but accepts absent merged_into. That asymmetry is not a verified
+live API contract, and absence must not be treated as proof of an unmerged profile. [GUID resolution](guid-resolution.md) records GET-only
 `profile-g<guid>` resolution and canonical-node checking. That is not proof that
 merge accepts a GUID on either path segment. Use resolved node IDs only after the
 merge contract is settled. No live POST is allowed just to test support.
