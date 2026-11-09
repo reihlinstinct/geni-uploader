@@ -230,7 +230,7 @@ def test_plan_rejections(proposal, binding, approved_plan, key, value):
         lambda pp: pp.update({"pair_id": "ZZ-other"}),
         lambda pp: pp.update({"path_order": [SURVIVOR]}),
         lambda pp: pp.update({"path_order": [SURVIVOR, SURVIVOR]}),
-        lambda pp: pp.update({"path_order": ["profile-1", "profile-2"]}),
+        lambda pp: pp.update({"path_order": ["profile-990004", "profile-990001"]}),
         lambda pp: pp.update({"survivor_guid": "102"}),
         lambda pp: pp["resolved"].pop("102"),
         lambda pp: pp["resolved"]["101"].update({"id": "profile-990004"}),
