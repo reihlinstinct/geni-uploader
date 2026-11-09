@@ -94,7 +94,13 @@ def _execute_admitted(proposal, binding, trusted, now, adapter, ledger, evidence
     for pair in proposal["pairs"]:
         # Fresh clock/revocation checks belong to the released preflight adapter.
         state = {"pair_id": pair["pair_id"], "status": "NOT_ATTEMPTED", "post_attempted": False}
-        key = _hash({"binding": binding_hash, "pair": pair["pair_id"]})
+        # A new run/expiry/plan must never reset an already consumed approval.
+        key = _hash(
+            {
+                "approval_event_sha256": binding["approval_event_sha256"],
+                "pair_guids": sorted([pair["left"]["guid"], pair["right"]["guid"]]),
+            }
+        )
         try:
             admit(proposal, binding, trusted, adapter.now())
             plan = adapter.preflight(pair, binding)
@@ -125,17 +131,30 @@ def _execute_admitted(proposal, binding, trusted, now, adapter, ledger, evidence
             state["post_attempted"] = True
             response = adapter.post_once(plan)
             readback = adapter.readback(pair, plan, response)
-            _require(type(readback) is dict)
+            readback = _detached_readback(readback)
             _require(readback.get("identity_verified") is True)
             _require(readback.get("information_preserved") is True)
             _require(readback.get("conflict_center_checked") is True)
-            _require(type(readback.get("conflicts")) is list)
+            conflicts = readback.get("conflicts")
+            _require(type(conflicts) is list and len(conflicts) <= 256)
+            for conflict in conflicts:
+                _require(
+                    type(conflict) is dict and set(conflict) == {"field", "kept", "alternative"}
+                )
+                _require(type(conflict["field"]) is str and 0 < len(conflict["field"]) <= 128)
             _require(type(readback.get("remaining_id")) is str)
             _require(re.fullmatch(r"profile-[1-9][0-9]{0,19}", readback["remaining_id"]))
             _require(readback["remaining_id"] in ids)
             _require(readback.get("pending") is False)
             # Conflicts are retained for human choice, never selected or cleared.
-            state.update(status="VERIFIED", readback=readback)
+            state.update(
+                status=(
+                    "VERIFIED"
+                    if readback.get("remaining_is_approved_survivor") is True
+                    else "SURVIVOR_FLIP_REVIEW_REQUIRED"
+                ),
+                readback=readback,
+            )
         except Exception:  # noqa: BLE001 - terminal boundary, no external exception text
             state["status"] = "UNKNOWN"
         _persist(evidence, state)
@@ -150,3 +169,11 @@ def _persist(evidence, state):
         evidence.save(state)
     except Exception:  # noqa: BLE001 - private persistence boundary
         raise InvalidMergeRequest("private merge evidence unavailable; stop") from None
+
+
+def _detached_readback(value):
+    """Retain bounded JSON evidence, never mutable adapter-owned references."""
+    _require(type(value) is dict)
+    encoded = json.dumps(value, allow_nan=False, ensure_ascii=True)
+    _require(len(encoded) <= 1024 * 1024)
+    return json.loads(encoded)

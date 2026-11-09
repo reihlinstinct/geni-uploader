@@ -80,7 +80,8 @@ class Adapter:
             "identity_verified": True,
             "information_preserved": self.preserved,
             "conflict_center_checked": True,
-            "conflicts": ["ZZ field retained"],
+            "conflicts": [{"field": "ZZ-field", "kept": "ZZ-kept", "alternative": "ZZ-other"}],
+            "remaining_is_approved_survivor": True,
             "remaining_id": "profile-990002",
             "pending": self.pending,
         }
@@ -103,6 +104,8 @@ class Evidence:
 @pytest.mark.parametrize(
     "key,value",
     [
+        ("dispatcher_id", "1"),
+        ("expires_at", 2000000001),
         ("run_attempt", 2),
         ("run_attempt", True),
         ("expires_at", 100),
@@ -238,3 +241,117 @@ def test_malformed_or_failed_backend_uses_fixed_exception():
         PrivateGitClaims(backend).claim("c" * 64, "d" * 64)
     with pytest.raises(InvalidMergeRequest, match="^invalid merge claim$"):
         PrivateGitClaims(backend).claim("ZZ-secret", "d" * 64)
+
+
+@pytest.mark.parametrize("phase", ["post", "pending", "none"])
+def test_same_approval_cannot_repost_on_a_new_run(proposal, binding, phase):
+    backend = Backend()
+    first = Adapter(admit(proposal, binding, binding, 150), binding)
+    first.fail = phase == "post"
+    first.pending = phase == "pending"
+    _execute_admitted(proposal, binding, binding, 150, first, PrivateGitClaims(backend), Evidence())
+    binding.update(run_id="4", issued_at=140, expires_at=190, plan_sha256="f" * 64)
+    second = Adapter(admit(proposal, binding, binding, 150), binding)
+    result = _execute_admitted(
+        proposal, binding, binding, 150, second, PrivateGitClaims(backend), Evidence()
+    )
+    assert result[0]["status"] == "ALREADY_CLAIMED_REVIEW_REQUIRED"
+    assert first.posts == 1 and second.posts == 0 and len(backend.records) == 1
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("binding_sha256", "f" * 64),
+        ("plan_sha256", "f" * 64),
+        ("pair_id", "ZZ-other"),
+        ("resolved_ids", ["profile-990001"] * 2),
+    ],
+)
+def test_each_preflight_guard_blocks_before_claim(proposal, binding, field, value):
+    backend = Backend()
+    adapter = Adapter(admit(proposal, binding, binding, 150), binding)
+    original = adapter.preflight
+    adapter.preflight = lambda *args: {**original(*args), field: value}
+    result = _execute_admitted(
+        proposal, binding, binding, 150, adapter, PrivateGitClaims(backend), Evidence()
+    )
+    assert result[0]["status"] == "BLOCKED"
+    assert adapter.posts == 0 and backend.records == {}
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("identity_verified", False),
+        ("conflict_center_checked", False),
+        ("conflicts", ["ZZ-invalid"]),
+        ("conflicts", [{}]),
+        ("conflicts", [{"field": "", "kept": None, "alternative": None}]),
+        ("conflicts", [{"field": "ZZ-field", "kept": float("inf"), "alternative": None}]),
+        ("conflicts", [{"field": "ZZ-field", "kept": None, "alternative": None}] * 257),
+        ("conflicts", [{"field": "ZZ-field", "kept": "Z" * (1024 * 1024), "alternative": None}]),
+    ],
+)
+def test_each_readback_guard_stops_as_unknown(proposal, binding, field, value):
+    adapter = Adapter(admit(proposal, binding, binding, 150), binding)
+    original = adapter.readback
+    adapter.readback = lambda *args: {**original(*args), field: value}
+    result = _execute_admitted(
+        proposal, binding, binding, 150, adapter, PrivateGitClaims(Backend()), Evidence()
+    )
+    assert result[0]["status"] == "UNKNOWN" and adapter.posts == 1
+
+
+@pytest.mark.parametrize("flag", [False, None, "missing", 1])
+def test_survivor_flip_or_missing_flag_retains_evidence_and_stops(proposal, binding, flag):
+    other = copy.deepcopy(proposal["pairs"][0])
+    other["pair_id"] = "ZZ-second"
+    other["right"] = {
+        "guid": "103",
+        "expect_name": "ZZPersona",
+        "url": "https://www.geni.com/people/ZZPersona/103",
+    }
+    proposal["pairs"].append(other)
+    binding["proposal_sha256"] = digest(proposal)
+    adapter = Adapter(admit(proposal, binding, binding, 150), binding)
+    original = adapter.readback
+
+    def readback(*args):
+        result = original(*args)
+        if flag == "missing":
+            del result["remaining_is_approved_survivor"]
+        else:
+            result["remaining_is_approved_survivor"] = flag
+        return result
+
+    adapter.readback = readback
+    evidence = Evidence()
+    result = _execute_admitted(
+        proposal, binding, binding, 150, adapter, PrivateGitClaims(Backend()), evidence
+    )
+    assert len(result) == adapter.posts == 1
+    assert result[0]["status"] == "SURVIVOR_FLIP_REVIEW_REQUIRED"
+    assert result[0]["readback"]["remaining_id"] == "profile-990002"
+    assert evidence.rows[-1] == result[0]
+
+
+def test_adapter_cannot_mutate_retained_readback(proposal, binding):
+    adapter = Adapter(admit(proposal, binding, binding, 150), binding)
+    raw = adapter.readback(None, None, None)
+    adapter.readback = lambda *args: raw
+    result = _execute_admitted(
+        proposal, binding, binding, 150, adapter, PrivateGitClaims(Backend()), Evidence()
+    )
+    raw["remaining_id"] = "profile-990003"
+    raw["conflicts"][0]["kept"] = "ZZ-changed"
+    assert result[0]["status"] == "VERIFIED"
+    assert result[0]["readback"]["remaining_id"] == "profile-990002"
+    assert result[0]["readback"]["conflicts"][0]["kept"] == "ZZ-kept"
+
+
+@pytest.mark.parametrize("returned", [1, "ZZ-truthy", {}, None, False])
+def test_only_literal_true_acquires_a_claim(returned):
+    backend = Backend()
+    backend.compare_and_append = lambda *args: returned
+    assert PrivateGitClaims(backend).claim("c" * 64, "d" * 64) is False

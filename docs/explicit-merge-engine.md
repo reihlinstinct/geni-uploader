@@ -22,7 +22,15 @@ pair preflight, durable single-use claim, private CLAIMED evidence, one POST,
 private readback. No uncertain write is retried. Any post-attempt exception,
 pending result, unverified identity/data or unchecked Conflict Center is UNKNOWN
 and stops the batch. A retained conflict is reported for human choice, never
-resolved by this coordinator. Remaining ID must be one of the two resolved IDs;
+resolved by this coordinator. Remaining ID must be one of the two resolved IDs.
+The adapter must explicitly confirm `remaining_is_approved_survivor is True`.
+A false, missing or non-boolean flag retains the private readback and stops with
+SURVIVOR_FLIP_REVIEW_REQUIRED, never VERIFIED. This is a conservative review stop,
+not a claim about a user's survivor choice or the provider's merge direction.
+Readback is detached bounded JSON (1 MiB); at most 256 conflicts each carry exactly
+field, kept and alternative, with a non-empty field name of at most 128 characters;
+non-finite values are rejected. Neither conflicts nor evidence are silently dropped;
+
 HTTP200 alone is not merge verification. Unavailable private evidence stops work.
 
 The injected preflight/readback contracts still need a reviewed implementation.
@@ -34,6 +42,10 @@ does not assert that the service supplies those guarantees.
 ## Private Git claims
 
 The claim protocol uses a private Git branch with hash-only operation records.
+An operation key binds the approval event and sorted exact proposed pair GUIDs,
+not run ID, timestamps, plan digest or mutable pair label. A new run or binding
+cannot reuse a consumed approval for the same pair, including after UNKNOWN.
+The record still retains the full run-binding digest for private audit.
 The future backend must read the current immutable head and append a child commit
 with a non-force atomic reference update. Creating a blob/tree/commit is not a
 claim. Concurrent writers from the same head cannot both acquire the reference.
