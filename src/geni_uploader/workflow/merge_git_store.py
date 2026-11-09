@@ -106,6 +106,7 @@ class GitHubClaimBackend:
             # The filename's existence alone blocks replay. Old provider bodies
             # never enter the coordinator and no per-record API fan-out is needed.
             records[path[:-5]] = entry["sha"]
+        _require(_tree_sha(records) == tree_sha)
         self.cached = (head, tree_sha, dict(records))
         return head, records
 

@@ -54,3 +54,10 @@ and allow exactly one attempted update on a malformed update response. Consumed
 snapshots cannot make another request, including after an uncertain result.
 These offline checks do not replace staged remote contention and signature
 verification evidence before release.
+
+Snapshot admission also recomputes the complete root-tree ID from the returned
+record entries before caching them. A response that repeats the expected tree ID
+but omits an existing claim is rejected before signing or writing. The synthetic
+server uses actual Git tree IDs, including the empty-tree ID. Independent tests
+cover omitted listings, distinct-name size overflow, tree mismatch before any
+signer/commit call, and control characters inside otherwise valid signature armor.

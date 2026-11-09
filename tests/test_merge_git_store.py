@@ -15,7 +15,6 @@ SIGNATURE = "-----BEGIN PGP SIGNATURE-----\nZZ synthetic only\n-----END PGP SIGN
 class GitAPI:
     def __init__(self):
         self.head = "a" * 40
-        self.tree = "b" * 40
         self.entries = []
         self.calls = []
         self.private = True
@@ -25,6 +24,14 @@ class GitAPI:
         self.ambiguous = False
         self.payload = None
         self.pending_entry = None
+
+    @property
+    def tree(self):
+        raw = b"".join(
+            b"100644 " + entry["path"].encode() + b"\0" + bytes.fromhex(entry["sha"])
+            for entry in sorted(self.entries, key=lambda entry: entry["path"])
+        )
+        return hashlib.sha1(b"tree %d\0" % len(raw) + raw).hexdigest()
 
     def __call__(self, method, path, body):
         self.calls.append((method, path, copy.deepcopy(body)))
@@ -87,7 +94,6 @@ class GitAPI:
             if self.contended:
                 raise OSError("ZZ conflict")
             self.head = self.pending_commit
-            self.tree = self.pending_tree
             self.entries.append(self.pending_entry)
             if self.ambiguous:
                 raise OSError("ZZ lost response after accepted reference")
@@ -221,14 +227,20 @@ def _entry(**changes):
         ("/git/commits/" + "a" * 40, {"sha": "f" * 40}),
         ("/git/commits/" + "a" * 40, {"tree": None}),
         ("/git/commits/" + "a" * 40, {"tree": {"sha": "ZZ-invalid"}}),
-        ("/git/trees/" + "b" * 40, {"sha": "f" * 40}),
-        ("/git/trees/" + "b" * 40, {"tree": None}),
-        ("/git/trees/" + "b" * 40, {"tree": [_entry()] * 1001}),
-        ("/git/trees/" + "b" * 40, {"tree": [_entry(mode="100755")]}),
-        ("/git/trees/" + "b" * 40, {"tree": [_entry(type="tree")]}),
-        ("/git/trees/" + "b" * 40, {"tree": [_entry(), _entry()]}),
-        ("/git/trees/" + "b" * 40, {"tree": [_entry(sha="ZZ-invalid")]}),
-        ("/git/trees/" + "b" * 40, {"tree": [None]}),
+        ("/git/trees/4b825dc642cb6eb9a060e54bf8d69288fbee4904", {"sha": "f" * 40}),
+        ("/git/trees/4b825dc642cb6eb9a060e54bf8d69288fbee4904", {"tree": None}),
+        (
+            "/git/trees/4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+            {"tree": [_entry(path=f"{i:064x}.json") for i in range(1001)]},
+        ),
+        ("/git/trees/4b825dc642cb6eb9a060e54bf8d69288fbee4904", {"tree": [_entry(mode="100755")]}),
+        ("/git/trees/4b825dc642cb6eb9a060e54bf8d69288fbee4904", {"tree": [_entry(type="tree")]}),
+        ("/git/trees/4b825dc642cb6eb9a060e54bf8d69288fbee4904", {"tree": [_entry(), _entry()]}),
+        (
+            "/git/trees/4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+            {"tree": [_entry(sha="ZZ-invalid")]},
+        ),
+        ("/git/trees/4b825dc642cb6eb9a060e54bf8d69288fbee4904", {"tree": [None]}),
     ],
 )
 def test_each_snapshot_response_guard_prevents_all_writes(suffix, change):
@@ -285,11 +297,24 @@ def test_each_append_response_guard_stops_without_retry(method, suffix, change, 
 
     store = backend(api)
     store.api = altered
+    signed = []
+    original_signer = store.signer
+
+    def sign(payload):
+        signed.append(payload)
+        return original_signer(payload)
+
+    store.signer = sign
     head, _ = store.snapshot()
     with pytest.raises(InvalidMergeRequest):
         store.compare_and_append(head, "1" * 64, {"binding_sha256": "2" * 64, "phase": "CLAIMED"})
     assert sum(verb == "PATCH" for verb, _, _ in api.calls) == patches
     assert store.cached is None
+    if suffix == "/git/trees":
+        assert not signed
+        assert not any(
+            verb == "POST" and path.endswith("/git/commits") for verb, path, _ in api.calls
+        )
 
 
 def test_response_signature_mismatch_stops_before_patch():
@@ -329,7 +354,14 @@ def test_snapshot_preconditions_make_no_append_requests(kind):
 
 @pytest.mark.parametrize(
     "signature",
-    [None, "ZZ-bad", "-----BEGIN PGP SIGNATURE-----\nZZ-bad", SIGNATURE.replace("\n", "\r\n")],
+    [
+        None,
+        "ZZ-bad",
+        "-----BEGIN PGP SIGNATURE-----\nZZ-bad",
+        SIGNATURE.replace("\n", "\r\n"),
+        SIGNATURE.replace("ZZ synthetic", "ZZ\r synthetic"),
+        SIGNATURE.replace("ZZ synthetic", "ZZ\x00 synthetic"),
+    ],
 )
 def test_bad_signature_armor_stops_before_commit(signature):
     api = GitAPI()
@@ -382,3 +414,33 @@ def test_append_tree_includes_existing_records_in_sorted_order():
     assert PrivateGitClaims(backend(api)).claim("1" * 64, "2" * 64)
     assert len(api.entries) == 3
     assert PrivateGitClaims(backend(api)).claim("1" * 64, "2" * 64) is False
+
+
+def test_omitted_existing_claim_listing_blocks_before_any_write():
+    api = GitAPI()
+    assert PrivateGitClaims(backend(api)).claim("1" * 64, "2" * 64)
+    prior_calls = len(api.calls)
+
+    def omit(method, path, body):
+        result = api(method, path, body)
+        if method == "GET" and "/git/trees/" in path:
+            result["tree"] = []
+        return result
+
+    store = backend(api)
+    store.api = omit
+    with pytest.raises(InvalidMergeRequest):
+        PrivateGitClaims(store).claim("1" * 64, "2" * 64)
+    assert all(method == "GET" for method, _, _ in api.calls[prior_calls:])
+    assert sum(method == "PATCH" for method, _, _ in api.calls) == 1
+    assert store.cached is None
+
+
+def test_snapshot_cap_is_independent_of_duplicates_and_hash_binding():
+    api = GitAPI()
+    api.entries = [_entry(path=f"{i:064x}.json") for i in range(1001)]
+    store = backend(api)
+    with pytest.raises(InvalidMergeRequest):
+        store.snapshot()
+    assert store.cached is None
+    assert all(method == "GET" for method, _, _ in api.calls)
