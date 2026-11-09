@@ -449,17 +449,27 @@ def test_readback_happy_reports_conflicts(proposal, binding, approved_plan):
             {"field": "birth", "kept": {"date": "ZZ-1900"}, "alternative": {"date": "ZZ-1901"}}
         ],
         "remaining_id": SURVIVOR,
+        "remaining_is_approved_survivor": True,
         "pending": False,
     }
 
 
-def test_readback_direction_flip_is_never_verified(proposal, binding, approved_plan):
+def test_readback_direction_flip_is_a_distinct_reported_outcome(
+    proposal, binding, approved_plan
+):
     remaining = served(SOURCE, "102", **SOURCE_TRACKED)
     retired = served(SURVIVOR, "101", merged_into=SOURCE, **SURVIVOR_TRACKED)
     routes = {_node_path(SOURCE): remaining, _node_path(SURVIVOR): retired}
     adapter, plan, response = verified_adapter(proposal, binding, approved_plan, routes)
-    with pytest.raises(InvalidMergeRequest, match="^merge adapter readback blocked$"):
-        adapter.readback(proposal["pairs"][0], plan, response)
+    readback = adapter.readback(proposal["pairs"][0], plan, response)
+    assert readback["remaining_id"] == SOURCE
+    assert readback["remaining_is_approved_survivor"] is False
+    assert readback["identity_verified"] is True
+    assert readback["information_preserved"] is True
+    assert readback["conflict_center_checked"] is True
+    assert readback["conflicts"] == [
+        {"field": "birth", "kept": {"date": "ZZ-1901"}, "alternative": {"date": "ZZ-1900"}}
+    ]
 
 
 def test_readback_survivor_adopting_source_value_is_a_reported_conflict(

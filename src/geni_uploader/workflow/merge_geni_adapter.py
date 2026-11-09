@@ -18,7 +18,10 @@ Contract (consumed by merge_engine._execute_admitted):
   enumerated as a retained conflict, and reports conflicts for human resolution in
   the provider's Conflict Center. Conflicts never stop the executor; anything
   missing, hidden, partial, redirected, pending or changed is UNKNOWN via the
-  engine. False flags are never assumed from omitted fields.
+  engine. False flags are never assumed from omitted fields. An actual remaining
+  profile that is not the approved survivor is reported as the explicit outcome
+  remaining_is_approved_survivor=False with the actual remaining ID; the engine
+  records SURVIVOR_FLIP_REVIEW_REQUIRED, never VERIFIED.
 Any transport failure (including 429) latches the adapter: every later call fails
 without a new request, so a rate block can never be fed more calls.
 """
@@ -326,8 +329,10 @@ class GeniMergeAdapter:
         Only the adapter's own preflight artifact is honored: a caller-supplied
         plan that differs from it is rejected. Both profiles must survive:
         exactly one remaining with no merged_into, the other retired into it.
-        The remaining profile must be the approved survivor; a flipped direction
-        is never a verified merge and stops for private review. The retired
+        If the actual remaining profile is not the approved survivor, the
+        explicit outcome remaining_is_approved_survivor=False is returned with
+        the actual remaining ID; the engine records
+        SURVIVOR_FLIP_REVIEW_REQUIRED, never VERIFIED. The retired
         profile must still carry its exact pre-merge tracked values: those
         retained values are the provider's Conflict Center alternatives, so
         their presence is what conflict_center_checked confirms. Conflicts are
@@ -362,9 +367,10 @@ class GeniMergeAdapter:
         _require(
             served[retired_id]["merged_into"] == remaining_id, "merge adapter readback blocked"
         )
-        # The approved survivor must be the one that remains; a flipped direction
-        # is an unresolved outcome, never a verified merge.
-        _require(remaining_id == stored["expected_survivor_id"], "merge adapter readback blocked")
+        # A flipped direction is an explicit, distinctly named outcome with the
+        # actual remaining ID reported, never VERIFIED; the engine records
+        # SURVIVOR_FLIP_REVIEW_REQUIRED and stops for private review.
+        approved_survivor = remaining_id == stored["expected_survivor_id"]
         for node in order:
             body = served[node]
             _require(body.get("id") == node, "merge adapter readback blocked")
@@ -386,6 +392,7 @@ class GeniMergeAdapter:
             "conflict_center_checked": conflict_center_checked,
             "conflicts": conflicts,
             "remaining_id": remaining_id,
+            "remaining_is_approved_survivor": approved_survivor,
             "pending": False,
         }
 

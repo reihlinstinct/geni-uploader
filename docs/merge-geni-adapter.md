@@ -40,9 +40,15 @@ a proposal, a provider body or a caller's own copy.
   Only the adapter's own preflight artifact is honored; a caller-supplied plan
   that differs from it is rejected. Both profiles must survive: exactly one
   remaining with no merged_into, the other retired with merged_into pointing at
-  it. The remaining profile must be the approved survivor: a flipped direction
-  is an unresolved outcome, never a verified merge, and stops for private
-  review. Identity (ID, GUID, name) must match the before-snapshot, and false
+  it. If the actual remaining profile is not the approved survivor, the
+  readback returns the explicit outcome `remaining_is_approved_survivor=false`
+  with the actual remaining ID: the engine records
+  SURVIVOR_FLIP_REVIEW_REQUIRED with the readback evidence and stops the batch
+  for private review, never VERIFIED. Stopping on a flip is the conservative
+  first-run policy choice; relaxing it to report-without-stop is a documented
+  one-line change in the engine if the owner later decides direction does not
+  matter. Identity (ID, GUID, name)
+  must match the before-snapshot, and false
   flags are never assumed from omitted fields: merge_pending must be explicitly
   false on both, claimed/locked explicitly false on the remaining profile.
   Tracked data is preserved exactly or fully enumerated as retained conflicts
