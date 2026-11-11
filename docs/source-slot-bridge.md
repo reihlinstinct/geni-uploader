@@ -64,4 +64,6 @@ deployment approval of that exact reviewed SHA. SOURCE_BRIDGE_WRITER remains
 uninstalled until separate owner go. Repository-secondary custody migration
 is deferred to a separate reviewed change and must not delay or be silently
 bundled into this fixed copy. Node22.23.0 and npm10.9.8 are checked exactly;
-setup-node action and npm package lock are pinned.
+setup-node v7.1.0 is pinned to949feb2413d6458794dcd2491c4babbbce0c15c1;
+the npm package lock is pinned. The action runtime is Node24; the selected
+project runtime remains exactly Node22.23.0.
