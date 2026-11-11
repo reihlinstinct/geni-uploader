@@ -37,3 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - No execution of user repository code
 - Git credential helper scoped to github.com only
 - Allowlisted API calls enforcing permitted (method, kind) pairs
+
+## Maintenance: coverage7.17.2 baseline
+
+Keep the existing unhashed-requirement baseline in step with the reviewed
+coverage7.17.2 bump. Hash locking remains tracked separately; no new exemption
+or broader allowlist is introduced.
