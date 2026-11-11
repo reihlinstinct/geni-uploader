@@ -165,7 +165,7 @@ def test_independent_negative_checks_before_or_after_one_put(kind):
 def test_node_and_package_runner_versions_pinned():
     root = Path(__file__).resolve().parents[1]; flow = yaml.safe_load((root / p.WORKFLOW).read_text())
     steps = flow['jobs']['bridge']['steps']; setup = next(x for x in steps if x.get('uses', '').startswith('actions/setup-node@'))
-    assert setup['uses'] == 'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020'
+    assert setup['uses'] == 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1'
     assert setup['with']['node-version'] == '22.23.0'
     install = next(x for x in steps if x.get('name') == 'Install exact reviewed sealed-box dependency')
     assert '10.9.8' in install['run'] and '--ignore-scripts' in install['run']
