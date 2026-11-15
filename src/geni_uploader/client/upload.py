@@ -17,12 +17,13 @@ Safety model:
 - State file writes are atomic (temp + rename); a flock on the state dir
   refuses concurrent runs (exit 6).
 - Logs never contain tokens, headers, payloads, or personal names/titles
-  (items are logged as short hashes).
+  (items use process-local keyed diagnostic labels).
 """
 import argparse
 import base64
 import fcntl
 import hashlib
+import hmac
 import http.client
 import json
 import os
@@ -90,9 +91,14 @@ class VerificationError(ApiError):
     object linked to the profile. Exit code 4."""
 
 
+_LABEL_KEY = os.urandom(32)
+
+
 def label(item):
-    """Log-safe item label: no personal names/titles, just a short hash."""
-    return "item#" + hashlib.sha1(item["title"].encode("utf-8")).hexdigest()[:8]
+    """Run-local keyed label; titles cannot be checked with an offline dictionary."""
+    return "item#" + hmac.new(
+        _LABEL_KEY, item["title"].encode("utf-8"), hashlib.sha256
+    ).hexdigest()[:16]
 
 
 class RunLog:
