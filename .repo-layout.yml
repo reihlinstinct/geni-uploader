@@ -1,0 +1,109 @@
+{
+  "version": 2,
+  "comment": "Repo layout contract v2, enforced by tools/check_repo_layout.py (issues #721, #731; design docs/repo-layout-v2-design.md, reference docs/repo-layout.md). JSON syntax: valid YAML too, parses with the Python standard library; unknown keys, duplicate keys and unsupported versions fail closed; version 1 is read only through the explicit migration. required: paths that must exist (trailing slash = directory). root: files at the repository root must match allow and never match deny. directories: every tracked top-level directory must be listed; files under it (any depth) must match one allow pattern and no deny pattern (case-sensitive basename globs; deny wins); required lists exact directory-relative paths of files that must be tracked regular files and pass allow/deny. Missing deny/required mean empty.",
+  "required": [
+    "README.md",
+    "LICENSE",
+    "CONTRIBUTING.md",
+    "CODE_OF_CONDUCT.md",
+    "SECURITY.md",
+    "ACCESSIBILITY.md",
+    "SUPPORT.md",
+    ".github/CODEOWNERS",
+    ".github/ISSUE_TEMPLATE/",
+    ".github/pull_request_template.md"
+  ],
+  "root": {
+    "allow": [
+      "*.md",
+      ".gitignore",
+      ".repo-layout.yml",
+      "LICENSE*",
+      "Dockerfile",
+      "Dockerfile.*",
+      "entrypoint.sh",
+      "pyproject.toml",
+      "requirements*.txt"
+    ],
+    "deny": [
+      "*.py"
+    ]
+  },
+  "directories": {
+    ".github": {
+      "allow": [
+        "CODEOWNERS",
+        "*.yml",
+        "*.yaml",
+        "*.md",
+        "*.py",
+        "*.json",
+        "*.txt"
+      ]
+    },
+    "docs": {
+      "allow": [
+        "*.md",
+        "*.html",
+        "*.json",
+        "*.yml",
+        "*.yaml",
+        "*.example",
+        "*.md.in"
+      ]
+    },
+    "geni_offline": {
+      "allow": [
+        "*.py"
+      ]
+    },
+    "man": {
+      "allow": [
+        "*.1"
+      ]
+    },
+    "oauth-bootstrap": {
+      "allow": [
+        "*.mjs",
+        "*.json",
+        "*.jsonc",
+        "*.md",
+        ".gitignore"
+      ],
+      "required": [
+        "README.md",
+        "package-lock.json",
+        "package.json"
+      ]
+    },
+    "scripts": {
+      "allow": [
+        "*.py",
+        "*.sh"
+      ]
+    },
+    "src": {
+      "allow": [
+        "*.py",
+        "*.json"
+      ]
+    },
+    "tests": {
+      "allow": [
+        "*.py",
+        "*.json"
+      ]
+    },
+    "tools": {
+      "allow": [
+        "*.py",
+        "*.sh"
+      ]
+    },
+    "synthetic": {
+      "allow": [
+        "*.json"
+      ]
+    }
+  }
+}

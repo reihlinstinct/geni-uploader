@@ -1,0 +1,25 @@
+{
+  "request": {
+    "method": "GET",
+    "kind": "photo",
+    "path_template": "/photo-{object}"
+  },
+  "responses": [
+    {
+      "status": 200,
+      "headers": {},
+      "body": {
+        "id": "photo-1000002",
+        "title": "Test Source"
+      }
+    }
+  ],
+  "expect": {
+    "outcome": "ok",
+    "requests": 1,
+    "result": {
+      "id": "photo-1000002",
+      "title": "Test Source"
+    }
+  }
+}

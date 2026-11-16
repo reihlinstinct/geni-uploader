@@ -1,0 +1,18 @@
+{
+  "request": {
+    "method": "GET",
+    "kind": "document",
+    "path_template": "/document-{object}"
+  },
+  "responses": [
+    {
+      "status": 200,
+      "headers": {},
+      "raw": "not json"
+    }
+  ],
+  "expect": {
+    "outcome": "ApiError",
+    "requests": 1
+  }
+}

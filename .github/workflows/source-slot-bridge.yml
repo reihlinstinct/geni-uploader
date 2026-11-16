@@ -1,0 +1,51 @@
+name: Geni protected - fixed source slot transfer
+on:
+  workflow_dispatch:
+    inputs:
+      executor_sha:
+        required: true
+        type: string
+      source_updated_at:
+        description: Exact approved source-secret metadata timestamp, no value
+        required: true
+        type: string
+      confirm:
+        description: COPY_SECONDARY_TO_SOURCE_ENV
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: geni-upload
+  cancel-in-progress: false
+jobs:
+  bridge:
+    if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && github.sha == inputs.executor_sha && github.actor == 'reihlinstinct' && github.triggering_actor == 'reihlinstinct' && github.run_attempt == 1 && inputs.confirm == 'COPY_SECONDARY_TO_SOURCE_ENV' }}
+    environment: father-create
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22.23.0'
+      - name: Install exact reviewed sealed-box dependency
+        working-directory: oauth-bootstrap
+        run: |
+          test "$(node --version)" = v22.23.0
+          test "$(npm --version)" = 10.9.8
+          npm ci --ignore-scripts --omit=dev --no-audit --no-fund
+      - name: Fixed reviewed source-slot transfer
+        env:
+          BRIDGE_EXECUTOR_SHA: ${{ inputs.executor_sha }}
+          BRIDGE_CONFIRM: ${{ inputs.confirm }}
+          BRIDGE_SOURCE_UPDATED_AT: ${{ inputs.source_updated_at }}
+          BRIDGE_SOURCE_VALUE: ${{ secrets.GENI_SECONDARY_ACCESS_TOKEN }}
+          BRIDGE_WRITER: ${{ secrets.SOURCE_BRIDGE_WRITER }}
+        run: |
+          set +x
+          umask 077
+          PYTHONPATH=src python3 -m geni_uploader.runners.source_slot_bridge

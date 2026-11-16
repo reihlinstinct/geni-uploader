@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "POST",
+    "kind": "photo_add",
+    "path_template": "/photo/add",
+    "data": {
+      "title": "Test Source"
+    }
+  },
+  "responses": [
+    {
+      "status": 200,
+      "headers": {},
+      "raw": "<html>not json</html>"
+    }
+  ],
+  "expect": {
+    "outcome": "UncertainWrite",
+    "requests": 1
+  }
+}

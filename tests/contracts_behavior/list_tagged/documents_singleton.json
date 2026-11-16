@@ -1,0 +1,42 @@
+{
+  "call": {
+    "function": "list_tagged",
+    "args": {
+      "pid": "1000001",
+      "kind": "documents"
+    }
+  },
+  "runs": [
+    {
+      "responses": [
+        {
+          "method": "GET",
+          "path": "/profile-1000001/documents",
+          "status": 200,
+          "body": {
+            "id": "document-1000002",
+            "guid": "synthetic-guid",
+            "title": "Test Source",
+            "url": "https://example.invalid/document",
+            "tags": []
+          }
+        }
+      ],
+      "expect": {
+        "outcome": "ok",
+        "requests": 1,
+        "result": [
+          [
+            "Test Source",
+            null
+          ],
+          [
+            "object-id",
+            "document",
+            "1000002"
+          ]
+        ]
+      }
+    }
+  ]
+}

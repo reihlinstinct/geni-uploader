@@ -1,0 +1,44 @@
+# REVIEW-ONLY. Not installed under .github/workflows. No dispatchable executor.
+name: Draft protected explicit merge
+run-name: 'explicit-merge:${{ inputs.intent_sha256 }}'
+on:
+  workflow_dispatch:
+    inputs:
+      intent_sha256:
+        description: Exact reviewed private merge intent SHA256, no profile data
+        required: true
+        type: string
+      executor_sha:
+        description: Exact reviewed executor commit
+        required: true
+        type: string
+      workflow_sha256:
+        description: Exact reviewed workflow bytes SHA256
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: protected-explicit-merge-owner-global
+  cancel-in-progress: false
+jobs:
+  explicit-merge:
+    name: 'Approve merge intent ${{ inputs.intent_sha256 }} run ${{ github.run_id }} attempt 1'
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == vars.MERGE_REPOSITORY &&
+      github.ref == 'refs/heads/master' &&
+      github.sha == inputs.executor_sha &&
+      github.actor_id == vars.MERGE_DISPATCHER_ID &&
+      github.triggering_actor == github.actor &&
+      github.run_attempt == 1
+    environment: father-create
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Closed until reviewed complete release
+        shell: bash
+        run: |
+          printf '%s\n' 'Merge execution release is closed; no effect attempted.' >&2
+          exit 1

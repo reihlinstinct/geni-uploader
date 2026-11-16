@@ -1,0 +1,252 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    # Weekly full suite: Sunday 06:00 Israel winter time (04:00 UTC;
+    # runs 07:00 IDT in summer).
+    - cron: '0 4 * * 0'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
+jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: filter
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          # Docs-only pull requests skip the heavy jobs; the CI gate summary
+          # still runs and reports them as skipped.
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # --no-renames: a code-to-doc rename still shows the deleted code
+          # path, so it cannot masquerade as docs-only.
+          git diff --no-renames --name-only "origin/${BASE_REF}...HEAD" | tee /tmp/changed.txt
+          # Doc-only allowlist: markdown/rst, license, and exact community
+          # metadata names (no prefix matches) - unknown files run the suite.
+          # Images always run: docs/ images are app assets.
+          if grep -qvEi '\.(md|markdown|rst)$|^LICENSE$|^\.github/(CODEOWNERS|dependabot\.yml|FUNDING\.yml)$|^\.github/ISSUE_TEMPLATE/[^/]+\.(md|yml|yaml)$|^\.github/PULL_REQUEST_TEMPLATE(\.md)?$|^\.github/PULL_REQUEST_TEMPLATE/[^/]+\.md$' /tmp/changed.txt; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+  test:
+    needs: [changes]
+    # Always runs so branch protection sees the required "test (3.xx)" check
+    # names. On a docs-only PR every real step is skipped and the job succeeds
+    # immediately; the docs-only gate remains the CI gate summary job. Code
+    # changes can never skip the suite: code=true runs every step.
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - name: Docs-only change; suite intentionally skipped
+        if: needs.changes.outputs.code == 'false'
+        run: echo "docs-only PR; covered by the Run summary gate"
+      - if: needs.changes.outputs.code == 'true'
+        uses: actions/checkout@v7
+      - if: needs.changes.outputs.code == 'true'
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - name: Install dependencies
+        if: needs.changes.outputs.code == 'true'
+        run: pip install -r requirements-dev.txt
+      - name: Lint (ruff)
+        if: needs.changes.outputs.code == 'true'
+        run: ruff check .
+      - name: Tests
+        if: needs.changes.outputs.code == 'true'
+        run: python -m pytest tests/ -v --junitxml=junit.xml
+      - name: Per-test report
+        if: always() && needs.changes.outputs.code == 'true'
+        run: python .github/test_summary.py junit.xml >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload junit on failure
+        if: failure() && needs.changes.outputs.code == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: junit-${{ matrix.python-version }}
+          path: junit.xml
+          retention-days: 7
+
+  layout:
+    # Always runs, including on docs-only PRs: the layout contract applies to
+    # every change. Stdlib-only checker, no dependency install.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: "3.12"
+      - run: python tools/check_repo_layout.py
+      - run: python tools/check_public_placeholders.py
+      - run: python tools/render_persona_docs.py
+
+  coverage:
+    needs: [changes]
+    # Always runs so branch protection sees the required "coverage" check
+    # name; on docs-only PRs only the skip notice runs (see test job).
+    # Production-only statement coverage (#98). Measure-only by default; the
+    # per-file floor in .github/coverage-floor.txt blocks only when the repo
+    # variable COVERAGE_GATE is "on".
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Docs-only change; coverage intentionally skipped
+        if: needs.changes.outputs.code == 'false'
+        run: echo "docs-only PR; covered by the Run summary gate"
+      - if: needs.changes.outputs.code == 'true'
+        uses: actions/checkout@v7
+      - if: needs.changes.outputs.code == 'true'
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - name: Install dependencies
+        if: needs.changes.outputs.code == 'true'
+        run: pip install -r requirements-dev.txt
+      - name: Measure production coverage
+        if: needs.changes.outputs.code == 'true'
+        run: |
+          python -m coverage run --include=src/geni_uploader/client/upload.py,src/geni_uploader/client/source_details.py -m pytest tests/ -q
+          python -m coverage json -o coverage.json
+          python -m coverage report -m
+      - name: Coverage summary
+        if: needs.changes.outputs.code == 'true'
+        run: python .github/coverage_report.py coverage.json --floor "$(cat .github/coverage-floor.txt)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Per-file floor gate (enabled when repo variable COVERAGE_GATE=on)
+        if: needs.changes.outputs.code == 'true' && vars.COVERAGE_GATE == 'on'
+        run: python .github/coverage_report.py coverage.json --floor "$(cat .github/coverage-floor.txt)" --fail-under
+
+  docker:
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
+    # PR-time image build + offline smoke (#606). Not pushed; no secrets.
+    # Weekly cadence comes free via the existing schedule trigger.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Test image base matches the shipped image (#613)
+        # Dependabot may bump Dockerfile and Dockerfile.test together or
+        # separately; a lone bump must fail here instead of silently drifting.
+        run: |
+          set -euo pipefail
+          shipped="$(grep '^FROM ' Dockerfile)"
+          test_img="$(grep '^FROM ' Dockerfile.test)"
+          echo "shipped: $shipped"
+          echo "test:    $test_img"
+          [ "$shipped" = "$test_img" ]
+      - name: Run the test suite inside the image build
+        # Dockerfile.test's final RUN is the suite; a red test fails the build.
+        run: docker build -f Dockerfile.test .
+      - name: Protected source pinned-container offline mount smoke
+        run: python3 tools/protected_source_container_smoke.py
+      - name: Build the image (not pushed)
+        run: docker build --pull -t geni-uploader:ci .
+      - name: Baked files are byte-identical to the repo files
+        # Source/destination pairs are derived from the Dockerfile itself
+        # (#615, #623): a future COPY or ADD is checked automatically,
+        # case-insensitively and with leading whitespace allowed.
+        # Flag-bearing lines fail loudly instead of being skipped.
+        run: |
+          set -euo pipefail
+          grep -iE '^[[:space:]]*(COPY|ADD)[[:space:]]' Dockerfile | while read -r _ src dest; do
+            case "$src" in --*) echo "COPY with flags not covered: $src $dest"; exit 1;; esac
+            BAKED="$(docker run --rm --entrypoint sha256sum geni-uploader:ci "$dest" | cut -d' ' -f1)"
+            REPO="$(sha256sum "$src" | cut -d' ' -f1)"
+            echo "$src -> $dest baked=$BAKED repo=$REPO"
+            [ "$BAKED" = "$REPO" ]
+          done
+      - name: Smoke test (offline, no credentials)
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint python geni-uploader:ci -c "import yaml; print('pyyaml ok')"
+          OUT="$(docker run --rm geni-uploader:ci 2>&1 || true)"
+          echo "$OUT"
+          echo "$OUT" | grep -q 'error: set GENI_UPLOAD_REPO'
+
+  py315:
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
+    # Informational Python 3.15 check (#608): continue-on-error, never a
+    # gate. Runtime stays 3.12; known 3.15 failures tracked in #599.
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.15'
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Tests (informational)
+        run: python -m pytest tests/ -q --junitxml=junit.xml
+      - name: Per-test report
+        if: always()
+        run: python .github/test_summary.py junit.xml >> "$GITHUB_STEP_SUMMARY"
+
+  summary:
+    permissions:
+      contents: read
+    name: CI gate summary
+    if: always()
+    needs: [changes, test, coverage, docker, layout]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Write run summary
+        if: always()
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/ci/run_summary.py
+      - name: Fail on failed or cancelled dependencies
+        if: always()
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          # Deliberate docs-only skips are allowed; a failed or cancelled
+          # dependency must fail this gate.
+          python3 - <<'PY'
+          import json, os, sys
+          needs = json.loads(os.environ["NEEDS_JSON"])
+          bad = {k: v["result"] for k, v in needs.items() if v["result"] not in ("success", "skipped")}
+          if bad:
+              print("Dependencies failed or cancelled:", bad)
+              sys.exit(1)
+          print("All dependencies succeeded or were deliberately skipped.")
+          PY

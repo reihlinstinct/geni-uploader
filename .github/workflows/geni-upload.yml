@@ -1,0 +1,276 @@
+name: Geni source upload (container, protected logs)
+
+# Manual-only workflow: runs the PINNED public container image against the
+# private data repository. All identifying configuration (private repo URL,
+# ref, expected commit, manifest path) lives in Actions SECRETS - never in
+# this file, never in dispatch inputs. Everything the container prints is
+# captured to a file, encrypted to a recipient public key (age / X25519),
+# and the ciphertext is committed back to the private repo. The public
+# Actions log carries fixed-format lines only (exit code, yes/no markers).
+# mode=selftest is inert: loopback-only API base, synthetic sentinel data,
+# no real token, no real endpoints - it exists to prove billing, the
+# private clone, the capture/encryption envelope, and public-log silence.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "plan (no writes), run (uploads), selftest (inert synthetic offline check), whoami (read-only token-context shape probe; no manifest), or contrast (read-only endpoint contrast diagnostic; shapes only), or guidmap (read-only guid/id resolution diagnostic; shapes only), or pguid (read-only profile-g URL-number contrast; booleans only)"
+        default: "plan"
+        required: true
+        type: choice
+        options: [plan, run, details-plan, details-repair, selftest, whoami, contrast, guidmap, pguid, listing-shape]
+      visual_review:
+        description: "retain a masked, encrypted source-plan payload for private visual review (plan only)"
+        type: boolean
+        default: false
+        required: false
+      confirm:
+        description: "type YES to allow uploads in run mode"
+        default: ""
+        required: false
+
+permissions:
+  contents: none   # the built-in GITHUB_TOKEN is unused; all git goes through the scoped PAT
+
+concurrency:
+  group: geni-upload
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    # User-only manual dispatch. Agents never invoke this workflow or its token.
+    # Explicit personal account, not the automation repository owner.
+    # No cron, push, pull_request or repository_dispatch trigger is permitted.
+    if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.event_name == 'workflow_dispatch' && github.actor == 'reihl' && github.triggering_actor == 'reihl' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      IMAGE: ghcr.io/reihlinstinct/geni-uploader@sha256:2fa466f87e549d03a0a3e406047e3c733d1efdb582956c066b9530576c96c254
+      SOURCE_DETAILS_IMAGE_READY: "yes"
+      PLAN_SUMMARY_IMAGE_READY: "yes"
+      VISUAL_PLAN_IMAGE_READY: "no"
+      AGE_VERSION: v1.3.2
+      AGE_SHA256: cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10
+    steps:
+      - name: Install age (pinned release, checksum-verified)
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/FiloSottile/age/releases/download/${AGE_VERSION}/age-${AGE_VERSION}-linux-amd64.tar.gz" -o "$RUNNER_TEMP/age.tgz"
+          echo "${AGE_SHA256}  $RUNNER_TEMP/age.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/age.tgz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/age" >> "$GITHUB_PATH"
+
+      - name: Run the pinned container (output fully captured)
+        env:
+          GENI_ACCESS_TOKEN: ${{ secrets.GENI_ACCESS_TOKEN }}
+          FAMILY_TREE_PAT: ${{ secrets.FAMILY_TREE_PAT }}
+          PRIVATE_REPO_URL: ${{ secrets.PRIVATE_REPO_URL }}
+          PRIVATE_REF: ${{ secrets.PRIVATE_REF }}
+          PRIVATE_EXPECT_SHA: ${{ secrets.PRIVATE_EXPECT_SHA }}
+          MANIFEST_PATH: ${{ secrets.MANIFEST_PATH }}
+          MODE: ${{ inputs.mode }}
+          VISUAL_REVIEW: ${{ inputs.visual_review }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          set +x
+          umask 077
+          RAW="$RUNNER_TEMP/raw.log"
+          : > "$RAW"
+          EXIT=0
+          mkdir -p "$RUNNER_TEMP/plan-report"
+          (
+            printf '%s' "$FAMILY_TREE_PAT" > "$RUNNER_TEMP/gh-token" || exit 21
+            if [ "$MODE" = "selftest" ]; then
+              printf 'selftest-dummy-token' > "$RUNNER_TEMP/geni-token" || exit 22
+            else
+              printf '%s' "$GENI_ACCESS_TOKEN" > "$RUNNER_TEMP/geni-token" || exit 22
+            fi
+            chmod 600 "$RUNNER_TEMP/gh-token" "$RUNNER_TEMP/geni-token" || exit 23
+
+            DOCKER_ARGS=(--rm --tmpfs /work
+              -v "$RUNNER_TEMP/gh-token:/run/gh-token:ro"
+              -v "$RUNNER_TEMP/geni-token:/run/geni-token:ro"
+              -e GH_TOKEN_FILE=/run/gh-token
+              -e GENI_UPLOAD_REPO="$PRIVATE_REPO_URL"
+              -e GENI_UPLOAD_REF="$PRIVATE_REF"
+              -e GENI_UPLOAD_EXPECT_SHA="$PRIVATE_EXPECT_SHA")
+            if [ "$MODE" = "plan" ] || [ "$MODE" = "details-plan" ]; then
+              DOCKER_ARGS+=(-v "$RUNNER_TEMP/plan-report:/run/plan-report"
+                -e GENI_PLAN_REPORT=/run/plan-report/report.json)
+            fi
+
+            if [ "$VISUAL_REVIEW" = "true" ]; then
+              [ "$MODE" = "plan" ] && [ "$VISUAL_PLAN_IMAGE_READY" = "yes" ] || exit 48
+              DOCKER_ARGS+=(-e GENI_VISUAL_PLAN=/run/plan-report/visual.json)
+            fi
+            if [ "$MODE" = "selftest" ]; then
+              # Inert: synthetic sentinel manifest + fake asset, loopback-only
+              # API base (the loader refuses non-loopback overrides with
+              # GENI_UPLOAD_E2E=1), dummy token. Connection to 127.0.0.1:9 is
+              # refused by construction, so this always exercises the ERROR
+              # path; a run that exits 0 here is itself a failure signal.
+              mkdir -p "$RUNNER_TEMP/selftest" || exit 24
+              printf 'ZZSENTINEL fake asset bytes\n' > "$RUNNER_TEMP/selftest/asset.jpg" || exit 25
+              cat > "$RUNNER_TEMP/selftest/manifest.yaml" <<'SELFTESTEOF' || exit 26
+          targets:
+            - profile_id: "0000000000000000001"
+              expect_name: "ZZSENTINEL PERSONA"
+              documents:
+                - title: "ZZSENTINEL DOC"
+                  description_en: "ZZSENTINEL synthetic source description"
+                  file: "asset.jpg"
+          SELFTESTEOF
+              DOCKER_ARGS+=(--network host
+                -e GENI_UPLOAD_E2E=1
+                -e GENI_API_BASE=http://127.0.0.1:9
+                -v "$RUNNER_TEMP/selftest:/work/selftest:ro")
+              ARGS=(--token-file /run/geni-token plan --manifest /work/selftest/manifest.yaml)
+            elif [ "$MODE" = "whoami" ]; then
+              # Token-context shape probe: NO manifest, NO confirm, no private
+              # inputs beyond the code-integrity pin. Values never logged.
+              ARGS=(--token-file /run/geni-token whoami)
+            elif [[ "$MODE" == details-* ]]; then
+              # Entrypoint selects the metadata CLI from its FIRST argument.
+              ARGS=("$MODE" --token-file /run/geni-token --manifest "$MANIFEST_PATH")
+              if [ "$MODE" = "details-repair" ]; then
+                ARGS+=(--confirm "$CONFIRM"
+                  --state "${MANIFEST_PATH}.repair-state.json" --sync-state)
+              fi
+            else
+              ARGS=(--token-file /run/geni-token "$MODE" --manifest "$MANIFEST_PATH")
+              if [ "$MODE" = "run" ]; then
+                ARGS+=(--confirm "$CONFIRM")
+              fi
+            fi
+            if [[ "$MODE" == details-* ]] && [ "${SOURCE_DETAILS_IMAGE_READY:-no}" != "yes" ]; then
+              echo "source-details image not yet released; refusing stale image" >> "$RAW"
+              exit 47
+            fi
+            docker run "${DOCKER_ARGS[@]}" "$IMAGE" "${ARGS[@]}"
+          ) >> "$RAW" 2>&1 || EXIT=$?
+          # Persist only a bounded numeric result, never raw output.
+          if ! [[ "$EXIT" =~ ^[0-9]+$ ]] || [ "$EXIT" -gt 255 ]; then EXIT=1; fi
+          printf '%s\n' "$EXIT" > "$RUNNER_TEMP/container-exit-code"
+          if [ "$VISUAL_REVIEW" = "true" ] && [ ! -s "$RUNNER_TEMP/plan-report/visual.json" ]; then
+            EXIT=49
+            printf '%s\n' "$EXIT" > "$RUNNER_TEMP/container-exit-code"
+          fi
+          echo "container exit code: $EXIT"
+          echo "raw output bytes captured: $(wc -c < "$RAW")"
+          if [ "$MODE" = "selftest" ] && [ "$EXIT" -eq 0 ]; then
+            echo "selftest FAILED closed-loop check: dead-loopback run exited 0"
+            exit 1
+          fi
+          if { [ "$MODE" = "plan" ] || [ "$MODE" = "details-plan" ]; } &&
+             [ "${PLAN_SUMMARY_IMAGE_READY:-no}" = "yes" ]; then
+            # Render only a bounded fixed-schema report with the SAME pinned code.
+            # Never copy raw logs, manifest values or exception strings here.
+            docker run --rm --network none --entrypoint python \
+              -v "$RUNNER_TEMP/plan-report:/run/plan-report:ro" \
+              -v "$GITHUB_STEP_SUMMARY:/run/job-summary" \
+              -e GITHUB_STEP_SUMMARY=/run/job-summary \
+              "$IMAGE" /opt/plan_report.py /run/plan-report/report.json || {
+              printf '%s\n' '## Read-only plan summary' '' 'Safe to run: no' \
+                'Summary renderer failed; inspect the protected log.' >> "$GITHUB_STEP_SUMMARY" || true
+            }
+          fi
+          if { [ "$MODE" = "plan" ] || [ "$MODE" = "details-plan" ]; } &&
+             [ "${PLAN_SUMMARY_IMAGE_READY:-no}" != "yes" ]; then
+            printf '%s\n' '## Read-only plan summary' '' 'Safe to run: no' \
+              'Summary image not released; inspect the protected log.' >> "$GITHUB_STEP_SUMMARY" || true
+          fi
+          echo "container step done"
+
+      - name: Encrypt the captured log and commit the ciphertext to the private repo
+        if: always()
+        env:
+          FAMILY_TREE_PAT: ${{ secrets.FAMILY_TREE_PAT }}
+          PRIVATE_REPO_URL: ${{ secrets.PRIVATE_REPO_URL }}
+          PRIVATE_REF: ${{ secrets.PRIVATE_REF }}
+          RECIPIENT: ${{ vars.LOG_ENCRYPTION_RECIPIENT }}
+        run: |
+          set +x
+          umask 077
+          RAW="$RUNNER_TEMP/raw.log"
+          CT="$RUNNER_TEMP/upload-log.age"
+          # Preserve partial output; initialize only an absent log.
+          if [ ! -f "$RAW" ]; then
+            : > "$RAW"
+          fi
+          EXIT=0
+          (
+            # Fail closed: every fallible command exits the subshell
+            # explicitly; no reliance on set -e, which || lists suppress.
+            age -r "$RECIPIENT" -o "$CT" "$RAW" || exit 31
+            # Optional payload is encrypted separately; no plaintext is committed.
+            if [ -f "$RUNNER_TEMP/plan-report/visual.json" ]; then
+              age -r "$RECIPIENT" -o "$RUNNER_TEMP/visual-plan.age" \
+                "$RUNNER_TEMP/plan-report/visual.json" || exit 31
+              [ -s "$RUNNER_TEMP/visual-plan.age" ] || exit 32
+            fi
+            # Require nonempty ciphertext before anything is committed.
+            [ -s "$CT" ] || exit 32
+
+            printf 'https://x-access-token:%s@github.com\n' "$FAMILY_TREE_PAT" > "$RUNNER_TEMP/git-cred" || exit 33
+            chmod 600 "$RUNNER_TEMP/git-cred" || exit 34
+            mkdir logrepo || exit 35
+            cd logrepo || exit 36
+            git init -q . || exit 37
+            git config credential.helper "store --file=$RUNNER_TEMP/git-cred" || exit 38
+            git remote add origin "$PRIVATE_REPO_URL"
+            git fetch -q --depth 1 origin "$PRIVATE_REF" || exit 40
+            git checkout -q FETCH_HEAD || exit 41
+            mkdir -p logs || exit 42
+            cp "$CT" "logs/upload-log-run${GITHUB_RUN_NUMBER}-attempt${GITHUB_RUN_ATTEMPT}.age" || exit 43
+            if [ -s "$RUNNER_TEMP/visual-plan.age" ]; then
+              cp "$RUNNER_TEMP/visual-plan.age" \
+                "logs/visual-plan-run${GITHUB_RUN_NUMBER}-attempt${GITHUB_RUN_ATTEMPT}.age" || exit 43
+            fi
+            git add logs/ || exit 44
+            git -c user.name="geni-uploader-action" -c user.email="geni-uploader-action@users.noreply.github.com" \
+              commit -qm "geni upload log (age-encrypted), run ${GITHUB_RUN_NUMBER} attempt ${GITHUB_RUN_ATTEMPT}" || exit 45
+            # STOP on non-fast-forward: no force-push, no rebase - fail and
+            # let a human/agent reconcile the private branch state.
+            git push origin "HEAD:refs/heads/$PRIVATE_REF" || exit 46
+          ) >> "$RAW" 2>&1 || EXIT=$?
+          if [ "$EXIT" -ne 0 ]; then
+            echo "log encryption/commit step FAILED closed (exit $EXIT); no raw output published"
+            exit 1
+          fi
+          echo "ciphertext committed: yes"
+
+      - name: Enforce clean container result after preserving protected output
+        if: always()
+        env:
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -eu
+          STATUS_FILE="$RUNNER_TEMP/container-exit-code"
+          if [ ! -f "$STATUS_FILE" ]; then
+            echo "source container result unavailable; not a clean plan or run"
+            exit 1
+          fi
+          STATUS="$(cat "$STATUS_FILE")"
+          if [ "${MODE:-}" = "selftest" ]; then
+            # Preserve the existing selftest contract: the deliberately dead
+            # loopback must fail, never look like a clean source operation.
+            if [[ "$STATUS" =~ ^[1-9][0-9]{0,2}$ ]] && [ "$STATUS" -le 255 ]; then
+              echo "selftest expected failure observed"
+              exit 0
+            fi
+            echo "selftest did not produce the expected failure"
+            exit 1
+          fi
+          case "$STATUS" in
+            0) echo "source container finished cleanly" ;;
+            *) echo "source container did not finish cleanly; inspect protected output"; exit 1 ;;
+          esac
+
+      - name: Remove temporary plaintext after protected output preservation
+        if: always()
+        run: |
+          # Best effort only: runner loss or cancellation may prevent cleanup.
+          rm -f -- "$RUNNER_TEMP/raw.log" "$RUNNER_TEMP/gh-token" \
+            "$RUNNER_TEMP/geni-token" "$RUNNER_TEMP/git-cred"
+          rm -rf -- "$GITHUB_WORKSPACE/logrepo" "$RUNNER_TEMP/plan-report"

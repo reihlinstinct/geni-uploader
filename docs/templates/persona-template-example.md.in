@@ -1,0 +1,21 @@
+# Persona template example (#733)
+
+This page is the first persona-rendered document. It is generated from
+`docs/templates/persona-template-example.md.in` by
+`tools/render_persona_docs.py` with values from `synthetic/personas.json`;
+edit the template and re-render, never this file. The design is
+`docs/persona-template-design.md`.
+
+In prose, the primary persona is {persona.primary.first_name} {persona.primary.last_name}
+(Hebrew form {persona.primary.he_first_name} {persona.primary.he_last_name}, profile
+`{persona.primary.profile_id}`, union `{persona.primary.union_id}`), and the spouse
+persona is {persona.spouse.first_name} {persona.spouse.last_name}.
+
+The same tokens render identically inside a code fence:
+
+```json
+{{"profile": "{persona.primary.profile_id}", "first_name": "{persona.primary.first_name}", "last_name": "{persona.primary.last_name}"}}
+```
+
+A literal token is written with doubled braces, so the template syntax itself
+reads `{{persona.KEY.FIELD}}`.

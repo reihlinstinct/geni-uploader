@@ -1,0 +1,77 @@
+{
+ "version": 1,
+ "personas": [
+  {
+   "key": "primary",
+   "first_name": "Abqef-2465",
+   "last_name": "Torlin-3352",
+   "he_first_name": "זז-Abqef-2465",
+   "he_last_name": "זז-Torlin-3352",
+   "maiden_name": "Droban-3656",
+   "phone": "+999-266-298-3188",
+   "phone_us": "+1-255-555-0177",
+   "national_id": "488127359",
+   "profile_id": "profile-990001",
+   "union_id": "union-980001",
+   "invalidity": {
+    "national_id": "fails the stated check-digit algorithm by construction",
+    "phone": "E.164 country code 999 reserved for future global service; no subscriber",
+    "phone_us": "NANPA 555-0100..0199 fictional range"
+   }
+  },
+  {
+   "key": "spouse",
+   "first_name": "Veshka-3935",
+   "last_name": "Droban-6120",
+   "he_first_name": "זז-Veshka-3935",
+   "he_last_name": "זז-Droban-6120",
+   "maiden_name": "Sarpia-6257",
+   "phone": "+999-565-859-6567",
+   "phone_us": "+1-664-555-0136",
+   "national_id": "381014388",
+   "profile_id": "profile-990002",
+   "union_id": "union-980002",
+   "invalidity": {
+    "national_id": "fails the stated check-digit algorithm by construction",
+    "phone": "E.164 country code 999 reserved for future global service; no subscriber",
+    "phone_us": "NANPA 555-0100..0199 fictional range"
+   }
+  },
+  {
+   "key": "parent",
+   "first_name": "Kelmut-4714",
+   "last_name": "Sarpia-2856",
+   "he_first_name": "זז-Kelmut-4714",
+   "he_last_name": "זז-Sarpia-2856",
+   "maiden_name": "Vindar-7524",
+   "phone": "+999-473-141-2392",
+   "phone_us": "+1-696-555-0126",
+   "national_id": "394409153",
+   "profile_id": "profile-990003",
+   "union_id": "union-980003",
+   "invalidity": {
+    "national_id": "fails the stated check-digit algorithm by construction",
+    "phone": "E.164 country code 999 reserved for future global service; no subscriber",
+    "phone_us": "NANPA 555-0100..0199 fictional range"
+   }
+  },
+  {
+   "key": "child",
+   "first_name": "Olmek-8128",
+   "last_name": "Vindar-4785",
+   "he_first_name": "זז-Olmek-8128",
+   "he_last_name": "זז-Vindar-4785",
+   "maiden_name": "Torlin-8841",
+   "phone": "+999-117-763-9099",
+   "phone_us": "+1-369-555-0115",
+   "national_id": "281618195",
+   "profile_id": "profile-990004",
+   "union_id": "union-980004",
+   "invalidity": {
+    "national_id": "fails the stated check-digit algorithm by construction",
+    "phone": "E.164 country code 999 reserved for future global service; no subscriber",
+    "phone_us": "NANPA 555-0100..0199 fictional range"
+   }
+  }
+ ]
+}

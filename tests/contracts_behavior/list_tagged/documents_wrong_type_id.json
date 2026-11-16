@@ -1,0 +1,39 @@
+{
+  "call": {
+    "function": "list_tagged",
+    "args": {
+      "pid": "1000001",
+      "kind": "documents"
+    }
+  },
+  "runs": [
+    {
+      "responses": [
+        {
+          "method": "GET",
+          "path": "/profile-1000001/documents",
+          "status": 200,
+          "body": {
+            "results": [
+              {
+                "id": "photo-1000002",
+                "title": "Test Source",
+                "source_url": "https://example.invalid/source"
+              }
+            ]
+          }
+        }
+      ],
+      "expect": {
+        "outcome": "ok",
+        "requests": 1,
+        "result": [
+          [
+            "Test Source",
+            "https://example.invalid/source"
+          ]
+        ]
+      }
+    }
+  ]
+}

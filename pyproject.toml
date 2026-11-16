@@ -1,0 +1,24 @@
+[project]
+name = "geni-uploader"
+version = "1.0.0"
+description = "Containerized, user-run uploader for Geni source documents and photos"
+requires-python = ">=3.11"
+dependencies = ["PyYAML==6.0.3"]
+
+[tool.ruff]
+extend-exclude = ["scripts/security/scorecard_guard.py", "tests/security/test_scorecard_guard.py"]
+line-length = 100
+
+[build-system]
+requires = ["setuptools==84.2.1", "wheel==0.48.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["geni_uploader", "geni_uploader.core", "geni_uploader.runners", "geni_uploader.evidence", "geni_uploader.workflow", "geni_uploader.presentation", "geni_uploader.cli", "geni_uploader.client", "geni_offline"]
+
+[tool.setuptools.package-dir]
+geni_uploader = "src/geni_uploader"
+geni_offline = "geni_offline"
+
+[tool.setuptools.package-data]
+geni_uploader = ["resources/human-parent-release-gates.json"]

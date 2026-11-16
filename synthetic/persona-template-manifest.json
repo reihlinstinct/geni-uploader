@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "documents": [
+    {
+      "source": "docs/templates/persona-template-example.md.in",
+      "output": "docs/persona-template-example.md",
+      "forbidden_fields": [
+        "national_id",
+        "phone",
+        "phone_us"
+      ]
+    }
+  ]
+}

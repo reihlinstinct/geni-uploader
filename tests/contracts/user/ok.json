@@ -1,0 +1,25 @@
+{
+  "request": {
+    "method": "GET",
+    "kind": "user",
+    "path_template": "/user"
+  },
+  "responses": [
+    {
+      "status": 200,
+      "headers": {},
+      "body": {
+        "id": "profile-1000001",
+        "name": "Test Person"
+      }
+    }
+  ],
+  "expect": {
+    "outcome": "ok",
+    "requests": 1,
+    "result": {
+      "id": "profile-1000001",
+      "name": "Test Person"
+    }
+  }
+}

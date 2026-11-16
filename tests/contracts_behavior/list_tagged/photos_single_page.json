@@ -1,0 +1,42 @@
+{
+  "call": {
+    "function": "list_tagged",
+    "args": {
+      "pid": "1000001",
+      "kind": "photos"
+    }
+  },
+  "runs": [
+    {
+      "responses": [
+        {
+          "method": "GET",
+          "path": "/profile-1000001/photos",
+          "status": 200,
+          "body": {
+            "results": [
+              {
+                "id": "photo-1000002",
+                "title": "Test Photo"
+              }
+            ]
+          }
+        }
+      ],
+      "expect": {
+        "outcome": "ok",
+        "requests": 1,
+        "result": [
+          [
+            "Test Photo"
+          ],
+          [
+            "object-id",
+            "photo",
+            "1000002"
+          ]
+        ]
+      }
+    }
+  ]
+}

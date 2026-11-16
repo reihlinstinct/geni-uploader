@@ -1,0 +1,28 @@
+{
+  "call": {
+    "function": "list_tagged",
+    "args": {
+      "pid": "1000001",
+      "kind": "documents"
+    }
+  },
+  "runs": [
+    {
+      "responses": [
+        {
+          "method": "GET",
+          "path": "/profile-1000001/documents",
+          "status": 200,
+          "body": {
+            "results": [],
+            "next_page": "{alias}/profile-1000001/documents?page=2"
+          }
+        }
+      ],
+      "expect": {
+        "outcome": "ApiError",
+        "requests": 1
+      }
+    }
+  ]
+}

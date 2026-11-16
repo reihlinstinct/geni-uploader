@@ -1,0 +1,115 @@
+name: Publish uploader image (manual)
+
+# Manual-only image build+push to ghcr.io using GITHUB_TOKEN (no external
+# registry credentials). The image is GENERIC by design: it carries only the
+# reviewed pinned uploader script and entrypoint - no data, no credentials,
+# no repository names. This workflow proves that before pushing:
+#   1. every baked COPY destination is byte-identical to its repo file;
+#   2. the full layer history is printed for audit.
+# Manual image publishing permits the human operator and project automation.
+# The separate source-upload workflow remains human-only.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-image
+  cancel-in-progress: false
+
+jobs:
+  build:
+    permissions:
+      contents: read
+      packages: write
+    if: ${{ github.repository == 'reihlinstinct/geni-uploader' && github.event_name == 'workflow_dispatch' && ((github.actor == 'reihl' && github.triggering_actor == 'reihl') || (github.actor == 'reihlinstinct' && github.triggering_actor == 'reihlinstinct')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v4, pinned
+      - name: Build the generic image
+        run: |
+          set -euo pipefail
+          TAG="ghcr.io/${GITHUB_REPOSITORY}:${GITHUB_SHA}"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          docker build --pull -t "$TAG" .
+      - name: Verify baked files are byte-identical to the repo files
+        run: |
+          set -euo pipefail
+          # #517: every Dockerfile COPY destination, matching the descriptor's
+          # coverage - not only /opt/geni_upload.py.
+          # #650: capture first so a failing producer fails the step (process
+          # substitution would hide its exit status); #647: an empty pair list
+          # must fail, never pass the loop vacuously.
+          COPIES_OUT="$(python3 tools/image_descriptor.py --list-copies)"
+          [ -n "$COPIES_OUT" ]
+          mapfile -t COPIES <<<"$COPIES_OUT"
+          for PAIR in "${COPIES[@]}"; do
+            SRC="${PAIR% *}"
+            DEST="${PAIR##* }"
+            BAKED="$(docker run --rm --network none --entrypoint sha256sum "$TAG" "$DEST" | cut -d' ' -f1)"
+            REPO="$(sha256sum "$SRC" | cut -d' ' -f1)"
+            echo "$DEST baked: $BAKED"
+            echo "$DEST repo:  $REPO"
+            [ "$BAKED" = "$REPO" ]
+          done
+      - name: Audit layer history
+        run: docker history --no-trunc "$TAG"
+      - name: Push to ghcr.io
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push "$TAG"
+          docker inspect --format='digest: {{index .RepoDigests 0}}' "$TAG"
+      # Release descriptor (#100): hashes are taken inside the pushed image,
+      # then checked against the repo at GITHUB_SHA by tools/image_descriptor.py
+      # (every image_provenance check except the IMAGE pin, which the next pin
+      # PR adds together with this exact descriptor).
+      - name: Emit release descriptor from the built image
+        run: |
+          set -euo pipefail
+          REF="$(docker inspect --format='{{index .RepoDigests 0}}' "$TAG")"
+          # Same producer-status shape as the byte-check step (#650/#652):
+          # capture first so a failing tool fails the step, then mapfile.
+          DESTS_OUT="$(python3 tools/image_descriptor.py --list-destinations)"
+          [ -n "$DESTS_OUT" ]
+          mapfile -t DESTS <<<"$DESTS_OUT"
+          docker run --rm --network none --entrypoint sha256sum "$TAG" "${DESTS[@]}" \
+            > "$RUNNER_TEMP/baked.sha256"
+          mkdir -p "$RUNNER_TEMP/descriptor"
+          python3 tools/image_descriptor.py --image "$REF" --revision "$GITHUB_SHA" \
+            --hashes "$RUNNER_TEMP/baked.sha256" \
+            --out "$RUNNER_TEMP/descriptor/image-release.json"
+          {
+            echo '### Image release descriptor'
+            echo '```json'
+            cat "$RUNNER_TEMP/descriptor/image-release.json"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload release descriptor
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: image-release-descriptor
+          path: ${{ runner.temp }}/descriptor/image-release.json
+          if-no-files-found: error
+          retention-days: 90
+
+  summary:
+    permissions:
+      contents: read
+    name: Run summary
+    if: always()
+    needs: [build]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Write run summary
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/ci/run_summary.py

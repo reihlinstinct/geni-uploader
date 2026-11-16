@@ -1,0 +1,38 @@
+{
+  "request": {
+    "method": "GET",
+    "kind": "profile_photos",
+    "path_template": "/profile-{profile}/photos"
+  },
+  "responses": [
+    {
+      "status": 503,
+      "headers": {},
+      "body": {
+        "error": "unavailable"
+      }
+    },
+    {
+      "status": 200,
+      "headers": {},
+      "body": {
+        "results": [
+          {
+            "id": "photo-1000002"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "outcome": "ok",
+    "requests": 2,
+    "result": {
+      "results": [
+        {
+          "id": "photo-1000002"
+        }
+      ]
+    }
+  }
+}

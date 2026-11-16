@@ -1,0 +1,42 @@
+# REVIEW-ONLY DRAFT. Not under .github/workflows. Never dispatch this file.
+# It deliberately fails before token issuance until a separately reviewed release
+# supplies immutable config, runner entrypoint and exact-run authority.
+name: Draft protected father run
+on:
+  workflow_dispatch:
+    inputs:
+      plan_fingerprint:
+        description: Exact approved SHA256 plan fingerprint
+        required: true
+        type: string
+      risk_hash:
+        description: Exact reviewed SHA256 risk disclosure hash
+        required: true
+        type: string
+permissions: {}
+concurrency:
+  group: father-create-owner-global-reviewed-release
+  cancel-in-progress: false
+jobs:
+  protected-father:
+    if: github.ref == 'refs/heads/master' && github.run_attempt == 1
+    name: Approve plan ${{ inputs.plan_fingerprint }} risk ${{ inputs.risk_hash }} run ${{ github.run_id }} attempt 1
+    runs-on: ubuntu-latest
+    environment: father-create
+    permissions:
+      contents: read
+      id-token: write
+    timeout-minutes: 10
+    steps:
+      - name: Reject incomplete or unapproved release
+        shell: bash
+        run: |
+          printf '%s\n' 'Draft only. No approved deployed service/config/runner release.' >&2
+          exit 1
+      # Future independently reviewed steps, intentionally not executable here:
+      # 1. Fetch immutable reviewed source using a pinned action/commit.
+      # 2. Validate exact approved static plan/risk, run attempt and artifact.
+      # 3. Collect protected environment approval into private exclusive file.
+      # 4. Request OIDC with exact reviewed audience, keep token out of outputs.
+      # 5. Run journaled protected job once with fixed private deployment config.
+      # 6. Preserve private encrypted evidence/opaque receipts, never retry create.

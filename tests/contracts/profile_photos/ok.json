@@ -1,0 +1,31 @@
+{
+  "request": {
+    "method": "GET",
+    "kind": "profile_photos",
+    "path_template": "/profile-{profile}/photos"
+  },
+  "responses": [
+    {
+      "status": 200,
+      "headers": {},
+      "body": {
+        "results": [
+          {
+            "id": "photo-1000002"
+          }
+        ]
+      }
+    }
+  ],
+  "expect": {
+    "outcome": "ok",
+    "requests": 1,
+    "result": {
+      "results": [
+        {
+          "id": "photo-1000002"
+        }
+      ]
+    }
+  }
+}

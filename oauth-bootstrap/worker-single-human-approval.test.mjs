@@ -1,0 +1,9 @@
+import test from'node:test';import assert from'node:assert/strict';import{spawnSync}from'node:child_process';import{build}from'esbuild';import{Miniflare,convertV4MiniflareOptions}from'miniflare';
+test('complete Python content corpus matches inside workerd, no Node compatibility',{timeout:45000},async()=>{
+ const python=spawnSync('python3',['tools/worker_approval_parity.py'],{cwd:new URL('..',import.meta.url),encoding:'utf8',maxBuffer:16*1024*1024});assert.equal(python.status,0,python.stderr);const cases=JSON.parse(python.stdout);assert.ok(cases.length>450);
+ const entry=`import{validateWorkerApprovalContent as v,checkWorkerApprovalContent as c}from'./worker-single-human-approval.mjs';export default{async fetch(r){const batch=await r.json(),out=[];for(const x of batch){let validated=null,checked=null;try{validated=v(x.raw);}catch{}try{checked=await c(x.raw,x.expectedRaw,x.now);}catch{}out.push({validated,checked});}return Response.json(out)}}`;
+ const bundle=await build({stdin:{contents:entry,resolveDir:new URL('.',import.meta.url).pathname,sourcefile:'ZZ-parity.mjs'},bundle:true,platform:'browser',format:'esm',write:false,metafile:true});assert.deepEqual(Object.keys(bundle.metafile.inputs).sort(),['ZZ-parity.mjs','worker-single-human-approval.mjs']);
+ const mf=new Miniflare(convertV4MiniflareOptions({name:'ZZ-approval-parity',modules:true,script:bundle.outputFiles[0].text,compatibilityDate:'2026-10-01'}));try{
+ for(let i=0;i<cases.length;i+=25){const batch=cases.slice(i,i+25),response=await mf.dispatchFetch('https://zz.invalid',{method:'POST',body:JSON.stringify(batch)});assert.equal(response.status,200);const actual=await response.json();for(let j=0;j<batch.length;j++){assert.deepEqual(actual[j].validated,batch[j].validated,'validate case '+(i+j));assert.deepEqual(actual[j].checked,batch[j].checked,'check case '+(i+j));}}
+ }finally{await mf.dispose();}
+});

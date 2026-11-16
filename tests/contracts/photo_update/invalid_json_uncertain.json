@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "POST",
+    "kind": "photo_update",
+    "path_template": "/photo-{object}/update",
+    "data": {
+      "title": "Test Source"
+    }
+  },
+  "responses": [
+    {
+      "status": 200,
+      "headers": {},
+      "raw": "<html>not json</html>"
+    }
+  ],
+  "expect": {
+    "outcome": "UncertainWrite",
+    "requests": 1
+  }
+}

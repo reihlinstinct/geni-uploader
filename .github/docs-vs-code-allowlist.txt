@@ -1,0 +1,20 @@
+# Docs-vs-code allowlist for tests/test_cli_env_docs.py.
+# Every entry needs a reason; the checker fails on reason-less or unused entries.
+scripts/security/scorecard_guard.py # CI-internal guard run with default flags by scorecard.yml; its interface is the workflow step
+GITHUB_STEP_SUMMARY # runner-provided summary path (plan_report.py, scripts/ci/run_summary.py), not user configuration
+GITHUB_TOKEN # runner-provided Actions token read by scripts/ci/run_summary.py, not user configuration
+GITHUB_API_URL # runner-provided API base read by scripts/ci/run_summary.py, not user configuration
+GITHUB_EVENT_PATH # runner-provided event payload path read by scripts/ci/run_summary.py, not user configuration
+GITHUB_SERVER_URL # runner-provided server URL read by scripts/ci/run_summary.py, not user configuration
+GITHUB_WORKFLOW # runner-provided workflow name read by scripts/ci/run_summary.py, not user configuration
+GITHUB_WORKFLOW_REF # runner-provided workflow ref read by scripts/ci/run_summary.py, not user configuration
+NEEDS_JSON # CI needs-context blob injected for scripts/ci/run_summary.py, not user configuration
+ONE_TIME_PARENT_PILOT_JSON # workflow secret name; injected into the pilot as PILOT_CONFIG_JSON, not read by code directly
+PILOT_GET_DIAGNOSTIC_JSON # workflow secret name; injected into the diagnostic as DIAGNOSTIC_CONFIG_JSON, not read by code directly
+PILOT_PRIVATE_EVIDENCE_WRITER # create-workflow secret mapped into FAMILY_TREE_PAT; not a code-read env name
+
+PILOT_GET_RECONCILE_JSON # Protected workflow secret mapped to DIAGNOSTIC_CONFIG_JSON, never read directly by Python.
+PILOT_GET_MATCHES_JSON # Protected workflow secret mapped to DIAGNOSTIC_CONFIG_JSON, not a Python environment read.
+
+PILOT_GET_PROFILE_JSON # Protected workflow secret mapped to DIAGNOSTIC_CONFIG_JSON.
+RELATIVE_SIBLINGS_JSON # Protected workflow secret mapped to RELATIVE_CONFIG_JSON; not a Python environment read.

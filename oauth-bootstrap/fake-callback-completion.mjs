@@ -1,0 +1,28 @@
+// Offline synthetic callback composition only. Never imported by live worker.
+import{createFakeEnvironmentCredentialPersistence}from'./fake-custody-persistence.mjs';
+const fail=()=>{throw Error('fake callback completion blocked');};
+const need=x=>{if(!x)fail();};
+const exact=(x,keys)=>need(x&&Object.getPrototypeOf(x)===Object.prototype&&Object.keys(x).sort().join(',')===[...keys].sort().join(','));
+const hex=x=>need(typeof x==='string'&&/^[a-f0-9]{64}(?![\s\S])/.test(x));
+const integer=x=>need(Number.isSafeInteger(x)&&x>=0&&x<2**40);
+const parse=raw=>{need(typeof raw==='string'&&raw.length<=49152);const x=JSON.parse(raw);need(JSON.stringify(x)===raw);return x;};
+const hash=async x=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(x))),b=>b.toString(16).padStart(2,'0')).join('');
+const unavailable=()=>Object.freeze({phase:'fake_callback_blocked',authenticated:false,write_permitted:false});
+export function createFakeCallbackCompletion(configJson,stateStorage,credentialStorage,deps,clock){try{
+ const c=parse(configJson);exact(c,['schema','mode','policyJson','contextJson','registry','state_id','browser_binding','subject_id','connection_id','expected_generation','expected_epoch','state_expires_at']);need(c.schema===1&&c.mode==='fake_callback_completion');
+ for(const k of ['state_id','browser_binding','connection_id'])hex(c[k]);need(typeof c.subject_id==='string'&&/^ZZ-[A-Za-z0-9_-]{1,64}(?![\s\S])/.test(c.subject_id));for(const k of ['expected_generation','expected_epoch','state_expires_at'])integer(c[k]);
+ const policy=parse(c.policyJson);need(policy.slot==='secondary');exact(deps,['fetch','seal','setTimeout','clearTimeout']);need(typeof clock==='function');
+ const persist=createFakeEnvironmentCredentialPersistence({policyJson:c.policyJson,contextJson:c.contextJson,registry:c.registry},credentialStorage,deps,clock);
+ const fresh=()=>{const now=clock();integer(now);need(now<c.state_expires_at&&now<policy.approval_expires_at);return now;};let attempted=false;
+ async function json(url,init){let timer,active=true;const controller=new AbortController();const work=Promise.resolve().then(async()=>{const r=await deps.fetch(url,{...init,redirect:'manual',signal:controller.signal});if(!(active&&r&&r.status===200&&r.redirected===false&&r.body&&!r.headers.get('link'))){try{r?.body?.cancel()?.catch(()=>{});}catch{}fail();}const reader=r.body.getReader(),chunks=[];let n=0;try{for(;;){const x=await reader.read();if(x.done)break;need(active&&x.value instanceof Uint8Array);n+=x.value.length;need(n<=49152);chunks.push(x.value);}const bytes=new Uint8Array(n);let offset=0;for(const x of chunks){bytes.set(x,offset);offset+=x.length;}need(active);return parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}finally{reader.cancel().catch(()=>{});reader.releaseLock();}});try{return await Promise.race([work,new Promise((_,reject)=>{timer=deps.setTimeout(()=>{active=false;controller.abort();reject(Error('deadline'));},10000);})]);}finally{active=false;controller.abort();deps.clearTimeout(timer);}}
+ return Object.freeze({async complete(input){try{
+  need(!attempted);attempted=true;exact(input,['state_id','browser_binding','subject_id','code']);const fixed=Object.freeze({...input});fresh();for(const k of ['state_id','browser_binding','subject_id'])need(fixed[k]===c[k]);need(typeof fixed.code==='string'&&/^ZZ-[A-Za-z0-9_-]{1,128}(?![\s\S])/.test(fixed.code));
+  const codeHash=await hash(fixed.code);fresh();
+  await stateStorage.transaction(async tx=>{fresh();const record=await tx.get('fake-callback-state-v1');exact(record,['schema','state_id','browser_binding','subject_id','code_sha256','connection_id','expires_at','consumed']);need(record.schema===1&&record.consumed===false&&record.code_sha256===codeHash&&record.connection_id===c.connection_id&&record.expires_at===c.state_expires_at);for(const k of ['state_id','browser_binding','subject_id'])need(record[k]===c[k]);fresh();await tx.put('fake-callback-state-v1',{...record,consumed:true});fresh();});
+  const issued=fresh();const token=await json('https://zz-oauth.invalid/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({code:fixed.code,grant_type:'authorization_code'}).toString()});fresh();exact(token,['access_token','refresh_token','expires_in']);for(const k of ['access_token','refresh_token'])need(typeof token[k]==='string'&&/^ZZ-[A-Za-z0-9_-]{1,16380}(?![\s\S])/.test(token[k]));integer(token.expires_in);need(token.expires_in>0&&token.expires_in<=86400);
+  const owner=await json('https://zz-geni.invalid/profile',{method:'GET',headers:{Authorization:'Bearer '+token.access_token}});fresh();exact(owner,['id','merge_pending','merged_into']);need(owner.id===policy.owner&&owner.merge_pending===false&&owner.merged_into===null);
+  const providerExpires=issued+token.expires_in,expires=Math.min(providerExpires,issued+policy.max_lifetime_seconds,policy.approval_expires_at);need(expires>clock());
+  const bundle={schema:1,slot:policy.slot,owner:policy.owner,repository_id:policy.repository_id,environment:policy.environment,secret:policy.secret,connection_id:c.connection_id,generation:c.expected_generation+1,revocation_epoch:c.expected_epoch,issued_at:issued,provider_expires_at:providerExpires,expires_at:expires,access_token:token.access_token,refresh_token:token.refresh_token};
+  await persist({bundleJson:JSON.stringify(bundle),expectedGeneration:c.expected_generation,expectedEpoch:c.expected_epoch});fresh();return Object.freeze({phase:'fake_connected_candidate_not_authority',authenticated:false,write_permitted:false});
+ }catch{return unavailable();}}});
+}catch{fail();}}

@@ -1,0 +1,41 @@
+{
+  "call": {
+    "function": "verify_profile",
+    "args": {
+      "pid": "1000001",
+      "expect_name": "Test Person"
+    }
+  },
+  "runs": [
+    {
+      "responses": [
+        {
+          "method": "GET",
+          "path": "/profile-1000001",
+          "status": 200,
+          "body": {
+            "results": []
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/profile-g1000001",
+          "status": 200,
+          "body": {
+            "results": [
+              {
+                "guid": "1000002",
+                "id": "profile-1000002",
+                "display_name": "Test Person"
+              }
+            ]
+          }
+        }
+      ],
+      "expect": {
+        "outcome": "ApiError",
+        "requests": 2
+      }
+    }
+  ]
+}

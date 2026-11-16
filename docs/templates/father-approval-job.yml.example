@@ -1,0 +1,37 @@
+# NONEXECUTING DESIGN. Not installed under .github/workflows.
+# No secret/binding/permission/environment/deployment authorization is supplied.
+# Exactly ONE gated job, ONE approved environment, attempt1; fixed master+SHA.
+name: Approval ceremony proposal only
+on:
+  workflow_dispatch:
+    inputs:
+      record_fingerprint:
+        description: Exact immutable private plan fingerprint already reviewed
+        required: true
+        type: string
+      risk_fingerprint:
+        description: Exact fixed risk-policy fingerprint
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  owner_approval:
+    name: Approve plan ${{ inputs.record_fingerprint }} risk ${{ inputs.risk_fingerprint }}
+    if: github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: father-create
+    # A released version would need separately approved minimal OIDC/private
+    # writer permissions. Omitted here deliberately; no executable write steps.
+    steps:
+      - name: STOP - record writer and released service are not installed
+        run: exit 1
+# Future approved implementation: designated agent dispatch, owner reihl alone
+# required-reviewer click. Read exact config/private plan, verify immutable code,
+# actor/reviewer/run/attempt/environment/hash, fixed bounded fresh review GETs,
+# then write one immutable single-human receipt. No Geni POST in approval job.
+# Review history API has no approval timestamp/job/attempt. Attempt1+single gate
+# reduces ambiguity but historical-settings TOCTOU remains. Shared app/owner
+# identity cannot cryptographically distinguish a human click. These must be
+# accepted explicitly before environment/release, never inferred from YAML.

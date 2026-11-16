@@ -1,0 +1,38 @@
+{
+  "name": "oauth-bootstrap",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "observability": {
+    "enabled": false,
+    "redact_query_string": true,
+    "logs": {
+      "enabled": false,
+      "invocation_logs": false,
+      "persist": false,
+    },
+    "traces": {
+      "enabled": false,
+      "persist": false,
+    },
+    "issues": {
+      "enabled": false,
+    },
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "OAUTH_STATES",
+        "class_name": "OneTimeState",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["OneTimeState"],
+    },
+  ],
+  "logpush": false,
+  "tail_consumers": [],
+}

@@ -1,0 +1,54 @@
+{
+  "call": {
+    "function": "durable_upload",
+    "args": {
+      "kind": "documents"
+    }
+  },
+  "runs": [
+    {
+      "responses": [
+        {
+          "method": "POST",
+          "path": "/document/add",
+          "status": 200,
+          "body": {
+            "id": "1000002"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/document-1000002/tag/profile-1000001",
+          "status": 200,
+          "body": {}
+        },
+        {
+          "method": "GET",
+          "path": "/profile-1000001/documents",
+          "status": 200,
+          "body": {
+            "results": [
+              {
+                "id": "document-1000002",
+                "title": "Test Source",
+                "source_url": "https://example.invalid/source"
+              }
+            ]
+          }
+        }
+      ],
+      "expect": {
+        "outcome": "ok",
+        "requests": 3,
+        "result": null,
+        "journal": {
+          "status": "uploaded",
+          "create_intent": true,
+          "object_id": "1000002",
+          "tag_phase": "verified",
+          "blocked": false
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "mappings": [
+    { "pattern": "*.py", "checks": ["test", "coverage"] },
+    { "pattern": "geni_offline/**", "checks": ["test"] },
+    { "pattern": "tests/**", "checks": ["test", "coverage"] },
+    { "pattern": "oauth-bootstrap/**", "checks": ["offline"] },
+    { "pattern": "requirements*.txt", "checks": ["test", "coverage"] },
+    { "pattern": "Dockerfile", "checks": ["build"] },
+    { "pattern": "entrypoint.sh", "checks": ["build"] },
+    { "pattern": ".github/test_summary.py", "checks": ["test"] },
+    { "pattern": ".github/coverage_report.py", "checks": ["coverage"] },
+    { "pattern": ".github/coverage-floor.txt", "checks": ["coverage"] }
+  ]
+}
